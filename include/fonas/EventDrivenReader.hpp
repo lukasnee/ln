@@ -74,7 +74,7 @@ protected:
      * @return true success.
      * @return false failure.
      */
-    virtual bool ll_async_read(std::uint8_t *data, std::size_t size) = 0;
+    virtual bool ll_read_async(std::uint8_t *data, std::size_t size) = 0;
 
     /**
      * @brief Low-level deinitialization.

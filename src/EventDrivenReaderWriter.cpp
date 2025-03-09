@@ -19,7 +19,7 @@ bool EventDrivenReaderWriter::write(const std::uint8_t *data, std::size_t size, 
     // assure that the binary semaphore is not already given from previous timed out write() call.
     this->write_semaphore.Give();
     this->write_semaphore.Take();
-    if (!this->ll_async_write(data, size)) {
+    if (!this->ll_write_async(data, size)) {
         return false;
     }
     if (this->write_semaphore.Take(timeout_ticks) != pdTRUE) {
@@ -33,7 +33,7 @@ bool EventDrivenReaderWriter::read(std::uint8_t *data, std::size_t size, TickTyp
     // assure that the binary semaphore is not already given from previous timed out read() call.
     this->read_semaphore.Give();
     this->read_semaphore.Take();
-    if (!this->ll_async_read(data, size)) {
+    if (!this->ll_read_async(data, size)) {
         return false;
     }
     if (this->read_semaphore.Take(timeout_ticks) != pdTRUE) {

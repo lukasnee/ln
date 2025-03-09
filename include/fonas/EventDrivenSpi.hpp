@@ -122,7 +122,7 @@ protected:
      * @return true success.
      * @return false failure.
      */
-    virtual bool ll_async_read(std::uint8_t *data, std::size_t size) = 0;
+    virtual bool ll_read_async(std::uint8_t *data, std::size_t size) = 0;
 
     /**
      * @brief Low-level asynchronous write.
@@ -132,7 +132,7 @@ protected:
      * @return true success.
      * @return false failure.
      */
-    virtual bool ll_async_write(const std::uint8_t *data, std::size_t size) = 0;
+    virtual bool ll_write_async(const std::uint8_t *data, std::size_t size) = 0;
 
     /**
      * @brief Low-level asynchronous read-write (full-duplex).
@@ -143,7 +143,7 @@ protected:
      * @return true success.
      * @return false failure.
      */
-    virtual bool ll_async_read_write(std::uint8_t *rd_data, const std::uint8_t *wr_data, std::size_t size) = 0;
+    virtual bool ll_read_write_async(std::uint8_t *rd_data, const std::uint8_t *wr_data, std::size_t size) = 0;
 
     /**
      * @brief Low-level deinitialization.

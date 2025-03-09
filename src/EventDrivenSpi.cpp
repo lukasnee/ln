@@ -19,7 +19,7 @@ bool EventDrivenSpi::read(std::uint8_t *data, std::size_t size, TickType_t timeo
     // assure that the binary semaphore is not already given from previous timed out call.
     this->semaphore.Give();
     this->semaphore.Take();
-    if (!this->ll_async_read(data, size)) {
+    if (!this->ll_read_async(data, size)) {
         return false;
     }
     if (this->semaphore.Take(timeout_ticks) != pdTRUE) {
@@ -33,7 +33,7 @@ bool EventDrivenSpi::write(const std::uint8_t *data, std::size_t size, TickType_
     // assure that the binary semaphore is not already given from previous timed out call.
     this->semaphore.Give();
     this->semaphore.Take();
-    if (!this->ll_async_write(data, size)) {
+    if (!this->ll_write_async(data, size)) {
         return false;
     }
     if (this->semaphore.Take(timeout_ticks) != pdTRUE) {
@@ -48,7 +48,7 @@ bool EventDrivenSpi::read_write(std::uint8_t *rd_data, const std::uint8_t *wr_da
     // assure that the binary semaphore is not already given from previous timed out call.
     this->semaphore.Give();
     this->semaphore.Take();
-    if (!this->ll_async_read_write(rd_data, wr_data, size)) {
+    if (!this->ll_read_write_async(rd_data, wr_data, size)) {
         return false;
     }
     if (this->semaphore.Take(timeout_ticks) != pdTRUE) {

@@ -19,7 +19,7 @@ bool EventDrivenWriter::write(const std::uint8_t *data, std::size_t size, TickTy
     // assure that the binary semaphore is not already given from previous timed out write() call.
     this->semaphore.Give();
     this->semaphore.Take();
-    if (!this->ll_async_write(data, size)) {
+    if (!this->ll_write_async(data, size)) {
         return false;
     }
     if (this->semaphore.Take(timeout_ticks) != pdTRUE) {
