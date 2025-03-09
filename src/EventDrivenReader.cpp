@@ -15,14 +15,14 @@ namespace fonas {
 bool EventDrivenReader::init() { return this->ll_init(); }
 
 bool EventDrivenReader::read(std::uint8_t *data, std::size_t size, TickType_t timeout_ticks) {
-    LockGuard lock_guard(this->read_mutex);
+    LockGuard lock_guard(this->mutex);
     // assure that the binary semaphore is not already given from previous timed out read() call.
-    this->read_semaphore.Give();
-    this->read_semaphore.Take();
+    this->semaphore.Give();
+    this->semaphore.Take();
     if (!this->ll_read_async(data, size)) {
         return false;
     }
-    if (this->read_semaphore.Take(timeout_ticks) != pdTRUE) {
+    if (this->semaphore.Take(timeout_ticks) != pdTRUE) {
         return false;
     }
     return true;
@@ -32,9 +32,9 @@ bool EventDrivenReader::deinit() { return this->ll_deinit(); }
 
 void EventDrivenReader::ll_async_read_completed_cb_from_isr() {
     BaseType_t *pxHigherPriorityTaskWoken = nullptr;
-    this->read_semaphore.GiveFromISR(pxHigherPriorityTaskWoken);
+    this->semaphore.GiveFromISR(pxHigherPriorityTaskWoken);
 }
 
-void EventDrivenReader::ll_async_read_completed_cb() { this->read_semaphore.Give(); }
+void EventDrivenReader::ll_async_read_completed_cb() { this->semaphore.Give(); }
 
 } // namespace fonas
