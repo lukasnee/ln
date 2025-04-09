@@ -59,25 +59,23 @@ bool EventDrivenSpi::read_write(std::uint8_t *rd_data, const std::uint8_t *wr_da
 
 bool EventDrivenSpi::deinit() { return this->ll_deinit(); }
 
-void EventDrivenSpi::ll_async_read_completed_cb_from_isr() {
-    BaseType_t *pxHigherPriorityTaskWoken = nullptr;
-    this->semaphore.GiveFromISR(pxHigherPriorityTaskWoken);
+void EventDrivenSpi::ll_async_complete_common_signal() {
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    const auto is_inside_interrupt = xPortIsInsideInterrupt();
+    if (is_inside_interrupt) {
+        this->semaphore.GiveFromISR(&xHigherPriorityTaskWoken);
+    }
+    else {
+        this->semaphore.Give();
+    }
+    if (is_inside_interrupt) {
+        portYIELD_FROM_ISR(&xHigherPriorityTaskWoken);
+    }
+    // portYIELD_FROM_ISR must be called the last here.
 }
 
-void EventDrivenSpi::ll_async_read_completed_cb() { this->semaphore.Give(); }
-
-void EventDrivenSpi::ll_async_write_completed_cb_from_isr() {
-    BaseType_t *pxHigherPriorityTaskWoken = nullptr;
-    this->semaphore.GiveFromISR(pxHigherPriorityTaskWoken);
-}
-
-void EventDrivenSpi::ll_async_write_completed_cb() { this->semaphore.Give(); }
-
-void EventDrivenSpi::ll_async_read_write_completed_cb_from_isr() {
-    BaseType_t *pxHigherPriorityTaskWoken = nullptr;
-    this->semaphore.GiveFromISR(pxHigherPriorityTaskWoken);
-}
-
-void EventDrivenSpi::ll_async_read_write_completed_cb() { this->semaphore.Give(); }
-
+void EventDrivenSpi::ll_async_read_completed_cb() { this->ll_async_complete_common_signal(); }
+void EventDrivenSpi::ll_async_write_completed_cb() { this->ll_async_complete_common_signal(); }
+void EventDrivenSpi::ll_async_read_write_completed_cb() { this->ll_async_complete_common_signal(); }
+void EventDrivenSpi::ll_async_abnormal_cb() { this->ll_async_complete_common_signal(); }
 } // namespace fonas

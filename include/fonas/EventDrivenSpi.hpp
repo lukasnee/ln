@@ -70,38 +70,17 @@ public:
     bool deinit();
 
     /**
-     * @brief Low-level interrupt callback signaling read completion. Alternatively use ll_async_read_completed_cb() in thread
-     * context.
-     */
-    void ll_async_read_completed_cb_from_isr();
-
-    /**
-     * @brief Low-level thread callback signaling read completion. Alternatively use ll_async_read_completed_cb_from_isr() in
-     * interrupt context.
+     * @brief Low-level callback signaling read completion (either ISR or thread context).
      */
     void ll_async_read_completed_cb();
 
     /**
-     * @brief Low-level interrupt callback signaling write completion. Alternatively use ll_async_write_completed_cb() in thread
-     * context.
-     */
-    void ll_async_write_completed_cb_from_isr();
-
-    /**
-     * @brief Low-level thread callback signaling write completion. Alternatively use ll_async_write_completed_cb_from_isr() in
-     * interrupt context.
+     * @brief Low-level callback signaling write completion (either ISR or thread context).
      */
     void ll_async_write_completed_cb();
 
     /**
-     * @brief Low-level interrupt callback signaling read-write (full-duplex) completion. Alternatively use
-     * ll_async_read_write_completed_cb() in thread context.
-     */
-    void ll_async_read_write_completed_cb_from_isr();
-
-    /**
-     * @brief Low-level thread callback signaling read-write (full-duplex) completion. Alternatively use
-     * ll_async_read_write_completed_cb_from_isr() in interrupt context.
+     * @brief Low-level callback signaling read-write (full-duplex) completion. (either ISR or thread context).
      */
     void ll_async_read_write_completed_cb();
 

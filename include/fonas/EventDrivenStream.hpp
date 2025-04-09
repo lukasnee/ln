@@ -49,19 +49,23 @@ public:
     }
 
     /**
-     * @brief Low-level interrupt callback signaling read completion. Alternatively use ll_async_read_completed_cb() in thread
-     * context.
+     * @brief Low-level callback signaling read completion (either ISR or thread context).
      */
-    void ll_async_read_completed_cb_from_isr() {
-        BaseType_t *pxHigherPriorityTaskWoken = nullptr;
-        this->semaphore.GiveFromISR(pxHigherPriorityTaskWoken);
-    }
+    void ll_async_read_completed_cb() {
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        const auto is_inside_interrupt = xPortIsInsideInterrupt();
+        if (is_inside_interrupt) {
+            this->semaphore.GiveFromISR(&xHigherPriorityTaskWoken);
+        }
+        else {
+            this->semaphore.Give();
+        }
 
-    /**
-     * @brief Low-level thread callback signaling read completion. Alternatively use ll_async_read_completed_cb_from_isr() in
-     * interrupt context.
-     */
-    void ll_async_read_completed_cb() { this->semaphore.Give(); }
+        if (is_inside_interrupt) {
+            portYIELD_FROM_ISR(&xHigherPriorityTaskWoken);
+        }
+        // portYIELD_FROM_ISR must be called the last here.
+    }
 
 protected:
     /**
@@ -106,19 +110,23 @@ public:
     }
 
     /**
-     * @brief Low-level interrupt callback signaling write completion. Alternatively use ll_async_write_completed_cb() in thread
-     * context.
+     * @brief Low-level callback signaling write completion (either ISR or thread context).
      */
-    void ll_async_write_completed_cb_from_isr() {
-        BaseType_t *pxHigherPriorityTaskWoken = nullptr;
-        this->semaphore.GiveFromISR(pxHigherPriorityTaskWoken);
-    }
+    void ll_async_write_completed_cb() {
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        const auto is_inside_interrupt = xPortIsInsideInterrupt();
+        if (is_inside_interrupt) {
+            this->semaphore.GiveFromISR(&xHigherPriorityTaskWoken);
+        }
+        else {
+            this->semaphore.Give();
+        }
 
-    /**
-     * @brief Low-level thread callback signaling write completion. Alternatively use ll_async_write_completed_cb_from_isr() in
-     * interrupt context.
-     */
-    void ll_async_write_completed_cb() { this->semaphore.Give(); }
+        if (is_inside_interrupt) {
+            portYIELD_FROM_ISR(&xHigherPriorityTaskWoken);
+        }
+        // portYIELD_FROM_ISR must be called the last here.
+    }
 
 protected:
     /**
