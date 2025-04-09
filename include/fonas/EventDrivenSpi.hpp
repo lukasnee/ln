@@ -21,8 +21,7 @@ public:
     /**
      * @brief Initialize.
      *
-     * @return true success.
-     * @return false failure.
+     * @return true if successful, otherwise false.
      */
     bool init();
 
@@ -32,8 +31,7 @@ public:
      * @param data
      * @param size
      * @param timeout_ticks
-     * @return true success.
-     * @return false failure.
+     * @return true if successful, otherwise false.
      */
     bool read(std::uint8_t *data, std::size_t size, TickType_t timeout_ticks = portMAX_DELAY);
 
@@ -43,8 +41,7 @@ public:
      * @param data
      * @param size
      * @param timeout_ticks
-     * @return true success.
-     * @return false failure.
+     * @return true if successful, otherwise false.
      */
     bool write(const std::uint8_t *data, std::size_t size, TickType_t timeout_ticks = portMAX_DELAY);
 
@@ -55,8 +52,7 @@ public:
      * @param wr_data
      * @param size
      * @param timeout_ticks
-     * @return true success.
-     * @return false failure.
+     * @return true if successful, otherwise false.
      */
     bool read_write(std::uint8_t *rd_data, const std::uint8_t *wr_data, std::size_t size,
                     TickType_t timeout_ticks = portMAX_DELAY);
@@ -64,8 +60,7 @@ public:
     /**
      * @brief Deinitialize.
      *
-     * @return true success.
-     * @return false failure.
+     * @return true if successful, otherwise false.
      */
     bool deinit();
 
@@ -88,8 +83,7 @@ protected:
     /**
      * @brief Low-level initialization.
      *
-     * @return true success.
-     * @return false failure.
+     * @return true if successful, otherwise false.
      */
     virtual bool ll_init() = 0;
 
@@ -98,8 +92,7 @@ protected:
      *
      * @param data
      * @param size
-     * @return true success.
-     * @return false failure.
+     * @return true if successful, otherwise false.
      */
     virtual bool ll_read_async(std::uint8_t *data, std::size_t size) = 0;
 
@@ -108,8 +101,7 @@ protected:
      *
      * @param data
      * @param size
-     * @return true success.
-     * @return false failure.
+     * @return true if successful, otherwise false.
      */
     virtual bool ll_write_async(const std::uint8_t *data, std::size_t size) = 0;
 
@@ -119,16 +111,14 @@ protected:
      * @param rd_data
      * @param wr_data
      * @param size
-     * @return true success.
-     * @return false failure.
+     * @return true if successful, otherwise false.
      */
     virtual bool ll_read_write_async(std::uint8_t *rd_data, const std::uint8_t *wr_data, std::size_t size) = 0;
 
     /**
      * @brief Low-level deinitialization.
      *
-     * @return true success.
-     * @return false failure.
+     * @return true if successful, otherwise false.
      */
     virtual bool ll_deinit() = 0;
 
