@@ -46,6 +46,24 @@ public:
     bool write(const std::uint8_t *data, std::size_t size, TickType_t timeout_ticks = portMAX_DELAY);
 
     /**
+     * @brief Write asynchronously.
+     *
+     * @param data
+     * @param size
+     * @param timeout_ticks
+     * @return true if successful, otherwise false.
+     */
+    bool write_async(const std::uint8_t *data, std::size_t size, TickType_t timeout_ticks = portMAX_DELAY);
+
+    /**
+     * @brief Await write_async completion.
+     *
+     * @param timeout_ticks
+     * @return true if successful, otherwise false.
+     */
+    bool write_await(TickType_t timeout_ticks = portMAX_DELAY);
+
+    /**
      * @brief Read-write (full-duplex) synchronously.
      *
      * @param rd_data
@@ -78,6 +96,11 @@ public:
      * @brief Low-level callback signaling read-write (full-duplex) completion. (either ISR or thread context).
      */
     void ll_async_read_write_completed_cb();
+
+    /**
+     * @brief Low-level callback signaling abnormal completion (error, abort, suspend) (either ISR or thread context).
+     */
+    void ll_async_abnormal_cb();
 
 protected:
     /**
@@ -116,6 +139,22 @@ protected:
     virtual bool ll_read_write_async(std::uint8_t *rd_data, const std::uint8_t *wr_data, std::size_t size) = 0;
 
     /**
+     * @brief Check if low-level driver is busy writing. For example, DMA Tx is
+     * in progress.
+     *
+     * @return true if busy, otherwise failure.
+     */
+    virtual bool ll_busy_writing() = 0;
+
+    /**
+     * @brief Check if low-level driver is busy reading. For example, DMA Rx is
+     * in progress.
+     *
+     * @return true if busy, otherwise failure.
+     */
+    virtual bool ll_busy_reading() = 0;
+
+    /**
      * @brief Low-level deinitialization.
      *
      * @return true if successful, otherwise false.
@@ -123,8 +162,27 @@ protected:
     virtual bool ll_deinit() = 0;
 
 private:
+    /**
+     * @brief Ensure low-level driver readiness for reading.
+     *
+     * @param timeout_ticks
+     * @return true if successful, otherwise false.
+     */
+    bool ll_ensure_read_readiness(TickType_t timeout_ticks);
+
+    /**
+     * @brief Ensure low-level driver readiness for writing.
+     *
+     * @param timeout_ticks
+     * @return true if successful, otherwise false.
+     */
+    bool ll_ensure_write_readiness(TickType_t timeout_ticks);
+
+    void ll_async_complete_common_signal();
+
     MutexStandard mutex;
-    BinarySemaphore semaphore;
+    BinarySemaphore write_semaphore;
+    BinarySemaphore read_semaphore;
 };
 
 } // namespace fonas
