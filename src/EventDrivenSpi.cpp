@@ -16,41 +16,31 @@ namespace fonas {
 
 bool EventDrivenSpi::init() { return this->ll_init(); }
 
-bool EventDrivenSpi::ll_ensure_write_readiness(TickType_t timeout_ticks) {
-    TickType_t remaining_ticks = timeout_ticks;
-    while (remaining_ticks) {
+bool EventDrivenSpi::ll_ensure_write_readiness(fonas::Timeout timeout) {
+    while (!timeout.Expired()) {
         if (!this->ll_busy_writing()) {
             return true;
         }
-        const TickType_t interval_ticks = std::min(remaining_ticks, 10UL);
-        if (this->write_semaphore.Take(interval_ticks) == pdTRUE && !this->ll_busy_writing()) {
+        if (this->write_semaphore.Take(std::min(timeout.Left(), 10_ticks)) == pdTRUE && !this->ll_busy_writing()) {
             return true;
-        }
-        if (remaining_ticks != portMAX_DELAY) {
-            remaining_ticks -= interval_ticks;
         }
     }
     return false;
 }
 
-bool EventDrivenSpi::ll_ensure_read_readiness(TickType_t timeout_ticks) {
-    TickType_t remaining_ticks = timeout_ticks;
-    while (remaining_ticks) {
+bool EventDrivenSpi::ll_ensure_read_readiness(fonas::Timeout timeout) {
+    while (!timeout.Expired()) {
         if (!this->ll_busy_reading()) {
             return true;
         }
-        const TickType_t interval_ticks = std::min(remaining_ticks, 10UL);
-        if (this->read_semaphore.Take(interval_ticks) == pdTRUE && !this->ll_busy_reading()) {
+        if (this->read_semaphore.Take(std::min(timeout.Left(), 10_ticks)) == pdTRUE && !this->ll_busy_reading()) {
             return true;
-        }
-        if (remaining_ticks != portMAX_DELAY) {
-            remaining_ticks -= interval_ticks;
         }
     }
     return false;
 }
 
-bool EventDrivenSpi::read(std::uint8_t *data, std::size_t size, TickType_t timeout_ticks) {
+bool EventDrivenSpi::read(std::uint8_t *data, std::size_t size, fonas::Timeout timeout) {
     if (size == 0) {
         return true;
     }
@@ -58,19 +48,19 @@ bool EventDrivenSpi::read(std::uint8_t *data, std::size_t size, TickType_t timeo
         return false;
     }
     LockGuard lock_guard(this->mutex);
-    if (!this->ll_ensure_read_readiness(timeout_ticks)) {
+    if (!this->ll_ensure_read_readiness(timeout)) {
         return false;
     }
     if (!this->ll_read_async(data, size)) {
         return false;
     }
-    if (this->read_semaphore.Take(timeout_ticks) != pdTRUE) {
+    if (this->read_semaphore.Take(timeout.Left()) != pdTRUE) {
         return false;
     }
     return true;
 }
 
-bool EventDrivenSpi::write(const std::uint8_t *data, std::size_t size, TickType_t timeout_ticks) {
+bool EventDrivenSpi::write(const std::uint8_t *data, std::size_t size, fonas::Timeout timeout) {
     if (size == 0) {
         return true;
     }
@@ -78,19 +68,19 @@ bool EventDrivenSpi::write(const std::uint8_t *data, std::size_t size, TickType_
         return false;
     }
     LockGuard lock_guard(this->mutex);
-    if (!this->ll_ensure_write_readiness(timeout_ticks)) {
+    if (!this->ll_ensure_write_readiness(timeout)) {
         return false;
     }
     if (!this->ll_write_async(data, size)) {
         return false;
     }
-    if (this->write_semaphore.Take(timeout_ticks) != pdTRUE) {
+    if (this->write_semaphore.Take(timeout.Left()) != pdTRUE) {
         return false;
     }
     return true;
 }
 
-bool EventDrivenSpi::write_async(const std::uint8_t *data, std::size_t size, TickType_t timeout_ticks) {
+bool EventDrivenSpi::write_async(const std::uint8_t *data, std::size_t size, fonas::Timeout timeout) {
     if (size == 0) {
         return true;
     }
@@ -98,7 +88,7 @@ bool EventDrivenSpi::write_async(const std::uint8_t *data, std::size_t size, Tic
         return false;
     }
     LockGuard lock_guard(this->mutex);
-    if (!this->ll_ensure_write_readiness(timeout_ticks)) {
+    if (!this->ll_ensure_write_readiness(timeout)) {
         return false;
     }
     if (!this->ll_write_async(data, size)) {
@@ -107,19 +97,19 @@ bool EventDrivenSpi::write_async(const std::uint8_t *data, std::size_t size, Tic
     return true;
 }
 
-bool EventDrivenSpi::write_await(TickType_t timeout_ticks) {
+bool EventDrivenSpi::write_await(fonas::Timeout timeout) {
     LockGuard lock_guard(this->mutex);
     if (!this->ll_busy_writing()) {
         return true;
     }
-    if (this->write_semaphore.Take(timeout_ticks) != pdTRUE) {
+    if (this->write_semaphore.Take(timeout.Left()) != pdTRUE) {
         return false;
     }
     return true;
 }
 
 bool EventDrivenSpi::read_write(std::uint8_t *rd_data, const std::uint8_t *wr_data, std::size_t size,
-                                TickType_t timeout_ticks) {
+                                fonas::Timeout timeout) {
     if (size == 0) {
         return true;
     }
@@ -130,19 +120,19 @@ bool EventDrivenSpi::read_write(std::uint8_t *rd_data, const std::uint8_t *wr_da
         return false;
     }
     LockGuard lock_guard(this->mutex);
-    if (!this->ll_ensure_read_readiness(timeout_ticks)) {
+    if (!this->ll_ensure_read_readiness(timeout)) {
         return false;
     }
-    if (!this->ll_ensure_write_readiness(timeout_ticks)) {
+    if (!this->ll_ensure_write_readiness(timeout)) {
         return false;
     }
     if (!this->ll_read_write_async(rd_data, wr_data, size)) {
         return false;
     }
-    if (this->read_semaphore.Take(timeout_ticks) != pdTRUE) {
+    if (this->read_semaphore.Take(timeout.Left()) != pdTRUE) {
         return false;
     }
-    if (this->write_semaphore.Take(timeout_ticks) != pdTRUE) {
+    if (this->write_semaphore.Take(timeout.Left()) != pdTRUE) {
         return false;
     }
     return true;

@@ -30,38 +30,39 @@ public:
      *
      * @param data
      * @param size
-     * @param timeout_ticks
+     * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool read(std::uint8_t *data, std::size_t size, TickType_t timeout_ticks = portMAX_DELAY);
+    bool read(std::uint8_t *data, std::size_t size, fonas::Timeout timeout = fonas::Timeout(portMAX_DELAY));
 
     /**
      * @brief Write synchronously.
      *
      * @param data
      * @param size
-     * @param timeout_ticks
+     * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool write(const std::uint8_t *data, std::size_t size, TickType_t timeout_ticks = portMAX_DELAY);
+    bool write(const std::uint8_t *data, std::size_t size, fonas::Timeout timeout = fonas::Timeout(portMAX_DELAY));
 
     /**
      * @brief Write asynchronously.
      *
      * @param data
      * @param size
-     * @param timeout_ticks
+     * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool write_async(const std::uint8_t *data, std::size_t size, TickType_t timeout_ticks = portMAX_DELAY);
+    bool write_async(const std::uint8_t *data, std::size_t size,
+                     fonas::Timeout timeout = fonas::Timeout(portMAX_DELAY));
 
     /**
      * @brief Await write_async completion.
      *
-     * @param timeout_ticks
+     * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool write_await(TickType_t timeout_ticks = portMAX_DELAY);
+    bool write_await(fonas::Timeout timeout = fonas::Timeout(portMAX_DELAY));
 
     /**
      * @brief Read-write (full-duplex) synchronously.
@@ -69,11 +70,11 @@ public:
      * @param rd_data
      * @param wr_data
      * @param size
-     * @param timeout_ticks
+     * @param timeout
      * @return true if successful, otherwise false.
      */
     bool read_write(std::uint8_t *rd_data, const std::uint8_t *wr_data, std::size_t size,
-                    TickType_t timeout_ticks = portMAX_DELAY);
+                    fonas::Timeout timeout = fonas::Timeout(portMAX_DELAY));
 
     /**
      * @brief Deinitialize.
@@ -165,18 +166,18 @@ private:
     /**
      * @brief Ensure low-level driver readiness for reading.
      *
-     * @param timeout_ticks
+     * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool ll_ensure_read_readiness(TickType_t timeout_ticks);
+    bool ll_ensure_read_readiness(fonas::Timeout timeout);
 
     /**
      * @brief Ensure low-level driver readiness for writing.
      *
-     * @param timeout_ticks
+     * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool ll_ensure_write_readiness(TickType_t timeout_ticks);
+    bool ll_ensure_write_readiness(fonas::Timeout timeout);
 
     void ll_async_complete_common_signal();
 
