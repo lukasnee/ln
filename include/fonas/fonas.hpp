@@ -1,6 +1,5 @@
 /*
- * m8ec - Embedded Client for the Dirtywave M8 Headless device
- * Copyright (C) 2023 Lukas Neverauskis https://github.com/lukasnee
+ * Copyright (c) 2025 Lukas Neverauskis https://github.com/lukasnee
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -10,7 +9,7 @@
 
 #pragma once
 
-#define FONAS_PANIC() // TODO
+#include "fonas/fonas.h"
 
 #include "mutex.hpp"
 #include "queue.hpp"
@@ -18,8 +17,6 @@
 #include "thread.hpp"
 #include "ticks.hpp"
 #include "timeout.hpp"
-
-#include "fonas/StreamBuffer.hpp"
 
 namespace fonas {
 

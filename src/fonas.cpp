@@ -1,6 +1,5 @@
 /*
- * m8ec - Embedded Client for the Dirtywave M8 Headless device
- * Copyright (C) 2023 Lukas Neverauskis https://github.com/lukasnee
+ * Copyright (c) 2025 Lukas Neverauskis https://github.com/lukasnee
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
