@@ -18,6 +18,9 @@
 #include "ticks.hpp"
 #include "timeout.hpp"
 
+#include <cstdint>
+#include <ctime>
+
 namespace fonas {
 
 using cpp_freertos::BinarySemaphore;
@@ -28,9 +31,18 @@ using cpp_freertos::Queue;
 using cpp_freertos::Thread;
 using cpp_freertos::Timeout;
 
-void delay_ms(std::size_t ms);
-std::size_t get_uptime_ticks();
-std::size_t get_uptime_ms();
+void delay_ms(std::uint32_t ms);
+std::uint32_t get_uptime_ticks();
+std::uint32_t get_uptime_ms();
+
+const char* get_current_thread_name();
+
+struct Timestamp {
+    std::tm tm;
+    std::uint32_t ms;
+};
+
+Timestamp get_timestamp();
 
 } // namespace fonas
 

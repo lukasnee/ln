@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <stdio.h> // for printf
 #include <string.h> // for strrchr
 
 #ifdef __cplusplus
@@ -17,21 +16,11 @@ extern "C"
 {
 #endif
 
-#define LOG(...) printf(__VA_ARGS__)
-
-#if DEBUG
-#define LOGD(...) printf(__VA_ARGS__)
-#else
-#define LOGD(...)
-#endif
-
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
-#define PANIC()                                                                                                        \
-    LOG("Panic! at %s:%d", __FILENAME__, __LINE__);                                                                    \
-    __asm("bkpt 1");                                                                                                   \
-    while (1) {                                                                                                        \
-    }
+void fonas_panic(const char *file, int line);
+
+#define PANIC() fonas_panic(__FILENAME__, __LINE__)
 
 #define ASSERT(expr)                                                                                                   \
     if (!(expr)) {                                                                                                     \

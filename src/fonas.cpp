@@ -9,15 +9,39 @@
 
 #include "fonas/fonas.hpp"
 
+#include <cstdio>
+
 namespace fonas {
 
-void delay_ms(std::size_t ms) {
+extern "C" void fonas_panic(const char *file, int line) {
+    printf("Panicked! at %s:%d\n", file, line);
+    __asm("bkpt 1");
+    while (1) {
+    }
+}
+
+void delay_ms(std::uint32_t ms) {
     // cannot use cpp_freertos::Thread::Delay(ms); because it's not static method of Thread for some reason
     vTaskDelay(ms);
 }
-std::size_t get_uptime_ticks() { return static_cast<std::size_t>(cpp_freertos::Ticks::GetTicks()); }
+std::uint32_t get_uptime_ticks() { return static_cast<std::uint32_t>(cpp_freertos::Ticks::GetTicks()); }
 
-std::size_t get_uptime_ms() {
-    return static_cast<std::size_t>(cpp_freertos::Ticks::TicksToMs(cpp_freertos::Ticks::GetTicks()));
+std::uint32_t get_uptime_ms() {
+    return static_cast<std::uint32_t>(cpp_freertos::Ticks::TicksToMs(cpp_freertos::Ticks::GetTicks()));
 }
+
+const char *get_current_thread_name() {
+    const char *name = pcTaskGetName(nullptr);
+    if (!name) {
+        return "Unknown";
+    }
+    return name;
+}
+
+Timestamp get_timestamp() {
+    const std::uint32_t uptime_ms = get_uptime_ms();
+    const std::time_t uptime_seconds = uptime_ms / 1000;
+    return {.tm = *std::gmtime(&uptime_seconds), .ms = uptime_ms % 1000};
+}
+
 } // namespace fonas
