@@ -7,7 +7,10 @@ extern "C"
 #include "logger.h"
 }
 
+#include <array>
 #include <cstdarg>
+#include <cstdio>
+#include <cstring>
 #include <string_view>
 
 namespace fonas {
@@ -63,6 +66,44 @@ public:
     };
 
     int log(const LoggerModule &module, const Level &level, const std::string_view fmt, const va_list &argList);
+
+    struct Hex {
+
+        template <std::size_t N>
+        static const char *format(std::array<char, N> &out_buff, const uint8_t *in_data, size_t in_size,
+                                  const char *delimiter = "", const char *byte_fmt = "%02X") {
+            return format(out_buff.data(), out_buff.size(), in_data, in_size, delimiter, byte_fmt);
+        }
+
+        static const char *format(char *out_buff_data, size_t out_buff_size, const uint8_t *in_data, size_t in_size,
+                                  const char *delimiter = "", const char *byte_fmt = "%02X") {
+            if (!in_data) {
+                return nullptr;
+            }
+            if (in_size == 0) {
+                return "";
+            }
+            if (!out_buff_data) {
+                return nullptr;
+            }
+            if (out_buff_size < 2) {
+                return nullptr;
+            }
+            size_t cp = 0;
+            size_t i = 0;
+            for (; i < in_size && cp < out_buff_size - 1; i++) {
+                cp += std::snprintf(out_buff_data + cp, out_buff_size - cp, byte_fmt, in_data[i]);
+                if (i + 1 < in_size) {
+                    cp += std::snprintf(out_buff_data + cp, out_buff_size - cp, "%s", delimiter);
+                }
+            }
+            if (i < in_size) { // Indicate truncation
+                const auto offset = std::min(cp, out_buff_size - 2);
+                std::snprintf(out_buff_data + offset, out_buff_size - offset, "*");
+            }
+            return out_buff_data;
+        }
+    };
 
 protected:
     Config config;
