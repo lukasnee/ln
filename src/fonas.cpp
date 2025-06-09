@@ -30,6 +30,8 @@ std::uint32_t get_uptime_ms() {
     return static_cast<std::uint32_t>(cpp_freertos::Ticks::TicksToMs(cpp_freertos::Ticks::GetTicks()));
 }
 
+bool is_inside_interrupt() { return xPortIsInsideInterrupt() != pdFALSE; }
+
 const char *get_current_thread_name() {
     const char *name = pcTaskGetName(nullptr);
     if (!name) {

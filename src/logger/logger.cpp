@@ -9,6 +9,9 @@ extern "C" void fonas_logger_log(LoggerModule *module, LoggerLevel level, const 
     if (!module) {
         return;
     }
+    if (fonas::is_inside_interrupt()) {
+        return;
+    }
     if (!Logger::get_instance().is_enabled()) {
         return;
     }
@@ -41,6 +44,9 @@ Logger::Module::Module(const std::string_view name, Level log_level) {
 }
 
 void Logger::Module::log(const Level &level, const std::string_view fmt, ...) {
+    if (fonas::is_inside_interrupt()) {
+        return;
+    }
     if (!Logger::get_instance().is_enabled()) {
         return;
     }
