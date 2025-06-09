@@ -31,7 +31,10 @@ public:
 
     static Logger &get_instance();
 
-    bool is_active();
+    void enable();
+
+    bool is_enabled();
+
     void set_level(Level log_level);
     const Config &get_config() const { return config; }
 

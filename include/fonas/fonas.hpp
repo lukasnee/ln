@@ -35,7 +35,7 @@ void delay_ms(std::uint32_t ms);
 std::uint32_t get_uptime_ticks();
 std::uint32_t get_uptime_ms();
 
-const char* get_current_thread_name();
+const char *get_current_thread_name();
 
 struct Timestamp {
     std::tm tm;

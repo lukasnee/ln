@@ -9,7 +9,7 @@ extern "C" void fonas_logger_log(LoggerModule *module, LoggerLevel level, const 
     if (!module) {
         return;
     }
-    if (!Logger::get_instance().is_active()) {
+    if (!Logger::get_instance().is_enabled()) {
         return;
     }
     if (level < (module->log_level == LOGGER_LEVEL_NOTSET ? Logger::get_instance().get_config().log_level
@@ -22,12 +22,16 @@ extern "C" void fonas_logger_log(LoggerModule *module, LoggerLevel level, const 
     va_end(arg_list);
 }
 
+void Logger::enable() { get_instance().config.enabled_run_time = true; }
+
+extern "C" void fonas_logger_enable() { Logger::get_instance().enable(); }
+
 Logger &Logger::get_instance() {
     static Logger instance;
     return instance;
 };
 
-bool Logger::is_active() { return (Logger::Config::enabled_compile_time && get_instance().config.enabled_run_time); }
+bool Logger::is_enabled() { return Logger::Config::enabled_compile_time && get_instance().config.enabled_run_time; }
 
 void Logger::set_level(Level log_level) { this->config.log_level = log_level; }
 
@@ -37,7 +41,7 @@ Logger::Module::Module(const std::string_view name, Level log_level) {
 }
 
 void Logger::Module::log(const Level &level, const std::string_view fmt, ...) {
-    if (!get_instance().is_active()) {
+    if (!Logger::get_instance().is_enabled()) {
         return;
     }
     if (level < (this->log_level == LOGGER_LEVEL_NOTSET ? get_instance().config.log_level : this->log_level)) {
