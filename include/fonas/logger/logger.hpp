@@ -22,7 +22,7 @@ public:
         /* Switch logger on/off at run-time */
         bool enabled_run_time = true;
         /* Global log level printing threshold */
-        Level log_level = LOGGER_LEVEL_LOWEST;
+        Level log_level = LOGGER_LEVEL_INFO;
         /* Colorize log messages */
         bool color = false;
         /* Print log message header */
