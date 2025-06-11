@@ -29,6 +29,7 @@ extern "C"
     void fonas_logger_log(LoggerModule *module, LoggerLevel level, const char *fmt, ...);
 
 #define LOG_SCOPE(scope, level) LoggerModule logger_module = {.name = #scope, .log_level = level};
+#define LOG_SCOPE_REF(ref) LoggerModule &logger_module = ref;
 #define LOG(level, ...) fonas_logger_log(&logger_module, level, __VA_ARGS__);
 #define LOG_DEBUG(...) LOG(LOGGER_LEVEL_DEBUG, __VA_ARGS__)
 #define LOG_INFO(...) LOG(LOGGER_LEVEL_INFO, __VA_ARGS__)
