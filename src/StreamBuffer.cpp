@@ -26,10 +26,10 @@ StreamBuffer::~StreamBuffer() {
 }
 
 std::size_t StreamBuffer::send(const std::uint8_t *data, std::size_t size, TickType_t timeout_ticks) {
-    if (!data) {
+    if (size == 0) {
         return 0;
     }
-    if (size == 0) {
+    if (!data) {
         return 0;
     }
     if (!this->handle) {
@@ -40,23 +40,24 @@ std::size_t StreamBuffer::send(const std::uint8_t *data, std::size_t size, TickT
 
 std::size_t StreamBuffer::send_from_isr(const std::uint8_t *data, std::size_t size,
                                         BaseType_t *const higher_priority_task_woken) {
-    if (!data) {
+    if (size == 0) {
         return 0;
     }
-    if (size == 0) {
+    if (!data) {
         return 0;
     }
     if (!this->handle) {
         return 0;
     }
-    return xStreamBufferSendFromISR(this->handle, reinterpret_cast<const void *>(data), size, higher_priority_task_woken);
+    return xStreamBufferSendFromISR(this->handle, reinterpret_cast<const void *>(data), size,
+                                    higher_priority_task_woken);
 }
 
 std::size_t StreamBuffer::receive(std::uint8_t *data, std::size_t size, TickType_t timeout_ticks) {
-    if (!data) {
+    if (size == 0) {
         return 0;
     }
-    if (size == 0) {
+    if (!data) {
         return 0;
     }
     if (!this->handle) {
@@ -65,11 +66,12 @@ std::size_t StreamBuffer::receive(std::uint8_t *data, std::size_t size, TickType
     return xStreamBufferReceive(this->handle, reinterpret_cast<void *>(data), size, timeout_ticks);
 }
 
-std::size_t StreamBuffer::receive_from_isr(std::uint8_t *data, std::size_t size, BaseType_t *const higher_priority_task_woken) {
-    if (!data) {
+std::size_t StreamBuffer::receive_from_isr(std::uint8_t *data, std::size_t size,
+                                           BaseType_t *const higher_priority_task_woken) {
+    if (size == 0) {
         return 0;
     }
-    if (size == 0) {
+    if (!data) {
         return 0;
     }
     if (!this->handle) {

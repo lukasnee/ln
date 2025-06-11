@@ -35,6 +35,12 @@ public:
      * @return false failure.
      */
     bool read(std::uint8_t *data, std::size_t size, TickType_t timeout_ticks = portMAX_DELAY) {
+        if (size == 0) {
+            return true;
+        }
+        if (!data) {
+            return false;
+        }
         LockGuard lock_guard(this->mutex);
         // assure that the binary semaphore is not already given from previous timed out read() call.
         this->semaphore.Give();
@@ -96,6 +102,12 @@ public:
      * @return false failure.
      */
     bool write(const std::uint8_t *data, std::size_t size, TickType_t timeout_ticks = portMAX_DELAY) {
+        if (size == 0) {
+            return true;
+        }
+        if (!data) {
+            return false;
+        }
         LockGuard lock_guard(this->mutex);
         // assure that the binary semaphore is not already given from previous timed out write() call.
         this->semaphore.Give();
