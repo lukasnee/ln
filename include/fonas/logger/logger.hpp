@@ -17,6 +17,9 @@ extern "C"
 
 namespace fonas {
 
+/**
+ * @brief RTOS logger with Python logging style.
+ */
 class Logger {
 public:
     using Level = LoggerLevel;
@@ -33,7 +36,7 @@ public:
         /* Colorize log messages */
         bool color = false;
         /* Print log message header */
-        bool header = true;
+        bool print_header_enabled = true;
     };
 
     static Logger &get_instance();

@@ -63,10 +63,10 @@ void Logger::Module::set_level(Level log_level) { this->log_level = log_level; }
 
 int Logger::log(const LoggerModule &module, const Logger::Level &level, const std::string_view fmt,
                 const va_list &arg_list) {
-    cpp_freertos::LockGuard lock(get_instance().mutex);
+    cpp_freertos::LockGuard lock(this->mutex);
     int chars_printed = 0;
-    if (get_instance().config.header) {
-        int res = get_instance().print_header(module, level);
+    if (this->config.print_header_enabled) {
+        int res = this->print_header(module, level);
         if (res < 0) {
             return res;
         }
