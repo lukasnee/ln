@@ -2,6 +2,8 @@
 
 #include "fonas/fonas.hpp"
 
+#include <cstdio> // for FILE, stdout
+
 extern "C"
 {
 #include "logger.h"
@@ -20,6 +22,8 @@ public:
     using Level = LoggerLevel;
 
     struct Config {
+        /* Output stream */
+        FILE *out_file = stdout;
         /* Switch logger on/off at compile time */
         static constexpr bool enabled_compile_time = true;
         /* Switch logger on/off at run-time */
@@ -115,6 +119,8 @@ private:
     ~Logger() = default;
 
     int print_header(const LoggerModule &module, const Level &level);
+
+    int printf(const char *fmt, ...);
 
     cpp_freertos::MutexStandard mutex;
 };

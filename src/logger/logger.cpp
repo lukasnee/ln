@@ -73,14 +73,14 @@ int Logger::log(const LoggerModule &module, const Logger::Level &level, const st
         chars_printed += res;
     }
     {
-        int res = vprintf(fmt.data(), arg_list);
+        int res = vfprintf(this->config.out_file, fmt.data(), arg_list);
         if (res < 0) {
             return res;
         }
         chars_printed += res;
     }
     {
-        int res = putchar('\n');
+        int res = fputc('\n', this->config.out_file);
         if (res < 0) {
             return res;
         }
@@ -116,10 +116,18 @@ int Logger::print_header(const LoggerModule &module, const Logger::Level &level)
     char datetime_buffer[20];
     const auto timestamp = fonas::get_timestamp();
     std::strftime(datetime_buffer, sizeof(datetime_buffer), "%Y-%m-%d %H:%M:%S", &timestamp.tm);
-    return printf("%s.%03lu|%s%s%s|%s|%s|", datetime_buffer, timestamp.ms,
-                  (this->config.color ? level_descrs[level_descr_idx].color.data() : ""),
-                  level_descrs[level_descr_idx].tag_name.data(), (this->config.color ? ANSI_COLOR_DEFAULT : ""),
-                  get_current_thread_name(), module.name);
+    return this->printf("%s.%03lu|%s%s%s|%s|%s|", datetime_buffer, timestamp.ms,
+                        (this->config.color ? level_descrs[level_descr_idx].color.data() : ""),
+                        level_descrs[level_descr_idx].tag_name.data(), (this->config.color ? ANSI_COLOR_DEFAULT : ""),
+                        get_current_thread_name(), module.name);
+}
+
+int Logger::printf(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    const auto rc = vfprintf(config.out_file, fmt, args);
+    va_end(args);
+    return rc;
 }
 
 } // namespace fonas
