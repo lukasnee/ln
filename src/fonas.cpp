@@ -9,12 +9,15 @@
 
 #include "fonas/fonas.hpp"
 
-#include <cstdio>
+#include "fonas/logger/logger.hpp"
 
 namespace fonas {
 
+LOG_MODULE(fonas, LOGGER_LEVEL_INFO);
+
 extern "C" void fonas_panic(const char *file, int line) {
-    printf("Panicked! at %s:%d\n", file, line);
+    LOG_ERROR("Panicked! at %s:%d\n", file, line);
+    LOG_FLUSH();
     __asm("bkpt 1");
     while (1) {
     }
