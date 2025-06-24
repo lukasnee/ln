@@ -28,6 +28,8 @@ extern "C"
 
     void fonas_logger_log(LoggerModule *module, LoggerLevel level, const char *fmt, ...);
 
+    void fonas_logger_flush_buffer();
+
 #define LOG_SCOPE(_logger_module) LoggerModule *__logger_curr_scope = &_logger_module;
 
 #define LOG_MODULE_DEFINITION(_obj_name, _name, _level) LoggerModule _obj_name = {.name = #_name, .log_level = _level};
@@ -46,6 +48,8 @@ extern "C"
 #define LOG_WARNING(...) LOG(LOGGER_LEVEL_WARNING, __VA_ARGS__)
 #define LOG_ERROR(...) LOG(LOGGER_LEVEL_ERROR, __VA_ARGS__)
 #define LOG_CRITICAL(...) LOG(LOGGER_LEVEL_CRITICAL, __VA_ARGS__)
+
+#define LOG_FLUSH() fonas_logger_flush_buffer()
 
 #ifdef __cplusplus
 }

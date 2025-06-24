@@ -2,7 +2,7 @@
 
 #include "fonas/fonas.hpp"
 
-#include <cstdio> // for FILE, stdout
+#include "fonas/File.hpp"
 
 extern "C"
 {
@@ -26,7 +26,11 @@ public:
 
     struct Config {
         /* Output stream */
-        FILE *out_file = stdout;
+        File out_file = File(stdout);
+        /* Output buffer size */
+        static constexpr size_t out_buffer_size = 1024;
+        /* Output buffer flush threshold */
+        static constexpr size_t out_buffer_auto_flush_threshold = out_buffer_size / 2;
         /* Switch logger on/off at compile time */
         static constexpr bool enabled_compile_time = true;
         /* Switch logger on/off at run-time */
@@ -37,6 +41,9 @@ public:
         bool color = false;
         /* Print log message header */
         bool print_header_enabled = true;
+
+        static_assert(out_buffer_auto_flush_threshold < out_buffer_size,
+                      "Output buffer flush threshold must be less than output buffer size");
     };
 
     static Logger &get_instance();
@@ -112,6 +119,14 @@ public:
         }
     };
 
+    /**
+     * @brief Flush the output buffer to the output stream. Note that buffer is flushed automatically when it reaches
+     * the Config::out_buffer_auto_flush_threshold size.
+     *
+     * This function is thread-safe and cannot be called from an ISR context.
+     */
+    void flush_buffer();
+
 protected:
     Config config;
 
@@ -121,11 +136,16 @@ private:
     void operator=(Logger const &) = delete;
     ~Logger() = default;
 
-    int print_header(const LoggerModule &module, const Level &level);
+    int log_unsafe(const LoggerModule &module, const Level &level, const std::string_view fmt, const va_list &argList);
 
-    int printf(const char *fmt, ...);
+    void flush_buffer_unsafe();
 
-    cpp_freertos::MutexStandard mutex;
+    int print_header(File &file, const LoggerModule &module, const Level &level);
+    static int printf(File &file, const char *fmt, ...);
+
+    cpp_freertos::MutexRecursive mutex;
+
+    std::array<char, Config::out_buffer_size> buff_mem{};
 };
 
 } // namespace fonas
