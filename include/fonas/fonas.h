@@ -29,6 +29,15 @@ extern "C"
         }                                                                                                              \
     } while (0)
 
+#define FONAS_CHECK(expr, var, cond, on_failure, on_success)                                                           \
+    do {                                                                                                               \
+        const auto var = (expr);                                                                                       \
+        if (cond) {                                                                                                    \
+            on_failure;                                                                                                \
+            return var;                                                                                                \
+        }                                                                                                              \
+        on_success;                                                                                                    \
+    } while (0)
 
 #ifdef __cplusplus
 }
