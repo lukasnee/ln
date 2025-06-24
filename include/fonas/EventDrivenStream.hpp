@@ -11,6 +11,7 @@
 #pragma once
 
 #include "fonas/fonas.hpp"
+#include "fonas/Initializable.hpp"
 
 #include <cstdint>
 #include <type_traits>
@@ -23,7 +24,7 @@ enum StreamType {
     rw
 };
 
-class ReadStream {
+class ReadStream : public virtual Initializable {
 public:
     /**
      * @brief Read synchronously.
@@ -42,6 +43,9 @@ public:
             return false;
         }
         LockGuard lock_guard(this->mutex);
+        if (!this->initialized) {
+            return false;
+        }
         // assure that the binary semaphore is not already given from previous timed out read() call.
         this->semaphore.Give();
         this->semaphore.Take();
@@ -89,7 +93,7 @@ public:
     BinarySemaphore semaphore;
 };
 
-class WriteStream {
+class WriteStream : public virtual Initializable {
 
 public:
     /**
@@ -109,6 +113,9 @@ public:
             return false;
         }
         LockGuard lock_guard(this->mutex);
+        if (!this->initialized) {
+            return false;
+        }
         // assure that the binary semaphore is not already given from previous timed out write() call.
         this->semaphore.Give();
         this->semaphore.Take();
@@ -156,46 +163,9 @@ private:
     BinarySemaphore semaphore;
 };
 
-template <StreamType stream_type> struct StreamBase {};
-template <> struct StreamBase<StreamType::r> : public ReadStream {};
-template <> struct StreamBase<StreamType::w> : public WriteStream {};
-template <> struct StreamBase<StreamType::rw> : public ReadStream, public WriteStream {};
-
-template <StreamType stream_type> class Stream : public StreamBase<stream_type> {
-
-public:
-    /**
-     * @brief Initialize.
-     *
-     * @return true success.
-     * @return false failure.
-     */
-    bool init() { return this->ll_init(); }
-
-    /**
-     * @brief Deinitialize.
-     *
-     * @return true success.
-     * @return false failure.
-     */
-    bool deinit() { return this->ll_deinit(); }
-
-protected:
-    /**
-     * @brief Low-level initialization.
-     *
-     * @return true success.
-     * @return false failure.
-     */
-    virtual bool ll_init() = 0;
-
-    /**
-     * @brief Low-level deinitialization.
-     *
-     * @return true success.
-     * @return false failure.
-     */
-    virtual bool ll_deinit() = 0;
-};
+template <StreamType stream_type> struct Stream {};
+template <> struct Stream<StreamType::r> : public ReadStream {};
+template <> struct Stream<StreamType::w> : public WriteStream {};
+template <> struct Stream<StreamType::rw> : public ReadStream, public WriteStream {};
 
 } // namespace fonas::EventDriven
