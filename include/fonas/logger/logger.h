@@ -39,8 +39,12 @@ extern "C"
     LOG_SCOPE(_obj_name)
 
 #define LOG_MODULE(_name, _level)                                                                                      \
+    static LOG_MODULE_DEFINITION(logger_module, _name, _level);                                                        \
+    static LOG_SCOPE(logger_module)
+
+#define LOG_MODULE_CLASS_MEMBER(_name, _level)                                                                         \
     LOG_MODULE_DEFINITION(logger_module, _name, _level);                                                               \
-    LOG_SCOPE(logger_module)
+    LOG_SCOPE(this->logger_module)
 
 #define LOG(_level, ...) fonas_logger_log(__logger_curr_scope, _level, __VA_ARGS__);
 #define LOG_DEBUG(...) LOG(LOGGER_LEVEL_DEBUG, __VA_ARGS__)
