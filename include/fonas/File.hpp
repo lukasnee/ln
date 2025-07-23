@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <cstdio> 
+#include <cstdio>
 
 namespace fonas {
 

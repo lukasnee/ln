@@ -1,0 +1,19 @@
+BasedOnStyle: Microsoft
+AllowShortFunctionsOnASingleLine: true
+BraceWrapping:
+    AfterClass: false
+    AfterControlStatement: false
+    AfterEnum: false
+    AfterFunction: false
+    AfterNamespace: false
+    AfterObjCDeclaration: false
+    AfterStruct: false
+    AfterUnion: false
+    BeforeCatch: false
+    BeforeElse: true
+    IndentBraces: false
+BreakBeforeBraces: Custom
+AccessModifierOffset: -4
+ColumnLimit: 120
+CompactNamespaces: true
+SortIncludes: false
