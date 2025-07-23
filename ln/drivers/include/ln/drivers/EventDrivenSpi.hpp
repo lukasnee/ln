@@ -11,12 +11,18 @@
 
 #include "ln/ln.hpp"
 
+#include "FreeRTOS/Mutex.hpp"
+#include "FreeRTOS/Semaphore.hpp"
+#include "FreeRTOS/Addons/Timeout.hpp"
+
 #include <cstdint>
 
 namespace ln::drivers {
 
 class EventDrivenSpi {
 public:
+    using Timeout = FreeRTOS::Addons::Timeout;
+
     /**
      * @brief Initialize.
      *
@@ -32,7 +38,7 @@ public:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool read(std::uint8_t *data, std::size_t size, ln::Timeout timeout = ln::Timeout(portMAX_DELAY));
+    bool read(std::uint8_t *data, std::size_t size, const Timeout &timeout = Timeout::max());
 
     /**
      * @brief Write synchronously.
@@ -42,7 +48,7 @@ public:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool write(const std::uint8_t *data, std::size_t size, ln::Timeout timeout = ln::Timeout(portMAX_DELAY));
+    bool write(const std::uint8_t *data, std::size_t size, const Timeout &timeout = Timeout::max());
 
     /**
      * @brief Write asynchronously.
@@ -52,7 +58,7 @@ public:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool write_async(const std::uint8_t *data, std::size_t size, ln::Timeout timeout = ln::Timeout(portMAX_DELAY));
+    bool write_async(const std::uint8_t *data, std::size_t size, const Timeout &timeout = Timeout::max());
 
     /**
      * @brief Await write_async completion.
@@ -60,7 +66,7 @@ public:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool write_await(ln::Timeout timeout = ln::Timeout(portMAX_DELAY));
+    bool write_await(const Timeout &timeout = Timeout::max());
 
     /**
      * @brief Read-write (full-duplex) synchronously.
@@ -72,7 +78,7 @@ public:
      * @return true if successful, otherwise false.
      */
     bool read_write(std::uint8_t *rd_data, const std::uint8_t *wr_data, std::size_t size,
-                    ln::Timeout timeout = ln::Timeout(portMAX_DELAY));
+                    const Timeout &timeout = Timeout::max());
 
     /**
      * @brief Deinitialize.
@@ -167,7 +173,7 @@ private:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool ll_ensure_read_readiness(ln::Timeout timeout);
+    bool ll_ensure_read_readiness(const Timeout &timeout);
 
     /**
      * @brief Ensure low-level driver readiness for writing.
@@ -175,13 +181,13 @@ private:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool ll_ensure_write_readiness(ln::Timeout timeout);
+    bool ll_ensure_write_readiness(const Timeout &timeout);
 
     void ll_async_complete_common_signal();
 
-    MutexStandard mutex;
-    BinarySemaphore write_semaphore;
-    BinarySemaphore read_semaphore;
+    FreeRTOS::StaticMutex mutex;
+    FreeRTOS::StaticBinarySemaphore write_semaphore;
+    FreeRTOS::StaticBinarySemaphore read_semaphore;
 };
 
 } // namespace ln::drivers

@@ -1,6 +1,8 @@
 #include "ln/logger/logger.hpp"
 #include "ln/ln.hpp"
 
+#include <FreeRTOS/Addons/LockGuard.hpp>
+
 #include <cstdio>
 
 namespace ln::logger {
@@ -39,7 +41,7 @@ void Logger::flush_buffer() {
     if (ln::is_inside_interrupt()) {
         LN_PANIC();
     }
-    LockGuard lock_guard(this->mutex);
+    FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
     if (!this->is_enabled()) {
         return;
     }
@@ -50,7 +52,7 @@ void Logger::flush_buffer_unsafe() {
     std::fwrite(this->buff_mem.data(), 1, std::min(strlen(this->buff_mem.data()), this->buff_mem.size()),
                 this->config.out_file);
     {
-        ln::file file(this->buff_mem.data(), this->buff_mem.size(), "w"); // effectively clears the buffer
+        ln::File file(this->buff_mem.data(), this->buff_mem.size(), "w"); // effectively clears the buffer
     }
 }
 
@@ -79,21 +81,21 @@ void Module::set_level(Level log_level) { this->log_level = log_level; }
 int Logger::log(const LoggerModule &module, const Logger::Level &level, const std::string_view fmt,
                 const va_list &arg_list) {
     const auto is_interrupt_context = ln::is_inside_interrupt();
-    if (!is_interrupt_context && !this->mutex.Lock()) {
+    if (!is_interrupt_context && !this->mutex.lock()) {
         return 0;
     }
     const auto rc = this->log_unsafe(module, level, fmt, arg_list);
     if (!is_interrupt_context) {
-        if (strlen(this->buff_mem.data()) > config::out_buffer_auto_flush_threshold) {
+        if (strlen(this->buff_mem.data()) > Config::out_buffer_auto_flush_threshold) {
             this->flush_buffer_unsafe();
         }
-        this->mutex.Unlock();
+        this->mutex.unlock();
     }
     return rc;
 }
 int Logger::log_unsafe(const LoggerModule &module, const Logger::Level &level, const std::string_view fmt,
                        const va_list &arg_list) {
-    ln::file buff_file(this->buff_mem.data(), this->buff_mem.size(), "a+");
+    ln::File buff_file(this->buff_mem.data(), this->buff_mem.size(), "a+");
     int chars_printed = 0;
     if (this->config.print_header_enabled) {
         LN_CHECK(this->print_header(buff_file, module, level), rc, rc < 0, { chars_printed += rc; }, {});
@@ -103,7 +105,7 @@ int Logger::log_unsafe(const LoggerModule &module, const Logger::Level &level, c
     return chars_printed;
 }
 
-int Logger::print_header(ln::file &file, const LoggerModule &module, const Logger::Level &level) {
+int Logger::print_header(ln::File &file, const LoggerModule &module, const Logger::Level &level) {
 
 #define ANSI_COLOR_BLACK "\e[30m"
 #define ANSI_COLOR_RED "\e[31m"
@@ -136,7 +138,7 @@ int Logger::print_header(ln::file &file, const LoggerModule &module, const Logge
                         (ln::is_inside_interrupt() ? "ISR!" : ""), get_current_thread_name(), module.name);
 }
 
-int Logger::printf(ln::file &file, const char *fmt, ...) {
+int Logger::printf(ln::File &file, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     const auto rc = vfprintf(file, fmt, args);

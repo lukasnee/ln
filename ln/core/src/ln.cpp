@@ -11,6 +11,8 @@
 
 #include "ln/logger/logger.hpp"
 
+#include "FreeRTOS/Addons/Clock.hpp"
+
 namespace ln {
 
 LOG_MODULE(ln, LOGGER_LEVEL_INFO);
@@ -21,16 +23,6 @@ extern "C" void ln_panic(const char *file, int line) {
     __asm("bkpt 1");
     while (1) {
     }
-}
-
-void delay_ms(std::uint32_t ms) {
-    // cannot use cpp_freertos::Thread::Delay(ms); because it's not static method of Thread for some reason
-    vTaskDelay(ms);
-}
-std::uint32_t get_uptime_ticks() { return static_cast<std::uint32_t>(cpp_freertos::Ticks::GetTicks()); }
-
-std::uint32_t get_uptime_ms() {
-    return static_cast<std::uint32_t>(cpp_freertos::Ticks::TicksToMs(cpp_freertos::Ticks::GetTicks()));
 }
 
 bool is_inside_interrupt() { return xPortIsInsideInterrupt() != pdFALSE; }
@@ -44,9 +36,10 @@ const char *get_current_thread_name() {
 }
 
 Timestamp get_timestamp() {
-    const std::uint32_t uptime_ms = get_uptime_ms();
+    using namespace std::chrono;
+    const auto uptime_ms = duration_cast<milliseconds>(FreeRTOS::Addons::Clock::now().time_since_epoch()).count();
     const std::time_t uptime_seconds = uptime_ms / 1000;
-    return {.tm = *std::gmtime(&uptime_seconds), .ms = uptime_ms % 1000};
+    return {.tm = *std::gmtime(&uptime_seconds), .ms = static_cast<std::uint32_t>(uptime_ms % 1000)};
 }
 
 } // namespace ln
