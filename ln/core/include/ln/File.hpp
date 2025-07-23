@@ -11,27 +11,27 @@
 
 #include <cstdio>
 
-namespace fonas {
+namespace ln {
 
 class File {
 public:
     File(FILE *file) : file(file) {
         if (!this->file) {
-            FONAS_PANIC();
+            LN_PANIC();
         }
     }
 
     File(const char *path, const char *mode) {
         this->file = fopen(path, mode);
         if (!this->file) {
-            FONAS_PANIC();
+            LN_PANIC();
         }
     }
 
     File(char *mem_data, size_t mem_size, const char *mode) {
         this->file = fmemopen(mem_data, mem_size, mode);
         if (!this->file) {
-            FONAS_PANIC();
+            LN_PANIC();
         }
     }
 
@@ -49,4 +49,4 @@ private:
     FILE *file = nullptr;
 };
 
-} // namespace fonas
+} // namespace ln

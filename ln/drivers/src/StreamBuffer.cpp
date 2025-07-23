@@ -1,5 +1,4 @@
 /*
- * fonas - C++ FreeRTOS Framework.
  * Copyright (C) 2023 Lukas Neverauskis https://github.com/lukasnee
  *
  * This program is free software; you can redistribute it and/or modify
@@ -8,9 +7,9 @@
  * (at your option) any later version.
  */
 
-#include "fonas/StreamBuffer.hpp"
+#include "ln/FreeRTOS-Cpp-Addons/StreamBuffer.hpp"
 
-namespace fonas {
+namespace ln::freertos_cpp_addons {
 
 StreamBuffer::StreamBuffer(std::size_t buffer_size, std::size_t trigger_level) {
     this->handle = xStreamBufferCreate(buffer_size, trigger_level);
@@ -122,4 +121,4 @@ bool StreamBuffer::set_trigger_level(std::size_t trigger_level) {
     return xStreamBufferSetTriggerLevel(this->handle, trigger_level) == pdTRUE ? true : false;
 }
 
-} // namespace fonas
+} // namespace ln::freertos_cpp_addons

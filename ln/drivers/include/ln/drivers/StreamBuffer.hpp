@@ -1,5 +1,4 @@
 /*
- * fonas - C++ FreeRTOS Framework.
  * Copyright (C) 2023 Lukas Neverauskis https://github.com/lukasnee
  *
  * This program is free software; you can redistribute it and/or modify
@@ -10,7 +9,7 @@
 
 #pragma once
 
-#include "fonas/fonas.hpp"
+#include "ln/ln.hpp"
 
 #include "FreeRTOS.h"
 #include "stream_buffer.h"
@@ -18,7 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace fonas {
+namespace ln::freertos_cpp_addons {
 
 /**
  * @brief Stream Buffer. Stream buffers allow a stream of bytes to be passed from an interrupt service routine to a
@@ -141,4 +140,4 @@ private:
     StreamBufferHandle_t handle = nullptr;
 };
 
-} // namespace fonas
+} // namespace ln::freertos_cpp_addons

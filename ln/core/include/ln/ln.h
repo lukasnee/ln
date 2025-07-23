@@ -18,18 +18,18 @@ extern "C"
 
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
-    void fonas_panic(const char *file, int line);
+    void ln_panic(const char *file, int line);
 
-#define FONAS_PANIC() fonas_panic(__FILENAME__, __LINE__)
+#define LN_PANIC() ln_panic(__FILENAME__, __LINE__)
 
-#define FONAS_ASSERT(expr)                                                                                             \
+#define LN_ASSERT(expr)                                                                                                \
     do {                                                                                                               \
         if (!(expr)) {                                                                                                 \
-            FONAS_PANIC();                                                                                             \
+            LN_PANIC();                                                                                                \
         }                                                                                                              \
     } while (0)
 
-#define FONAS_CHECK(expr, var, cond, on_failure, on_success)                                                           \
+#define LN_CHECK(expr, var, cond, on_failure, on_success)                                                              \
     do {                                                                                                               \
         const auto var = (expr);                                                                                       \
         if (cond) {                                                                                                    \

@@ -7,15 +7,15 @@
  * (at your option) any later version.
  */
 
-#include "fonas/fonas.hpp"
+#include "ln/ln.hpp"
 
-#include "fonas/logger/logger.hpp"
+#include "ln/logger/logger.hpp"
 
-namespace fonas {
+namespace ln {
 
-LOG_MODULE(fonas, LOGGER_LEVEL_INFO);
+LOG_MODULE(ln, LOGGER_LEVEL_INFO);
 
-extern "C" void fonas_panic(const char *file, int line) {
+extern "C" void ln_panic(const char *file, int line) {
     LOG_ERROR("Panicked! at %s:%d\n", file, line);
     LOG_FLUSH();
     __asm("bkpt 1");
@@ -49,4 +49,4 @@ Timestamp get_timestamp() {
     return {.tm = *std::gmtime(&uptime_seconds), .ms = uptime_ms % 1000};
 }
 
-} // namespace fonas
+} // namespace ln

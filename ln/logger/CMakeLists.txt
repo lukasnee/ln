@@ -1,0 +1,5 @@
+add_library(ln_logger)
+add_library(ln::logger ALIAS ln_logger)
+target_sources(ln_logger PRIVATE src/logger.cpp)
+target_include_directories(ln_logger PUBLIC include)
+

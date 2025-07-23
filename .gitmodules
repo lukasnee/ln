@@ -1,0 +1,3 @@
+[submodule "extern/FreeRTOS-Cpp"]
+	path = extern/FreeRTOS-Cpp
+	url = https://github.com/jonenz/FreeRTOS-Cpp.git

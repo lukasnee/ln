@@ -1,5 +1,4 @@
 /*
- * fonas - C++ FreeRTOS Framework.
  * Copyright (C) 2023 Lukas Neverauskis https://github.com/lukasnee
  *
  * This program is free software; you can redistribute it and/or modify
@@ -10,13 +9,17 @@
 
 #pragma once
 
-#include "fonas/fonas.hpp"
-#include "fonas/Initializable.hpp"
+#include "ln/ln.hpp"
+#include "ln/drivers/Initializable.hpp"
+
+#include "FreeRTOS/Semaphore.hpp"
+#include "FreeRTOS/Addons/LockGuard.hpp"
+#include "FreeRTOS/Addons/Timeout.hpp"
 
 #include <cstdint>
 #include <type_traits>
 
-namespace fonas::EventDriven {
+namespace ln::drivers::EventDriven {
 
 enum StreamType {
     r,
@@ -35,24 +38,26 @@ public:
      * @return true success.
      * @return false failure.
      */
-    bool read(std::uint8_t *data, std::size_t size, TickType_t timeout_ticks = portMAX_DELAY) {
+    bool read(std::uint8_t *data, std::size_t size, FreeRTOS::Addons::Timeout timeout = {}) {
         if (size == 0) {
             return true;
         }
         if (!data) {
             return false;
         }
-        LockGuard lock_guard(this->mutex);
+        FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
         if (!this->initialized) {
             return false;
         }
         // assure that the binary semaphore is not already given from previous timed out read() call.
-        this->semaphore.Give();
-        this->semaphore.Take();
+        // TODO: check if this is necessary.
+        this->semaphore.give();
+        this->semaphore.take();
+
         if (!this->ll_read_async(data, size)) {
             return false;
         }
-        if (this->semaphore.Take(timeout_ticks) != pdTRUE) {
+        if (this->semaphore.take(timeout.left().count()) != pdTRUE) {
             return false;
         }
         return true;
@@ -62,19 +67,19 @@ public:
      * @brief Low-level callback signaling read completion (either ISR or thread context).
      */
     void ll_async_read_completed_cb() {
-        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        bool higherPriorityTaskWoken = false;
         const auto is_inside_interrupt = xPortIsInsideInterrupt();
         if (is_inside_interrupt) {
-            this->semaphore.GiveFromISR(&xHigherPriorityTaskWoken);
+            this->semaphore.giveFromISR(higherPriorityTaskWoken);
         }
         else {
-            this->semaphore.Give();
+            this->semaphore.give();
         }
 
         if (is_inside_interrupt) {
-            portYIELD_FROM_ISR(&xHigherPriorityTaskWoken);
+            // must be called last in this function scope.
+            FreeRTOS::Kernel::yieldFromISR(higherPriorityTaskWoken);
         }
-        // portYIELD_FROM_ISR must be called the last here.
     }
 
 protected:
@@ -89,8 +94,8 @@ protected:
     virtual bool ll_read_async(std::uint8_t *data, std::size_t size) = 0;
 
 public:
-    MutexStandard mutex;
-    BinarySemaphore semaphore;
+    FreeRTOS::StaticMutex mutex;
+    FreeRTOS::BinarySemaphore semaphore;
 };
 
 class WriteStream : public virtual Initializable {
@@ -105,24 +110,26 @@ public:
      * @return true success.
      * @return false failure.
      */
-    bool write(const std::uint8_t *data, std::size_t size, TickType_t timeout_ticks = portMAX_DELAY) {
+    bool write(const std::uint8_t *data, std::size_t size, FreeRTOS::Addons::Timeout timeout = {}) {
         if (size == 0) {
             return true;
         }
         if (!data) {
             return false;
         }
-        LockGuard lock_guard(this->mutex);
+        FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
         if (!this->initialized) {
             return false;
         }
         // assure that the binary semaphore is not already given from previous timed out write() call.
-        this->semaphore.Give();
-        this->semaphore.Take();
+        // TODO: check if this is necessary.
+        this->semaphore.give();
+        this->semaphore.take();
+
         if (!this->ll_write_async(data, size)) {
             return false;
         }
-        if (this->semaphore.Take(timeout_ticks) != pdTRUE) {
+        if (this->semaphore.take(timeout.left().count()) != pdTRUE) {
             return false;
         }
         return true;
@@ -132,19 +139,19 @@ public:
      * @brief Low-level callback signaling write completion (either ISR or thread context).
      */
     void ll_async_write_completed_cb() {
-        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        bool higherPriorityTaskWoken = false;
         const auto is_inside_interrupt = xPortIsInsideInterrupt();
         if (is_inside_interrupt) {
-            this->semaphore.GiveFromISR(&xHigherPriorityTaskWoken);
+            this->semaphore.giveFromISR(higherPriorityTaskWoken);
         }
         else {
-            this->semaphore.Give();
+            this->semaphore.give();
         }
 
         if (is_inside_interrupt) {
-            portYIELD_FROM_ISR(&xHigherPriorityTaskWoken);
+            // must be called last in this function scope.
+            FreeRTOS::Kernel::yieldFromISR(higherPriorityTaskWoken);
         }
-        // portYIELD_FROM_ISR must be called the last here.
     }
 
 protected:
@@ -159,8 +166,8 @@ protected:
     virtual bool ll_write_async(const std::uint8_t *data, std::size_t size) = 0;
 
 private:
-    MutexStandard mutex;
-    BinarySemaphore semaphore;
+    FreeRTOS::StaticMutex mutex;
+    FreeRTOS::BinarySemaphore semaphore;
 };
 
 template <StreamType stream_type> struct Stream {};
@@ -168,4 +175,4 @@ template <> struct Stream<StreamType::r> : public ReadStream {};
 template <> struct Stream<StreamType::w> : public WriteStream {};
 template <> struct Stream<StreamType::rw> : public ReadStream, public WriteStream {};
 
-} // namespace fonas::EventDriven
+} // namespace ln::drivers::EventDriven

@@ -1,5 +1,4 @@
 /*
- * fonas - C++ FreeRTOS Framework.
  * Copyright (C) 2023 Lukas Neverauskis https://github.com/lukasnee
  *
  * This program is free software; you can redistribute it and/or modify
@@ -10,11 +9,11 @@
 
 #pragma once
 
-#include "fonas/fonas.hpp"
+#include "ln/ln.hpp"
 
 #include <cstdint>
 
-namespace fonas {
+namespace ln::drivers {
 
 class EventDrivenSpi {
 public:
@@ -33,7 +32,7 @@ public:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool read(std::uint8_t *data, std::size_t size, fonas::Timeout timeout = fonas::Timeout(portMAX_DELAY));
+    bool read(std::uint8_t *data, std::size_t size, ln::Timeout timeout = ln::Timeout(portMAX_DELAY));
 
     /**
      * @brief Write synchronously.
@@ -43,7 +42,7 @@ public:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool write(const std::uint8_t *data, std::size_t size, fonas::Timeout timeout = fonas::Timeout(portMAX_DELAY));
+    bool write(const std::uint8_t *data, std::size_t size, ln::Timeout timeout = ln::Timeout(portMAX_DELAY));
 
     /**
      * @brief Write asynchronously.
@@ -53,8 +52,7 @@ public:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool write_async(const std::uint8_t *data, std::size_t size,
-                     fonas::Timeout timeout = fonas::Timeout(portMAX_DELAY));
+    bool write_async(const std::uint8_t *data, std::size_t size, ln::Timeout timeout = ln::Timeout(portMAX_DELAY));
 
     /**
      * @brief Await write_async completion.
@@ -62,7 +60,7 @@ public:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool write_await(fonas::Timeout timeout = fonas::Timeout(portMAX_DELAY));
+    bool write_await(ln::Timeout timeout = ln::Timeout(portMAX_DELAY));
 
     /**
      * @brief Read-write (full-duplex) synchronously.
@@ -74,7 +72,7 @@ public:
      * @return true if successful, otherwise false.
      */
     bool read_write(std::uint8_t *rd_data, const std::uint8_t *wr_data, std::size_t size,
-                    fonas::Timeout timeout = fonas::Timeout(portMAX_DELAY));
+                    ln::Timeout timeout = ln::Timeout(portMAX_DELAY));
 
     /**
      * @brief Deinitialize.
@@ -169,7 +167,7 @@ private:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool ll_ensure_read_readiness(fonas::Timeout timeout);
+    bool ll_ensure_read_readiness(ln::Timeout timeout);
 
     /**
      * @brief Ensure low-level driver readiness for writing.
@@ -177,7 +175,7 @@ private:
      * @param timeout
      * @return true if successful, otherwise false.
      */
-    bool ll_ensure_write_readiness(fonas::Timeout timeout);
+    bool ll_ensure_write_readiness(ln::Timeout timeout);
 
     void ll_async_complete_common_signal();
 
@@ -186,4 +184,4 @@ private:
     BinarySemaphore read_semaphore;
 };
 
-} // namespace fonas
+} // namespace ln::drivers

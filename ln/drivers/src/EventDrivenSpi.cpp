@@ -1,5 +1,4 @@
 /*
- * fonas - C++ FreeRTOS Framework.
  * Copyright (C) 2023 Lukas Neverauskis https://github.com/lukasnee
  *
  * This program is free software; you can redistribute it and/or modify
@@ -8,15 +7,15 @@
  * (at your option) any later version.
  */
 
-#include "fonas/EventDrivenSpi.hpp"
+#include "ln/drivers/EventDrivenSpi.hpp"
 
 #include <algorithm> // std::min
 
-namespace fonas {
+namespace ln::drivers {
 
 bool EventDrivenSpi::init() { return this->ll_init(); }
 
-bool EventDrivenSpi::ll_ensure_write_readiness(fonas::Timeout timeout) {
+bool EventDrivenSpi::ll_ensure_write_readiness(ln::Timeout timeout) {
     while (!timeout.Expired()) {
         if (!this->ll_busy_writing()) {
             return true;
@@ -28,7 +27,7 @@ bool EventDrivenSpi::ll_ensure_write_readiness(fonas::Timeout timeout) {
     return false;
 }
 
-bool EventDrivenSpi::ll_ensure_read_readiness(fonas::Timeout timeout) {
+bool EventDrivenSpi::ll_ensure_read_readiness(ln::Timeout timeout) {
     while (!timeout.Expired()) {
         if (!this->ll_busy_reading()) {
             return true;
@@ -40,7 +39,7 @@ bool EventDrivenSpi::ll_ensure_read_readiness(fonas::Timeout timeout) {
     return false;
 }
 
-bool EventDrivenSpi::read(std::uint8_t *data, std::size_t size, fonas::Timeout timeout) {
+bool EventDrivenSpi::read(std::uint8_t *data, std::size_t size, ln::Timeout timeout) {
     if (size == 0) {
         return true;
     }
@@ -60,7 +59,7 @@ bool EventDrivenSpi::read(std::uint8_t *data, std::size_t size, fonas::Timeout t
     return true;
 }
 
-bool EventDrivenSpi::write(const std::uint8_t *data, std::size_t size, fonas::Timeout timeout) {
+bool EventDrivenSpi::write(const std::uint8_t *data, std::size_t size, ln::Timeout timeout) {
     if (size == 0) {
         return true;
     }
@@ -80,7 +79,7 @@ bool EventDrivenSpi::write(const std::uint8_t *data, std::size_t size, fonas::Ti
     return true;
 }
 
-bool EventDrivenSpi::write_async(const std::uint8_t *data, std::size_t size, fonas::Timeout timeout) {
+bool EventDrivenSpi::write_async(const std::uint8_t *data, std::size_t size, ln::Timeout timeout) {
     if (size == 0) {
         return true;
     }
@@ -97,7 +96,7 @@ bool EventDrivenSpi::write_async(const std::uint8_t *data, std::size_t size, fon
     return true;
 }
 
-bool EventDrivenSpi::write_await(fonas::Timeout timeout) {
+bool EventDrivenSpi::write_await(ln::Timeout timeout) {
     LockGuard lock_guard(this->mutex);
     if (!this->ll_busy_writing()) {
         return true;
@@ -109,7 +108,7 @@ bool EventDrivenSpi::write_await(fonas::Timeout timeout) {
 }
 
 bool EventDrivenSpi::read_write(std::uint8_t *rd_data, const std::uint8_t *wr_data, std::size_t size,
-                                fonas::Timeout timeout) {
+                                ln::Timeout timeout) {
     if (size == 0) {
         return true;
     }
@@ -159,4 +158,4 @@ void EventDrivenSpi::ll_async_read_completed_cb() { this->ll_async_complete_comm
 void EventDrivenSpi::ll_async_write_completed_cb() { this->ll_async_complete_common_signal(); }
 void EventDrivenSpi::ll_async_read_write_completed_cb() { this->ll_async_complete_common_signal(); }
 void EventDrivenSpi::ll_async_abnormal_cb() { this->ll_async_complete_common_signal(); }
-} // namespace fonas
+} // namespace ln::drivers

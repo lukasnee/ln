@@ -1,6 +1,5 @@
 
 /*
- * fonas - C++ FreeRTOS Framework.
  * Copyright (C) 2023 Lukas Neverauskis https://github.com/lukasnee
  *
  * This program is free software; you can redistribute it and/or modify
@@ -11,7 +10,7 @@
 
 #pragma once
 
-namespace fonas {
+namespace ln::drivers {
 
 class Initializable {
 public:
@@ -69,4 +68,4 @@ protected:
     bool initialized = false;
 };
 
-} // namespace fonas
+} // namespace ln::drivers
