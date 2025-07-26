@@ -1,0 +1,71 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25
+    },
+    "configurePresets": [
+        {
+            "name": "main",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": ".build",
+            "toolchainFile": "cmake/toolchains/arm-none-eabi-gcc.STM32H750.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "main-dbg",
+            "inherits": "main",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "main-rel",
+            "inherits": "main",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "main-dbg",
+            "configurePreset": "main-dbg"
+        },
+        {
+            "name": "main-rel",
+            "configurePreset": "main-rel"
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "main-dbg",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "main-dbg"
+                },
+                {
+                    "type": "build",
+                    "name": "main-dbg"
+                }
+            ]
+        },
+        {
+            "name": "main-rel",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "main-rel"
+                },
+                {
+                    "type": "build",
+                    "name": "main-rel"
+                }
+            ]
+        }
+    ]
+}
