@@ -11,10 +11,18 @@
 
 #include "ln/ln.h"
 
+#include "FreeRTOS/Addons/Clock.hpp"
+#include "FreeRTOS/Addons/LockGuard.hpp"
+#include "FreeRTOS/Addons/Timeout.hpp"
+
 #include <cstdint>
 #include <ctime>
 
 namespace ln {
+
+using Clock = FreeRTOS::Addons::Clock;
+using LockGuard = FreeRTOS::Addons::LockGuard;
+using Timeout = FreeRTOS::Addons::Timeout;
 
 bool is_inside_interrupt();
 const char *get_current_thread_name();
