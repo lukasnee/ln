@@ -106,6 +106,7 @@ private:
 
     int log_unsafe(const LoggerModule &module, const Level &level, const std::string_view fmt, const va_list &argList);
 
+    void clear_buffer_unsafe();
     void flush_buffer_unsafe();
 
     int print_header(File &file, const LoggerModule &module, const Level &level);

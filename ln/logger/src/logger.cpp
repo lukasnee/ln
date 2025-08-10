@@ -48,12 +48,14 @@ void Logger::flush_buffer() {
     this->flush_buffer_unsafe();
 }
 
+void Logger::clear_buffer_unsafe() {
+    ln::File file(this->buff_mem.data(), this->buff_mem.size(), "w"); // effectively clears the buffer
+}
+
 void Logger::flush_buffer_unsafe() {
     std::fwrite(this->buff_mem.data(), 1, std::min(strlen(this->buff_mem.data()), this->buff_mem.size()),
                 this->config.out_file);
-    {
-        ln::File file(this->buff_mem.data(), this->buff_mem.size(), "w"); // effectively clears the buffer
-    }
+    this->clear_buffer_unsafe();
 }
 
 void Logger::set_level(Level log_level) { this->config.log_level = log_level; }
