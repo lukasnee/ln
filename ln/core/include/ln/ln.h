@@ -22,12 +22,13 @@ extern "C"
 
 #define LN_PANIC() ln_panic(__FILENAME__, __LINE__)
 
-#define LN_ASSERT(expr)                                                                                                \
+#define LN_ASSERT(expr, on_failure)                                                                                    \
     do {                                                                                                               \
         if (!(expr)) {                                                                                                 \
-            LN_PANIC();                                                                                                \
+            on_failure;                                                                                                \
         }                                                                                                              \
     } while (0)
+#define LN_ASSERT_PANIC(expr) LN_ASSERT(expr, LN_PANIC())
 
 #define LN_CHECK(expr, var, cond, on_failure, on_success)                                                              \
     do {                                                                                                               \
