@@ -5,6 +5,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(LN_FREERTOS "Enable FreeRTOS support" OFF)
+
 project(
   ln
   VERSION 0.1.0
@@ -20,13 +22,17 @@ if(PROJECT_IS_TOP_LEVEL)
   target_link_libraries(freertos_config INTERFACE ln::tests) # FreeRTOSCOnfig.h
 endif()
 
-add_subdirectory(extern/FreeRTOS-Cpp)
 include(cmake/extern/littlefs.cmake)
 
 add_subdirectory(ln)
 
 add_library(ln INTERFACE)
 
-target_link_libraries(ln INTERFACE ln::core ln::drivers ln::logger FreeRTOS-Cpp)
+target_link_libraries(ln INTERFACE ln::core ln::drivers ln::logger)
 
 add_library(ln::ln ALIAS ln)
+
+if(PROJECT_IS_TOP_LEVEL OR LN_FREERTOS)
+  add_subdirectory(extern/FreeRTOS-Cpp)
+  target_link_libraries(ln INTERFACE FreeRTOS-Cpp)
+endif()
