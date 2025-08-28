@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 project(
   ln
   VERSION 0.1.0
-  LANGUAGES CXX)
+  LANGUAGES C CXX)
 
 if(PROJECT_IS_TOP_LEVEL)
   add_subdirectory(tests)
@@ -21,6 +21,7 @@ if(PROJECT_IS_TOP_LEVEL)
 endif()
 
 add_subdirectory(extern/FreeRTOS-Cpp)
+include(cmake/extern/littlefs.cmake)
 
 add_subdirectory(ln)
 
