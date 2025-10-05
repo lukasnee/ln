@@ -60,6 +60,12 @@ void Logger::flush_buffer_unsafe() {
 
 void Logger::set_level(Level log_level) { this->config.log_level = log_level; }
 
+bool Logger::set_config(const Config &config) {
+    // TODO: validation here
+    this->config = config;
+    return true;
+}
+
 Module::Module(const std::string_view name, Level log_level) {
     this->name = name.data();
     this->log_level = log_level;

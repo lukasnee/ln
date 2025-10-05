@@ -81,6 +81,9 @@ public:
     bool is_enabled();
 
     void set_level(Level log_level);
+
+    bool set_config(const Config &config);
+
     const Config &get_config() const { return config; }
 
     int log(const LoggerModule &module, const Level &level, const std::string_view fmt, const va_list &argList);
