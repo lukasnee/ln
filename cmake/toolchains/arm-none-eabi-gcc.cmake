@@ -59,12 +59,12 @@ set(CMAKE_EXE_LINKER_FLAGS
 # https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
 # https://gcc.gnu.org/onlinedocs/gcc/Debugging-Options.html
 
-set(compiler_flags_debug " -gdwarf-2 -Og")
+set(compiler_flags_debug " -gdwarf-2 -Og -g3")
 set(CMAKE_C_FLAGS_DEBUG_INIT ${compiler_flags_debug})
 set(CMAKE_CXX_FLAGS_DEBUG_INIT ${compiler_flags_debug})
 set(CMAKE_ASM_FLAGS_DEBUG_INIT ${compiler_flags_debug})
 
-set(compiler_flags_release " -O1")
+set(compiler_flags_release " -Os -g3")
 set(CMAKE_C_FLAGS_RELEASE_INIT ${compiler_flags_release})
 set(CMAKE_CXX_FLAGS_RELEASE_INIT ${compiler_flags_release})
 set(CMAKE_ASM_FLAGS_RELEASE_INIT ${compiler_flags_release})
