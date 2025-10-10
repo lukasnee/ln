@@ -28,7 +28,7 @@ add_subdirectory(ln)
 
 add_library(ln INTERFACE)
 
-target_link_libraries(ln INTERFACE ln::core ln::drivers ln::logger)
+target_link_libraries(ln INTERFACE ln::core ln::drivers ln::logger ln::shell)
 
 add_library(ln::ln ALIAS ln)
 
