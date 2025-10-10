@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 
+namespace ln::shell {
 class ArgVector {
 public:
     struct Config {
@@ -45,3 +46,4 @@ protected:
     std::size_t count = 0;
     std::array<const char *, Config::maxArgs> args{{nullptr}};
 };
+} // namespace ln::shell

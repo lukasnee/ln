@@ -1,7 +1,8 @@
-#include "ln/shell/input.hpp"
+#include "ln/shell/Input.hpp"
 
 #include <cstring>
 
+namespace ln::shell {
 Input::Input() : ArgBuffer() { this->reset(); }
 
 void Input::reset() {
@@ -104,3 +105,4 @@ bool Input::insertChar(const char &c) {
     }
     return result;
 }
+} // namespace ln::shell

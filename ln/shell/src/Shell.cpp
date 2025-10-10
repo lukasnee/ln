@@ -1,11 +1,12 @@
-#include "ln/shell/shell.hpp"
+#include "ln/shell/Shell.hpp"
 // TODO: make arrow up repeat buffer
 // TODO: some kind of esacpe signal mechanism to inform running command to exit.
 
 #include <cstring>
 
-Shell::Shell(const char *strPromptLabel, ln::OutStream<char> &out_stream, Shell::Command *pCommandRoot)
-    : strPromptLabel(strPromptLabel), out_stream(out_stream), pCommandRoot(pCommandRoot){};
+namespace ln::shell {
+Shell::Shell(const char *strPromptLabel, ln::OutStream<char> &out_stream, Command *commandList)
+    : strPromptLabel(strPromptLabel), out_stream(out_stream), commandList(commandList){};
 
 void Shell::print(const char &c, std::size_t timesToRepeat) {
     while (timesToRepeat--) {
@@ -50,8 +51,8 @@ int Shell::printf(const char *fmt, ...) {
     return charsPrinted;
 }
 
-const Shell::Command *Shell::findCommand(std::size_t argcIn, const char *argvIn[], std::size_t &argCmdOffsetOut) {
-    const Command *pCommand = this->pCommandRoot;
+const Command *Shell::findCommand(std::size_t argcIn, const char *argvIn[], std::size_t &argCmdOffsetOut) {
+    const Command *pCommand = this->commandList;
 
     argCmdOffsetOut = 0;
 
@@ -77,9 +78,9 @@ const Shell::Command *Shell::findCommand(std::size_t argcIn, const char *argvIn[
     return pCommand;
 }
 
-Shell::Command::Result Shell::execute(const Shell::Command &command, std::size_t argc, const char *argv[],
-                                      const char *outputColorEscapeSequence) {
-    Shell::Command::Result result = Shell::Command::Result::unknown;
+Command::Result Shell::execute(const Command &command, std::size_t argc, const char *argv[],
+                               const char *outputColorEscapeSequence) {
+    Command::Result result = Command::Result::unknown;
 
     if (command.function == nullptr) {
         this->print("\e[31mcommand has no method\n"); // red
@@ -89,13 +90,13 @@ Shell::Command::Result Shell::execute(const Shell::Command &command, std::size_t
         result = command.function(*this, argc, argv);
 
         if (Config::regularResponseIsEnabled) {
-            if (result == Shell::Command::Result::ok) {
+            if (result == Command::Result::ok) {
                 this->print("\n" ANSI_COLOR_GREEN "OK");
             }
             else if (static_cast<std::int8_t>(result) < 0) {
                 this->printf("\n" ANSI_COLOR_RED "FAIL: %d", static_cast<std::int8_t>(result));
             }
-            else if (result == Shell::Command::Result::okQuiet) {
+            else if (result == Command::Result::okQuiet) {
                 /* nothin */
             }
             this->print(ANSI_COLOR_RESET "\n");
@@ -105,8 +106,7 @@ Shell::Command::Result Shell::execute(const Shell::Command &command, std::size_t
     return result;
 }
 
-Shell::Command::Result Shell::execute(const Command &command, const char *argString,
-                                      const char *outputColorEscapeSequence) {
+Command::Result Shell::execute(const Command &command, const char *argString, const char *outputColorEscapeSequence) {
     ArgBuffer argBuffer(argString);
     return this->execute(command, argBuffer.getArgc(), argBuffer.getArgv(), outputColorEscapeSequence);
 }
@@ -146,7 +146,7 @@ bool Shell::lineFeed() {
 
     this->print("\n");
 
-    const Shell::Command *pCommand = nullptr;
+    const Command *pCommand = nullptr;
 
     if (this->input.resolveIntoArgs()) {
         std::size_t argOffset;
@@ -394,3 +394,4 @@ bool Shell::insertChar(const char &c) {
 
     return result;
 }
+} // namespace ln::shell

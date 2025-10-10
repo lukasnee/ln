@@ -1,11 +1,12 @@
 #pragma once
 
-#include "ln/shell/argBuffer.hpp"
+#include "ln/shell/ArgBuffer.hpp"
 
 #include <cstdint>
 #include <cstddef>
 #include <array>
 
+namespace ln::shell {
 class Input : public ArgBuffer {
 public:
     Input();
@@ -35,3 +36,4 @@ private:
     std::size_t cursorIdx = 0;
     std::size_t charsUsed = 1;
 };
+} // namespace ln::shell

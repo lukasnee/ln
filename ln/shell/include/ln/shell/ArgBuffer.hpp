@@ -1,10 +1,11 @@
 #pragma once
 
-#include "ln/shell/argVector.hpp"
+#include "ln/shell/ArgVector.hpp"
 
 #include <cstdint>
 #include <array>
 
+namespace ln::shell {
 class ArgBuffer : public ArgVector {
 public:
     struct Config {
@@ -24,3 +25,4 @@ public:
 protected:
     Buffer buffer{'\0'};
 };
+} // namespace ln::shell

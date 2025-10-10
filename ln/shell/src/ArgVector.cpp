@@ -1,9 +1,10 @@
 
-#include "ln/shell/argVector.hpp"
+#include "ln/shell/ArgVector.hpp"
 
 #include <cstdio>
 #include <limits>
 
+namespace ln::shell {
 ArgVector::ArgVector(std::size_t argc, const char **argv) {
     if (argv && argc) {
         std::size_t i = 0;
@@ -101,3 +102,4 @@ bool ArgVector::printTo(char *pBufferOut, std::size_t bufferOutSize, const char 
 
     return result;
 }
+} // namespace ln::shell

@@ -1,8 +1,9 @@
-#include "ln/shell/argBuffer.hpp"
+#include "ln/shell/ArgBuffer.hpp"
 
 #include <string_view>
 #include <algorithm> // for std::min, std::copy_n
 
+namespace ln::shell {
 ArgBuffer::ArgBuffer() : ArgVector() {}
 
 ArgBuffer::ArgBuffer(std::size_t argc, const char *argv[]) { this->copyFrom(argc, argv); }
@@ -58,3 +59,4 @@ bool ArgBuffer::restoreIntoString() {
 
     return result;
 }
+} // namespace ln::shell
