@@ -25,7 +25,13 @@ class CLI;
 
 class Command {
 public:
-    using Function = std::function<Result(CLI &cli, std::size_t argc, const char *argv[])>;
+    struct Context {
+        CLI &cli;
+        std::size_t argc;
+        const char **argv;
+    };
+
+    using Function = std::function<Result(Context)>;
     using CtorCallback = std::function<void()>;
 
     Command(const char *name, const char *usage, const char *description, Function function,

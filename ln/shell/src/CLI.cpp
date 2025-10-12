@@ -79,7 +79,7 @@ const Command *CLI::findCommand(std::size_t argcIn, const char *argvIn[], std::s
 }
 
 Result CLI::execute(const Command &command, std::size_t argc, const char *argv[],
-                             const char *outputColorEscapeSequence) {
+                    const char *outputColorEscapeSequence) {
     Result result = Result::unknown;
 
     if (command.function == nullptr) {
@@ -87,7 +87,7 @@ Result CLI::execute(const Command &command, std::size_t argc, const char *argv[]
     }
     else {
         this->print(outputColorEscapeSequence); // response in green
-        result = command.function(*this, argc, argv);
+        result = command.function(Command::Context{*this, argc, argv});
 
         if (Config::regularResponseIsEnabled) {
             if (result == Result::ok) {

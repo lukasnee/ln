@@ -146,40 +146,39 @@ Result Command::print_help(CLI &cli, bool recurse, const std::size_t maxDepth, s
     return result;
 }
 
-Command Command::help_cmd = Command(
-    "help,?", "[all|[COMMAND...]]", "show command usage", [](CLI &cli, std::size_t argc, const char *argv[]) -> Result {
-        if (argc == 1) {
-            for (const Command *pCmdIt = Command::globalCommandList; pCmdIt; pCmdIt = pCmdIt->pNext) {
-                const auto res = pCmdIt->print_help(cli, false, 0);
-                if (res != Result::ok) {
-                    return res;
-                }
+Command Command::help_cmd = Command("help,?", "[all|[COMMAND...]]", "show command usage", [](Context ctx) -> Result {
+    if (ctx.argc == 1) {
+        for (const Command *pCmdIt = Command::globalCommandList; pCmdIt; pCmdIt = pCmdIt->pNext) {
+            const auto res = pCmdIt->print_help(ctx.cli, false, 0);
+            if (res != Result::ok) {
+                return res;
             }
         }
-        else if (argc == 2 && !std::strcmp(argv[1], "all")) {
-            for (const Command *pCmdIt = Command::globalCommandList; pCmdIt; pCmdIt = pCmdIt->pNext) {
-                const auto res = pCmdIt->print_help(cli, true, 7);
-                if (res != Result::ok) {
-                    return res;
-                }
+    }
+    else if (ctx.argc == 2 && !std::strcmp(ctx.argv[1], "all")) {
+        for (const Command *pCmdIt = Command::globalCommandList; pCmdIt; pCmdIt = pCmdIt->pNext) {
+            const auto res = pCmdIt->print_help(ctx.cli, true, 7);
+            if (res != Result::ok) {
+                return res;
             }
         }
-        else if (argc > 1) {
-            constexpr std::size_t helpCommandOffset = 1;
-            std::size_t argOffset;
-            const Command *pCommandFound =
-                cli.findCommand(argc - helpCommandOffset, argv + helpCommandOffset, argOffset);
-            if (pCommandFound) {
-                const auto res = pCommandFound->print_help(cli, true, 1);
-                if (res != Result::ok) {
-                    return res;
-                }
+    }
+    else if (ctx.argc > 1) {
+        constexpr std::size_t helpCommandOffset = 1;
+        std::size_t argOffset;
+        const Command *pCommandFound =
+            ctx.cli.findCommand(ctx.argc - helpCommandOffset, ctx.argv + helpCommandOffset, argOffset);
+        if (pCommandFound) {
+            const auto res = pCommandFound->print_help(ctx.cli, true, 1);
+            if (res != Result::ok) {
+                return res;
             }
         }
-        else {
-            return Result::badArg;
-        }
-        return Result::ok;
-    });
+    }
+    else {
+        return Result::badArg;
+    }
+    return Result::ok;
+});
 
 } // namespace ln::shell
