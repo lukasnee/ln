@@ -6,30 +6,27 @@
 
 namespace ln::shell {
 
-class Shell;
+enum Result : std::int8_t {
+    unknown = std::numeric_limits<std::int8_t>::min(),
+    unexpected = unknown + 1,
+    fail8 = -8,
+    fail7 = -7,
+    fail6 = -6,
+    fail5 = -5,
+    fail4 = -4,
+    fail3 = -3,
+    badArg = -2,
+    fail = -1,
+    ok = 0,
+    okQuiet,
+};
+
+class CLI;
 
 class Command {
 public:
-    enum Result : std::int8_t {
-        unknown = std::numeric_limits<std::int8_t>::min(),
-        fail8 = -8,
-        fail7 = -7,
-        fail6 = -6,
-        fail5 = -5,
-        fail4 = -4,
-        fail3 = -3,
-        badArg = -2,
-        fail = -1,
-        ok = 0,
-        okQuiet,
-    };
-
-#define ShellCommandFunctionParams                                                                                     \
-    [[maybe_unused]] ln::shell::Shell &shell, [[maybe_unused]] std::size_t argc, [[maybe_unused]] const char *argv[]
-#define ShellCommandFunctionArgs shell, argc, argv
-    using Function = std::function<Result(ShellCommandFunctionParams)>;
+    using Function = std::function<Result(CLI &cli, std::size_t argc, const char *argv[])>;
     using CtorCallback = std::function<void()>;
-#define ShellCommandFunctionLambdaSignature (ShellCommandFunctionParams)->ln::shell::Command::Result
 
     Command(const char *name, const char *usage, const char *description, Function function,
             CtorCallback ctorCallback = nullptr);
@@ -49,16 +46,20 @@ public:
     const char *description = nullptr;
     const Function function = nullptr;
 
+    Result print_help(CLI &cli, bool recurse, const std::size_t maxDepth = 1, std::size_t depth = 0,
+                      std::size_t indent = 0) const;
+
 protected:
     void linkTo(Command *&pParent);
 
     Command *pSubcommands = nullptr;
     Command *pNext = nullptr;
 
-
 private:
-    friend Shell;
+    friend CLI;
     static Command *globalCommandList;
+
+    static Command help_cmd;
 };
 
 } // namespace ln::shell

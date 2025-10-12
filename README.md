@@ -34,7 +34,6 @@ Here are some important conventions:
 
 ## TODO
 
-- rename ln::shell::Shell to ln::shell::CLI
 - shell backspace does not work.
 - shell `repeat` command does not work for something like `repeat 1000 echo
   labas`. Also, `repeat 1000 repeat 1000 echo labas` should technically work.

@@ -1,20 +1,20 @@
-#include "ln/shell/Shell.hpp"
+#include "ln/shell/CLI.hpp"
 // TODO: make arrow up repeat buffer
 // TODO: some kind of esacpe signal mechanism to inform running command to exit.
 
 #include <cstring>
 
 namespace ln::shell {
-Shell::Shell(const char *strPromptLabel, ln::OutStream<char> &out_stream, Command *commandList)
+CLI::CLI(const char *strPromptLabel, ln::OutStream<char> &out_stream, Command *commandList)
     : strPromptLabel(strPromptLabel), out_stream(out_stream), commandList(commandList){};
 
-void Shell::print(const char &c, std::size_t timesToRepeat) {
+void CLI::print(const char &c, std::size_t timesToRepeat) {
     while (timesToRepeat--) {
         this->out_stream.put(c);
     }
 }
 
-void Shell::printUnformatted(const char *pData, const std::size_t len, std::size_t timesToRepeat) {
+void CLI::printUnformatted(const char *pData, const std::size_t len, std::size_t timesToRepeat) {
     while (timesToRepeat--) {
         std::size_t lenIt = len;
         const char *pDataIt = pData;
@@ -25,7 +25,7 @@ void Shell::printUnformatted(const char *pData, const std::size_t len, std::size
     }
 }
 
-int Shell::print(const char *string, std::size_t timesToRepeat) {
+int CLI::print(const char *string, std::size_t timesToRepeat) {
     int charsPrinted = 0;
 
     while (timesToRepeat--) {
@@ -38,7 +38,7 @@ int Shell::print(const char *string, std::size_t timesToRepeat) {
     return charsPrinted;
 }
 
-int Shell::printf(const char *fmt, ...) {
+int CLI::printf(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
 
@@ -51,7 +51,7 @@ int Shell::printf(const char *fmt, ...) {
     return charsPrinted;
 }
 
-const Command *Shell::findCommand(std::size_t argcIn, const char *argvIn[], std::size_t &argCmdOffsetOut) {
+const Command *CLI::findCommand(std::size_t argcIn, const char *argvIn[], std::size_t &argCmdOffsetOut) {
     const Command *pCommand = this->commandList;
 
     argCmdOffsetOut = 0;
@@ -78,9 +78,9 @@ const Command *Shell::findCommand(std::size_t argcIn, const char *argvIn[], std:
     return pCommand;
 }
 
-Command::Result Shell::execute(const Command &command, std::size_t argc, const char *argv[],
-                               const char *outputColorEscapeSequence) {
-    Command::Result result = Command::Result::unknown;
+Result CLI::execute(const Command &command, std::size_t argc, const char *argv[],
+                             const char *outputColorEscapeSequence) {
+    Result result = Result::unknown;
 
     if (command.function == nullptr) {
         this->print("\e[31mcommand has no method\n"); // red
@@ -90,13 +90,13 @@ Command::Result Shell::execute(const Command &command, std::size_t argc, const c
         result = command.function(*this, argc, argv);
 
         if (Config::regularResponseIsEnabled) {
-            if (result == Command::Result::ok) {
+            if (result == Result::ok) {
                 this->print("\n" ANSI_COLOR_GREEN "OK");
             }
             else if (static_cast<std::int8_t>(result) < 0) {
                 this->printf("\n" ANSI_COLOR_RED "FAIL: %d", static_cast<std::int8_t>(result));
             }
-            else if (result == Command::Result::okQuiet) {
+            else if (result == Result::okQuiet) {
                 /* nothin */
             }
             this->print(ANSI_COLOR_RESET "\n");
@@ -106,13 +106,13 @@ Command::Result Shell::execute(const Command &command, std::size_t argc, const c
     return result;
 }
 
-Command::Result Shell::execute(const Command &command, const char *argString, const char *outputColorEscapeSequence) {
+Result CLI::execute(const Command &command, const char *argString, const char *outputColorEscapeSequence) {
     ArgBuffer argBuffer(argString);
     return this->execute(command, argBuffer.getArgc(), argBuffer.getArgv(), outputColorEscapeSequence);
 }
 
 /** @return true if sequence finished */
-bool Shell::putChar(const char &c) {
+bool CLI::putChar(const char &c) {
     bool result = false;
 
     if (this->handleEscape(c)) {
@@ -141,7 +141,7 @@ bool Shell::putChar(const char &c) {
     return result;
 }
 
-bool Shell::lineFeed() {
+bool CLI::lineFeed() {
     bool result = false;
 
     this->print("\n");
@@ -167,7 +167,7 @@ bool Shell::lineFeed() {
 }
 
 /** @result false - nothing to handle */
-bool Shell::handleEscape(const char &c) {
+bool CLI::handleEscape(const char &c) {
     bool result = false;
 
     if (c == '\e') {
@@ -203,7 +203,7 @@ bool Shell::handleEscape(const char &c) {
 }
 
 /** @result false - nothing to handle */
-bool Shell::handleAnsiEscape(const char &c) {
+bool CLI::handleAnsiEscape(const char &c) {
     bool result = false;
 
     if (c == '[') /* open delimiter */
@@ -222,7 +222,7 @@ bool Shell::handleAnsiEscape(const char &c) {
     return result;
 }
 
-bool Shell::handleAnsiDelimitedEscape(const char &c) {
+bool CLI::handleAnsiDelimitedEscape(const char &c) {
     bool result = false;
 
     if (this->handleAnsiDelimitedDelEscape(c)) {
@@ -260,7 +260,7 @@ bool Shell::handleAnsiDelimitedEscape(const char &c) {
     return result;
 }
 
-bool Shell::handleAnsiDelimitedDelEscape(const char &c) {
+bool CLI::handleAnsiDelimitedDelEscape(const char &c) {
     bool result = false;
 
     if ((this->escapeState == EscapeState::delimited || this->escapeState == EscapeState::intermediate ||
@@ -282,7 +282,7 @@ bool Shell::handleAnsiDelimitedDelEscape(const char &c) {
     return result;
 }
 
-bool Shell::deleteChar() {
+bool CLI::deleteChar() {
     bool result = false;
 
     if (this->input.deleteCharAtCursor()) {
@@ -297,13 +297,13 @@ bool Shell::deleteChar() {
     return result;
 }
 
-bool Shell::onHomeKey() {
+bool CLI::onHomeKey() {
     while (this->onArrowLeftKey()) {
     }
     return true;
 }
 
-bool Shell::onArrowUpKey() {
+bool CLI::onArrowUpKey() {
     bool result = false;
 
     if (this->input.restoreIntoString()) {
@@ -318,13 +318,13 @@ bool Shell::onArrowUpKey() {
     return result;
 }
 
-bool Shell::onArrowDownKey() {
+bool CLI::onArrowDownKey() {
     this->input.reset();
     this->isPrompted = true;
     return true;
 }
 
-bool Shell::onArrowLeftKey() {
+bool CLI::onArrowLeftKey() {
     bool result = false;
 
     if (this->input.cursorStepLeft()) {
@@ -335,7 +335,7 @@ bool Shell::onArrowLeftKey() {
     return result;
 }
 
-bool Shell::onArrowRightKey() {
+bool CLI::onArrowRightKey() {
     bool result = false;
 
     if (this->input.cursorStepRight()) {
@@ -347,15 +347,15 @@ bool Shell::onArrowRightKey() {
     return result;
 }
 
-void Shell::promptNew(void) {
+void CLI::promptNew(void) {
     this->isPrompted = true;
     this->printPrompt();
 }
 
-void Shell::printPrompt(void) { this->print(this->strPromptLabel); }
+void CLI::printPrompt(void) { this->print(this->strPromptLabel); }
 
 /** @return true if actually backspaced */
-bool Shell::backspaceChar() {
+bool CLI::backspaceChar() {
     bool result = false;
 
     if (this->input.backspaceCharAtCursor()) {
@@ -374,7 +374,7 @@ bool Shell::backspaceChar() {
 }
 
 /** @return true if actually inserted */
-bool Shell::insertChar(const char &c) {
+bool CLI::insertChar(const char &c) {
     bool result = false;
 
     if (this->input.insertChar(c)) {
