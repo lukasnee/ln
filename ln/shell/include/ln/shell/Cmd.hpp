@@ -36,10 +36,9 @@ public:
 
     Cmd(const char *name, const char *usage, const char *description, Function function,
         CtorCallback ctorCallback = nullptr);
-
     Cmd(Cmd &parent, const char *name, const char *usage, const char *description, Function function,
         CtorCallback ctorCallback = nullptr);
-
+    Cmd(const char *name, const char *description, Function function);
     Cmd(const char *name, Function function);
 
     const Cmd *findNeighbourCommand(const char *name) const;

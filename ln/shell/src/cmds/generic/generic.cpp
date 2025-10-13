@@ -1,8 +1,8 @@
 
 
-#include "ln/shell/generic/commands.hpp"
+#include "ln/shell/generic/cmds.hpp"
 
-namespace ln::shell::generic::commands {
+namespace ln::shell::generic::cmds {
 
 Err on_off_command_parser(std::function<bool(bool)> onOffF, const char *strOnOffControlName, Cmd::Ctx ctx) {
     Err result = Err::fail;
@@ -38,4 +38,4 @@ Err on_off_command_parser(bool &onOffControl, const char *strOnOffControlName, C
         strOnOffControlName, ctx);
 };
 
-} // namespace ln::shell::generic::commands
+} // namespace ln::shell::generic::cmds

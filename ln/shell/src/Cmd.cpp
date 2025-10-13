@@ -39,6 +39,11 @@ Cmd::Cmd(Cmd &parent, const char *name, const char *usage, const char *descripti
     }
 }
 
+Cmd::Cmd(const char *name, const char *description, Function function)
+    : name(name), usage(nullptr), description(description), function(function) {
+    this->linkTo(Cmd::globalCommandList);
+}
+
 Cmd::Cmd(const char *name, Cmd::Function function)
     : name(name), usage(nullptr), description(nullptr), function(function) {
     this->linkTo(Cmd::globalCommandList);
@@ -164,11 +169,9 @@ Cmd Cmd::help_cmd = Cmd("help,?", "[all|[COMMAND...]]", "show command usage", []
     }
     else if (ctx.argc > 1) {
         constexpr std::size_t helpCommandOffset = 1;
-        std::size_t argOffset;
-        const Cmd *pCommandFound =
-            ctx.cli.findCommand(ctx.argc - helpCommandOffset, ctx.argv + helpCommandOffset, argOffset);
-        if (pCommandFound) {
-            const auto res = pCommandFound->print_help(ctx.cli, true, 1);
+        auto [cmd, _] = ctx.cli.findCommand(ctx.argc - helpCommandOffset, ctx.argv + helpCommandOffset);
+        if (cmd) {
+            const auto res = cmd->print_help(ctx.cli, true, 1);
             if (res != Err::ok) {
                 return res;
             }

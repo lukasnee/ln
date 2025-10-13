@@ -51,19 +51,19 @@ int CLI::printf(const char *fmt, ...) {
     return charsPrinted;
 }
 
-const Cmd *CLI::findCommand(std::size_t argcIn, const char *argvIn[], std::size_t &argCmdOffsetOut) {
+std::tuple<const Cmd *, std::size_t> CLI::findCommand(std::size_t argcIn, const char *argvIn[]) {
     const Cmd *pCommand = this->commandList;
 
-    argCmdOffsetOut = 0;
+    std::size_t arg_offset = 0;
 
     if (pCommand) {
         if (argcIn && argvIn[0]) {
-            pCommand = pCommand->findNeighbourCommand(argvIn[argCmdOffsetOut]);
+            pCommand = pCommand->findNeighbourCommand(argvIn[arg_offset]);
             if (pCommand) {
-                while (argcIn - argCmdOffsetOut - 1) {
-                    const Cmd *pSubcommand = pCommand->findSubcommand(argvIn[argCmdOffsetOut + 1]);
+                while (argcIn - arg_offset - 1) {
+                    const Cmd *pSubcommand = pCommand->findSubcommand(argvIn[arg_offset + 1]);
                     if (pSubcommand) {
-                        argCmdOffsetOut++;
+                        arg_offset++;
                         pCommand = pSubcommand;
                         continue;
                     }
@@ -75,7 +75,7 @@ const Cmd *CLI::findCommand(std::size_t argcIn, const char *argvIn[], std::size_
         }
     }
 
-    return pCommand;
+    return {pCommand, arg_offset};
 }
 
 Err CLI::execute(const Cmd &cmd, std::size_t argc, const char *argv[], const char *outputColorEscapeSequence) {
@@ -145,17 +145,15 @@ bool CLI::lineFeed() {
 
     this->print("\n");
 
-    const Cmd *pCommand = nullptr;
-
     if (this->input.resolveIntoArgs()) {
-        std::size_t argOffset;
-        pCommand = this->findCommand(this->input.getArgc(), this->input.getArgv(), argOffset);
+
+        const auto [pCommand, cmd_arg_offset] = this->findCommand(this->input.getArgc(), this->input.getArgv());
         if (!pCommand) {
             this->print("\e[39mcommand not found\n");
             result = false;
         }
         else {
-            this->execute(*pCommand, this->input.getArgc() - argOffset, this->input.getArgv() + argOffset);
+            this->execute(*pCommand, this->input.getArgc() - cmd_arg_offset, this->input.getArgv() + cmd_arg_offset);
             result = true;
         }
     }

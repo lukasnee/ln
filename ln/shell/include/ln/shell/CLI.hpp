@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string_view>
+#include <tuple>
 
 using namespace std::string_view_literals;
 
@@ -47,7 +48,7 @@ public:
     void printUnformatted(const char *pData, const std::size_t len, std::size_t timesToRepeat = 1);
     int printf(const char *fmt, ...);
 
-    const Cmd *findCommand(std::size_t argcIn, const char *argvIn[], std::size_t &argCmdOffsetOut);
+    std::tuple<const Cmd *, std::size_t> findCommand(std::size_t argcIn, const char *argvIn[]);
 
     Err execute(const Cmd &command, std::size_t argc, const char *argv[],
                 const char *outputColorEscapeSequence = "\e[32m"); // default in green
