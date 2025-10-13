@@ -1,11 +1,11 @@
 #include "ln/shell/CLI.hpp"
 // TODO: make arrow up repeat buffer
-// TODO: some kind of esacpe signal mechanism to inform running command to exit.
+// TODO: some kind of esacpe signal mechanism to inform running cmd to exit.
 
 #include <cstring>
 
 namespace ln::shell {
-CLI::CLI(const char *strPromptLabel, ln::OutStream<char> &out_stream, Command *commandList)
+CLI::CLI(const char *strPromptLabel, ln::OutStream<char> &out_stream, Cmd *commandList)
     : strPromptLabel(strPromptLabel), out_stream(out_stream), commandList(commandList){};
 
 void CLI::print(const char &c, std::size_t timesToRepeat) {
@@ -51,8 +51,8 @@ int CLI::printf(const char *fmt, ...) {
     return charsPrinted;
 }
 
-const Command *CLI::findCommand(std::size_t argcIn, const char *argvIn[], std::size_t &argCmdOffsetOut) {
-    const Command *pCommand = this->commandList;
+const Cmd *CLI::findCommand(std::size_t argcIn, const char *argvIn[], std::size_t &argCmdOffsetOut) {
+    const Cmd *pCommand = this->commandList;
 
     argCmdOffsetOut = 0;
 
@@ -61,7 +61,7 @@ const Command *CLI::findCommand(std::size_t argcIn, const char *argvIn[], std::s
             pCommand = pCommand->findNeighbourCommand(argvIn[argCmdOffsetOut]);
             if (pCommand) {
                 while (argcIn - argCmdOffsetOut - 1) {
-                    const Command *pSubcommand = pCommand->findSubcommand(argvIn[argCmdOffsetOut + 1]);
+                    const Cmd *pSubcommand = pCommand->findSubcommand(argvIn[argCmdOffsetOut + 1]);
                     if (pSubcommand) {
                         argCmdOffsetOut++;
                         pCommand = pSubcommand;
@@ -78,25 +78,24 @@ const Command *CLI::findCommand(std::size_t argcIn, const char *argvIn[], std::s
     return pCommand;
 }
 
-Result CLI::execute(const Command &command, std::size_t argc, const char *argv[],
-                    const char *outputColorEscapeSequence) {
-    Result result = Result::unknown;
+Err CLI::execute(const Cmd &cmd, std::size_t argc, const char *argv[], const char *outputColorEscapeSequence) {
+    Err result = Err::unknown;
 
-    if (command.function == nullptr) {
+    if (cmd.function == nullptr) {
         this->print("\e[31mcommand has no method\n"); // red
     }
     else {
         this->print(outputColorEscapeSequence); // response in green
-        result = command.function(Command::Context{*this, argc, argv});
+        result = cmd.function(Cmd::Ctx{*this, argc, argv});
 
         if (Config::regularResponseIsEnabled) {
-            if (result == Result::ok) {
+            if (result == Err::ok) {
                 this->print("\n" ANSI_COLOR_GREEN "OK");
             }
             else if (static_cast<std::int8_t>(result) < 0) {
                 this->printf("\n" ANSI_COLOR_RED "FAIL: %d", static_cast<std::int8_t>(result));
             }
-            else if (result == Result::okQuiet) {
+            else if (result == Err::okQuiet) {
                 /* nothin */
             }
             this->print(ANSI_COLOR_RESET "\n");
@@ -106,9 +105,9 @@ Result CLI::execute(const Command &command, std::size_t argc, const char *argv[]
     return result;
 }
 
-Result CLI::execute(const Command &command, const char *argString, const char *outputColorEscapeSequence) {
+Err CLI::execute(const Cmd &cmd, const char *argString, const char *outputColorEscapeSequence) {
     ArgBuffer argBuffer(argString);
-    return this->execute(command, argBuffer.getArgc(), argBuffer.getArgv(), outputColorEscapeSequence);
+    return this->execute(cmd, argBuffer.getArgc(), argBuffer.getArgv(), outputColorEscapeSequence);
 }
 
 /** @return true if sequence finished */
@@ -146,7 +145,7 @@ bool CLI::lineFeed() {
 
     this->print("\n");
 
-    const Command *pCommand = nullptr;
+    const Cmd *pCommand = nullptr;
 
     if (this->input.resolveIntoArgs()) {
         std::size_t argOffset;

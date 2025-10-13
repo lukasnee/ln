@@ -4,8 +4,8 @@
 
 namespace ln::shell::generic::commands {
 
-Result on_off_command_parser(std::function<bool(bool)> onOffF, const char *strOnOffControlName, Command::Context ctx) {
-    Result result = Result::fail;
+Err on_off_command_parser(std::function<bool(bool)> onOffF, const char *strOnOffControlName, Cmd::Ctx ctx) {
+    Err result = Err::fail;
 
     if (ctx.argc != 2) {
         ctx.cli.print("no arg\n");
@@ -13,13 +13,13 @@ Result on_off_command_parser(std::function<bool(bool)> onOffF, const char *strOn
     else if (!std::strcmp(ctx.argv[1], "on") || !std::strcmp(ctx.argv[1], "1") || !std::strcmp(ctx.argv[1], "true")) {
         if (onOffF(true)) {
             ctx.cli.printf("%s %s %s\n", strOnOffControlName, "turned", "on");
-            result = Result::ok;
+            result = Err::ok;
         }
     }
     else if (!std::strcmp(ctx.argv[1], "off") || !std::strcmp(ctx.argv[1], "0") || !std::strcmp(ctx.argv[1], "false")) {
         if (onOffF(false)) {
             ctx.cli.printf("%s %s %s\n", strOnOffControlName, "turned", "off");
-            result = Result::ok;
+            result = Err::ok;
         }
     }
     else {
@@ -29,7 +29,7 @@ Result on_off_command_parser(std::function<bool(bool)> onOffF, const char *strOn
     return result;
 };
 
-Result on_off_command_parser(bool &onOffControl, const char *strOnOffControlName, Command::Context ctx) {
+Err on_off_command_parser(bool &onOffControl, const char *strOnOffControlName, Cmd::Ctx ctx) {
     return on_off_command_parser(
         [&](bool state) {
             onOffControl = state;

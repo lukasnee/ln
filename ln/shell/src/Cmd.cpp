@@ -1,4 +1,4 @@
-#include "ln/shell/Command.hpp"
+#include "ln/shell/Cmd.hpp"
 #include "ln/shell/CLI.hpp"
 
 // TODO: make arrow up repeat buffer
@@ -6,14 +6,14 @@
 
 namespace ln::shell {
 
-Command *Command::globalCommandList = nullptr;
+Cmd *Cmd::globalCommandList = nullptr;
 
-void Command::linkTo(Command *&pParent) {
+void Cmd::linkTo(Cmd *&pParent) {
     if (!pParent) {
         pParent = this;
     }
     else {
-        Command *pNext = pParent;
+        Cmd *pNext = pParent;
         while (pNext->pNext) {
             pNext = pNext->pNext;
         }
@@ -21,17 +21,17 @@ void Command::linkTo(Command *&pParent) {
     }
 }
 
-Command::Command(const char *name, const char *usage, const char *description, Command::Function function,
-                 std::function<void()> ctorCallback)
+Cmd::Cmd(const char *name, const char *usage, const char *description, Cmd::Function function,
+         std::function<void()> ctorCallback)
     : name(name), usage(usage), description(description), function(function) {
-    this->linkTo(Command::globalCommandList);
+    this->linkTo(Cmd::globalCommandList);
     if (ctorCallback) {
         ctorCallback();
     }
 }
 
-Command::Command(Command &parent, const char *name, const char *usage, const char *description,
-                 Command::Function function, std::function<void()> ctorCallback)
+Cmd::Cmd(Cmd &parent, const char *name, const char *usage, const char *description, Cmd::Function function,
+         std::function<void()> ctorCallback)
     : name(name), usage(usage), description(description), function(function) {
     this->linkTo(parent.pSubcommands);
     if (ctorCallback) {
@@ -39,12 +39,12 @@ Command::Command(Command &parent, const char *name, const char *usage, const cha
     }
 }
 
-Command::Command(const char *name, Command::Function function)
+Cmd::Cmd(const char *name, Cmd::Function function)
     : name(name), usage(nullptr), description(nullptr), function(function) {
-    this->linkTo(Command::globalCommandList);
+    this->linkTo(Cmd::globalCommandList);
 }
 
-bool Command::matchToken(const char *strTokens, const char *strToken) {
+bool Cmd::matchToken(const char *strTokens, const char *strToken) {
     bool result = false;
 
     const std::size_t strTokenLength = std::strlen(strToken);
@@ -67,11 +67,11 @@ bool Command::matchToken(const char *strTokens, const char *strToken) {
     return result;
 }
 
-const Command *Command::findNeighbourCommand(const char *name) const {
-    const Command *result = nullptr;
+const Cmd *Cmd::findNeighbourCommand(const char *name) const {
+    const Cmd *result = nullptr;
 
-    for (const Command *pNext = this; pNext != nullptr; pNext = pNext->pNext) {
-        if (Command::matchToken(pNext->name, name)) {
+    for (const Cmd *pNext = this; pNext != nullptr; pNext = pNext->pNext) {
+        if (Cmd::matchToken(pNext->name, name)) {
             result = pNext;
             break;
         }
@@ -80,11 +80,11 @@ const Command *Command::findNeighbourCommand(const char *name) const {
     return result;
 }
 
-const Command *Command::findSubcommand(const char *name) const {
-    const Command *result = nullptr;
+const Cmd *Cmd::findSubcommand(const char *name) const {
+    const Cmd *result = nullptr;
 
-    for (const Command *pNext = this->pSubcommands; pNext != nullptr; pNext = pNext->pNext) {
-        if (Command::matchToken(pNext->name, name)) {
+    for (const Cmd *pNext = this->pSubcommands; pNext != nullptr; pNext = pNext->pNext) {
+        if (Cmd::matchToken(pNext->name, name)) {
             result = pNext;
             break;
         }
@@ -93,13 +93,12 @@ const Command *Command::findSubcommand(const char *name) const {
     return result;
 }
 
-Result Command::print_help(CLI &cli, bool recurse, const std::size_t maxDepth, std::size_t depth,
-                           std::size_t indent) const {
-    Result result = Result::ok;
+Err Cmd::print_help(CLI &cli, bool recurse, const std::size_t maxDepth, std::size_t depth, std::size_t indent) const {
+    Err result = Err::ok;
 
     constexpr int commandColumnWidth = 40;
 
-    for (const Command *pCmdIt = this; pCmdIt != nullptr; pCmdIt = pCmdIt->pNext) {
+    for (const Cmd *pCmdIt = this; pCmdIt != nullptr; pCmdIt = pCmdIt->pNext) {
         if (indent >= 3) {
             cli.print(' ', indent - 3);
             // cli.print("|\n");
@@ -130,11 +129,11 @@ Result Command::print_help(CLI &cli, bool recurse, const std::size_t maxDepth, s
             cli.print('\n');
 
             if (charsPrinted >= 0) {
-                result = Result::ok;
+                result = Err::ok;
             }
         }
 
-        if (result == Result::ok && recurse && depth < maxDepth && pCmdIt->pSubcommands) {
+        if (result == Err::ok && recurse && depth < maxDepth && pCmdIt->pSubcommands) {
             result = pCmdIt->pSubcommands->print_help(cli, recurse, maxDepth, depth + 1,
                                                       indent + strlen(pCmdIt->name) + sizeof(' '));
         }
@@ -146,19 +145,19 @@ Result Command::print_help(CLI &cli, bool recurse, const std::size_t maxDepth, s
     return result;
 }
 
-Command Command::help_cmd = Command("help,?", "[all|[COMMAND...]]", "show command usage", [](Context ctx) -> Result {
+Cmd Cmd::help_cmd = Cmd("help,?", "[all|[COMMAND...]]", "show command usage", [](Ctx ctx) -> Err {
     if (ctx.argc == 1) {
-        for (const Command *pCmdIt = Command::globalCommandList; pCmdIt; pCmdIt = pCmdIt->pNext) {
+        for (const Cmd *pCmdIt = Cmd::globalCommandList; pCmdIt; pCmdIt = pCmdIt->pNext) {
             const auto res = pCmdIt->print_help(ctx.cli, false, 0);
-            if (res != Result::ok) {
+            if (res != Err::ok) {
                 return res;
             }
         }
     }
     else if (ctx.argc == 2 && !std::strcmp(ctx.argv[1], "all")) {
-        for (const Command *pCmdIt = Command::globalCommandList; pCmdIt; pCmdIt = pCmdIt->pNext) {
+        for (const Cmd *pCmdIt = Cmd::globalCommandList; pCmdIt; pCmdIt = pCmdIt->pNext) {
             const auto res = pCmdIt->print_help(ctx.cli, true, 7);
-            if (res != Result::ok) {
+            if (res != Err::ok) {
                 return res;
             }
         }
@@ -166,19 +165,19 @@ Command Command::help_cmd = Command("help,?", "[all|[COMMAND...]]", "show comman
     else if (ctx.argc > 1) {
         constexpr std::size_t helpCommandOffset = 1;
         std::size_t argOffset;
-        const Command *pCommandFound =
+        const Cmd *pCommandFound =
             ctx.cli.findCommand(ctx.argc - helpCommandOffset, ctx.argv + helpCommandOffset, argOffset);
         if (pCommandFound) {
             const auto res = pCommandFound->print_help(ctx.cli, true, 1);
-            if (res != Result::ok) {
+            if (res != Err::ok) {
                 return res;
             }
         }
     }
     else {
-        return Result::badArg;
+        return Err::badArg;
     }
-    return Result::ok;
+    return Err::ok;
 });
 
 } // namespace ln::shell

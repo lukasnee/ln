@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ln/shell/Input.hpp"
-#include "ln/shell/Command.hpp"
+#include "ln/shell/Cmd.hpp"
 #include "ln/stream.hpp"
 
 #include "FreeRTOS/Addons/Clock.hpp"
@@ -35,7 +35,7 @@ public:
         bool coloredOutput = true;
     } config;
 
-    CLI(const char *strPromptLabel, ln::OutStream<char> &out_stream, Command *commandList = Command::globalCommandList);
+    CLI(const char *strPromptLabel, ln::OutStream<char> &out_stream, Cmd *commandList = Cmd::globalCommandList);
 
     // NOTE: escape sequences are time sensitive !
     // TODO: move this to a dedicated uart receiver task and join by char queue
@@ -47,12 +47,11 @@ public:
     void printUnformatted(const char *pData, const std::size_t len, std::size_t timesToRepeat = 1);
     int printf(const char *fmt, ...);
 
-    const Command *findCommand(std::size_t argcIn, const char *argvIn[], std::size_t &argCmdOffsetOut);
+    const Cmd *findCommand(std::size_t argcIn, const char *argvIn[], std::size_t &argCmdOffsetOut);
 
-    Result execute(const Command &command, std::size_t argc, const char *argv[],
-                   const char *outputColorEscapeSequence = "\e[32m"); // default in green
-    Result execute(const Command &command, const char *strArgs = nullptr,
-                   const char *outputColorEscapeSequence = "\e[33m");
+    Err execute(const Cmd &command, std::size_t argc, const char *argv[],
+                const char *outputColorEscapeSequence = "\e[32m"); // default in green
+    Err execute(const Cmd &command, const char *strArgs = nullptr, const char *outputColorEscapeSequence = "\e[33m");
 
 private:
     bool lineFeed();
@@ -89,6 +88,6 @@ private:
     bool isPrompted = true;
     const char *strPromptLabel;
     ln::OutStream<char> &out_stream;
-    Command *commandList = nullptr;
+    Cmd *commandList = nullptr;
 };
 } // namespace ln::shell
