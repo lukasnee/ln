@@ -36,7 +36,7 @@ public:
         bool coloredOutput = true;
     } config;
 
-    CLI(const char *strPromptLabel, ln::OutStream<char> &out_stream, Cmd *commandList = Cmd::globalCommandList);
+    CLI(ln::OutStream<char> &out_stream, Cmd *commandList = Cmd::globalCommandList);
 
     // NOTE: escape sequences are time sensitive !
     // TODO: move this to a dedicated uart receiver task and join by char queue
@@ -87,7 +87,6 @@ private:
 
     Input input;
     bool isPrompted = true;
-    const char *strPromptLabel;
     ln::OutStream<char> &out_stream;
     Cmd *commandList = nullptr;
 };

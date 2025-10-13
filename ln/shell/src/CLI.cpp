@@ -5,8 +5,7 @@
 #include <cstring>
 
 namespace ln::shell {
-CLI::CLI(const char *strPromptLabel, ln::OutStream<char> &out_stream, Cmd *commandList)
-    : strPromptLabel(strPromptLabel), out_stream(out_stream), commandList(commandList){};
+CLI::CLI(ln::OutStream<char> &out_stream, Cmd *commandList) : out_stream(out_stream), commandList(commandList){};
 
 void CLI::print(const char &c, std::size_t timesToRepeat) {
     while (timesToRepeat--) {
@@ -349,7 +348,7 @@ void CLI::promptNew(void) {
     this->printPrompt();
 }
 
-void CLI::printPrompt(void) { this->print(this->strPromptLabel); }
+void CLI::printPrompt(void) { this->print(ANSI_COLOR_BLUE "> " ANSI_COLOR_YELLOW); }
 
 /** @return true if actually backspaced */
 bool CLI::backspaceChar() {
