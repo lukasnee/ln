@@ -5,7 +5,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-option(LN_FREERTOS "Enable FreeRTOS support" OFF)
+option(LN_FREERTOS "Enable FreeRTOS and features depending on it" OFF)
 
 project(
   ln
@@ -14,6 +14,7 @@ project(
 
 if(PROJECT_IS_TOP_LEVEL)
   add_subdirectory(tests)
+  set(LN_FREERTOS ON)
   set(FREERTOS_PORT
       GCC_ARM_CM7
       CACHE STRING \"\")
