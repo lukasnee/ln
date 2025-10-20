@@ -1,13 +1,14 @@
 #pragma once
 
-#include "ln/shell/ArgBuffer.hpp"
+#include "ln/shell/Args.hpp"
 
 #include <cstdint>
 #include <cstddef>
 #include <array>
 
 namespace ln::shell {
-class Input : public ArgBuffer {
+
+class Input {
 public:
     Input();
     ~Input() = default;
@@ -33,7 +34,14 @@ public:
     bool insertChar(const char &c);
 
 private:
+    std::array<char, 256> args_buf{};
+
+public:
+    Args args;
+
+private:
     std::size_t cursorIdx = 0;
     std::size_t charsUsed = 1;
 };
+
 } // namespace ln::shell

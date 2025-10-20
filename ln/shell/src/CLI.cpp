@@ -77,14 +77,14 @@ std::tuple<const Cmd *, std::size_t> CLI::findCommand(std::size_t argcIn, const 
     return {pCommand, arg_offset};
 }
 
-Err CLI::execute(const Cmd &cmd, std::size_t argc, const char *argv[], const char *outputColorEscapeSequence) {
+Err CLI::execute(const Cmd &cmd, std::size_t argc, const char *argv[], const char *output_color_escape_sequence) {
     Err result = Err::unknown;
 
     if (cmd.function == nullptr) {
         this->print("\e[31mcommand has no method\n"); // red
     }
     else {
-        this->print(outputColorEscapeSequence); // response in green
+        this->print(output_color_escape_sequence); // response in green
         result = cmd.function(Cmd::Ctx{*this, argc, argv});
 
         if (Config::regularResponseIsEnabled) {
@@ -104,9 +104,10 @@ Err CLI::execute(const Cmd &cmd, std::size_t argc, const char *argv[], const cha
     return result;
 }
 
-Err CLI::execute(const Cmd &cmd, const char *argString, const char *outputColorEscapeSequence) {
-    ArgBuffer argBuffer(argString);
-    return this->execute(cmd, argBuffer.getArgc(), argBuffer.getArgv(), outputColorEscapeSequence);
+Err CLI::execute(const Cmd &cmd, const char *arg_string, const char *output_color_escape_sequence) {
+    std::array<char, 256> args_buf;
+    Args args(args_buf, arg_string);
+    return this->execute(cmd, args.get_argc(), args.get_argv(), output_color_escape_sequence);
 }
 
 /** @return true if sequence finished */
@@ -144,15 +145,15 @@ bool CLI::lineFeed() {
 
     this->print("\n");
 
-    if (this->input.resolveIntoArgs()) {
+    if (this->input.args.resolve_into_args()) {
 
-        const auto [pCommand, cmd_arg_offset] = this->findCommand(this->input.getArgc(), this->input.getArgv());
+        const auto [pCommand, cmd_arg_offset] = this->findCommand(this->input.args.get_argc(), this->input.args.get_argv());
         if (!pCommand) {
             this->print("\e[39mcommand not found\n");
             result = false;
         }
         else {
-            this->execute(*pCommand, this->input.getArgc() - cmd_arg_offset, this->input.getArgv() + cmd_arg_offset);
+            this->execute(*pCommand, this->input.args.get_argc() - cmd_arg_offset, this->input.args.get_argv() + cmd_arg_offset);
             result = true;
         }
     }
@@ -302,7 +303,7 @@ bool CLI::onHomeKey() {
 bool CLI::onArrowUpKey() {
     bool result = false;
 
-    if (this->input.restoreIntoString()) {
+    if (this->input.args.restore_into_string()) {
         int charsPrinted = this->printf(this->input.getBufferAtBase());
         if (charsPrinted > 0) {
             if (this->input.setCursor(charsPrinted)) {

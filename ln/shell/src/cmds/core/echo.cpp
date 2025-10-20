@@ -6,10 +6,11 @@ Cmd echo("echo", "echos typed content", [](Cmd::Ctx ctx) -> Err {
     if (ctx.argc <= 1) {
         return Err::fail;
     }
-    ArgVector argVector(ctx.argc - 1, ctx.argv + 1);
-    std::array<char, ArgBuffer::Config::bufferSize> echoBuffer;
-    argVector.printTo(echoBuffer.data(), echoBuffer.size(), " ", false);
-    ctx.cli.printf("%s\n", echoBuffer.data());
+    std::array<char, 256> args_buf;
+    Args args(args_buf, ctx.argc - 1, ctx.argv + 1);
+    std::array<char, 256> echo_buf;
+    args.print_to(echo_buf.data(), echo_buf.size(), " ", false);
+    ctx.cli.printf("%s\n", echo_buf.data());
     return Err::okQuiet;
 });
 
