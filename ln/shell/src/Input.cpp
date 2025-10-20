@@ -23,49 +23,37 @@ bool Input::is_full() { return (this->chars_used >= this->args_buf.size()); }
 const char &Input::get_char_at_cursor() { return this->args_buf.at(this->cursor_idx); }
 
 bool Input::set_cursor(size_t index) {
-    bool result = false;
-
-    if (index < this->args_buf.size()) {
-        this->cursor_idx = index;
-        result = true;
+    if (index >= this->args_buf.size()) {
+        return false;
     }
-
-    return result;
+    this->cursor_idx = index;
+    return true;
 }
 
 bool Input::cursor_step_right() {
-    bool result = false;
-
-    if (!this->is_full()) {
-        this->cursor_idx++;
-        result = true;
+    if (this->is_full()) {
+        return false;
     }
-
-    return result;
+    this->cursor_idx++;
+    return true;
 }
 
 bool Input::cursor_step_left() {
-    bool result = false;
-
-    if (!this->is_cursor_on_base()) {
-        this->cursor_idx--;
-        result = true;
+    if (this->is_cursor_on_base()) {
+        return false;
     }
-
-    return result;
+    this->cursor_idx--;
+    return true;
 }
 
 bool Input::delete_char_at_cursor() {
-    bool result = false;
-
-    if (!this->is_empty() && !this->is_cursor_on_end()) {
-        std::memmove(&this->args_buf[this->cursor_idx], &this->args_buf[this->cursor_idx + 1],
-                     this->chars_used - (this->cursor_idx + 1));
-        this->args_buf[--this->chars_used] = '\0';
-        result = true;
+    if (this->is_empty() || this->is_cursor_on_end()) {
+        return false;
     }
-
-    return result;
+    std::memmove(&this->args_buf[this->cursor_idx], &this->args_buf[this->cursor_idx + 1],
+                 this->chars_used - (this->cursor_idx + 1));
+    this->args_buf[--this->chars_used] = '\0';
+    return true;
 }
 
 const char *Input::get_buffer_at_cursor(std::size_t &length_out) {
@@ -76,35 +64,30 @@ const char *Input::get_buffer_at_cursor(std::size_t &length_out) {
 const char *Input::get_buffer_at_base() { return &this->args_buf[0]; }
 
 bool Input::backspace_char_at_cursor() {
-    bool result = false;
-
-    if (false == this->is_cursor_on_base()) {
-        std::memmove(&this->args_buf[this->cursor_idx - 1], &this->args_buf.at(this->cursor_idx),
-                     this->chars_used - this->cursor_idx);
-        if (this->cursor_step_left()) {
-            this->args_buf[--this->chars_used] = '\0';
-            result = true;
-        }
+    if (this->is_cursor_on_base()) {
+        return false;
     }
-
-    return result;
+    std::memmove(&this->args_buf[this->cursor_idx - 1], &this->args_buf.at(this->cursor_idx),
+                 this->chars_used - this->cursor_idx);
+    if (!this->cursor_step_left()) {
+        return false;
+    }
+    this->args_buf[--this->chars_used] = '\0';
+    return true;
 }
 
 bool Input::insert_char(const char &c) {
-    bool result = false;
-
-    if (!this->is_full()) {
-        if (!this->is_cursor_on_end()) {
-            std::memmove(&this->args_buf[this->cursor_idx + 1], &this->args_buf.at(this->cursor_idx),
-                         this->chars_used - this->cursor_idx);
-        }
-
-        this->args_buf[this->cursor_idx] = c;
-        this->cursor_step_right();
-        this->args_buf[this->chars_used++] = '\0';
-        result = true;
+    if (this->is_full()) {
+        return false;
     }
-    return result;
+    if (this->is_cursor_on_end()) {
+        std::memmove(&this->args_buf[this->cursor_idx + 1], &this->args_buf.at(this->cursor_idx),
+                     this->chars_used - this->cursor_idx);
+    }
+    this->args_buf[this->cursor_idx] = c;
+    this->cursor_step_right();
+    this->args_buf[this->chars_used++] = '\0';
+    return true;
 }
 
 } // namespace ln::shell

@@ -3,6 +3,7 @@
 // TODO: some kind of esacpe signal mechanism to inform running cmd to exit.
 
 #include <cstring>
+#include <type_traits>
 
 namespace ln::shell {
 CLI::CLI(ln::OutStream<char> &out_stream, Cmd *cmd_list) : out_stream(out_stream), cmd_list(cmd_list){};
@@ -17,7 +18,6 @@ void CLI::print_unformatted(const char *data, const std::size_t len, std::size_t
     while (times_to_repeat--) {
         std::size_t len_left = len;
         const char *data_it = data;
-
         while (len_left--) {
             this->print(*(data_it++));
         }
@@ -26,14 +26,12 @@ void CLI::print_unformatted(const char *data, const std::size_t len, std::size_t
 
 int CLI::print(const char *string, std::size_t times_to_repeat) {
     int chars_printed = 0;
-
     while (times_to_repeat--) {
         for (const char *c = string; *c != '\0'; ++c) {
             this->print(*c); // TODO print whole sentence not char by char !
             chars_printed++;
         }
     }
-
     return chars_printed;
 }
 
@@ -74,30 +72,26 @@ std::tuple<const Cmd *, std::size_t> CLI::find_cmd(std::size_t argc, const char 
 }
 
 Err CLI::execute(const Cmd &cmd, std::size_t argc, const char *argv[], const char *output_color_escape_sequence) {
-    Err result = Err::unknown;
-
-    if (cmd.function == nullptr) {
+    if (!cmd.function) {
         this->print("\e[31mcommand has no method\n"); // red
+        return Err::unexpected;
     }
-    else {
-        this->print(output_color_escape_sequence); // response in green
-        result = cmd.function(Cmd::Ctx{*this, argc, argv});
-
-        if (Config::regular_response_is_enabled) {
-            if (result == Err::ok) {
-                this->print("\n" ANSI_COLOR_GREEN "OK");
-            }
-            else if (static_cast<std::int8_t>(result) < 0) {
-                this->printf("\n" ANSI_COLOR_RED "FAIL: %d", static_cast<std::int8_t>(result));
-            }
-            else if (result == Err::okQuiet) {
-                /* nothin */
-            }
-            this->print(ANSI_COLOR_RESET "\n");
-        }
+    this->print(output_color_escape_sequence); // response in green
+    Err err = cmd.function(Cmd::Ctx{*this, argc, argv});
+    if (!Config::regular_response_is_enabled) {
+        return err;
     }
-
-    return result;
+    if (err == Err::ok) {
+        this->print("\n" ANSI_COLOR_GREEN "OK");
+    }
+    else if (static_cast<std::int8_t>(err) < 0) {
+        this->printf("\n" ANSI_COLOR_RED "FAIL: %d", static_cast<std::underlying_type_t<decltype(err)>>(err));
+    }
+    else if (err == Err::okQuiet) {
+        /* nothin */
+    }
+    this->print(ANSI_COLOR_RESET "\n");
+    return err;
 }
 
 Err CLI::execute(const Cmd &cmd, const char *arg_string, const char *output_color_escape_sequence) {
@@ -108,187 +102,147 @@ Err CLI::execute(const Cmd &cmd, const char *arg_string, const char *output_colo
 
 /** @return true if sequence finished */
 bool CLI::put_char(const char &c) {
-    bool result = false;
-
     if (this->handle_escape(c)) {
+        return false;
     }
-    else if (c == '\b') {
-        result = true;
+    if (c == '\b') {
         this->backspace_char();
+        return true;
     }
-    else if (' ' <= c && c <= '~') {
-        result = true;
-
+    if (' ' <= c && c <= '~') {
         if (this->is_prompted) {
             this->input.reset();
             this->is_prompted = false;
         }
         this->insert_char(c);
+        return true;
     }
-    else if (c == '\r') {
-        result = true;
-
+    if (c == '\r') {
         if (this->is_prompted) {
             this->input.reset();
         }
         this->line_feed();
+        return true;
     }
-    return result;
+    return false;
 }
 
 bool CLI::line_feed() {
-    bool result = false;
-
     this->print("\n");
-
-    if (this->input.args.resolve_into_args()) {
-
-        const auto [cmd, cmd_arg_offset] = this->find_cmd(this->input.args.get_argc(), this->input.args.get_argv());
-        if (!cmd) {
-            this->print("\e[39mcommand not found\n");
-            result = false;
-        }
-        else {
-            this->execute(*cmd, this->input.args.get_argc() - cmd_arg_offset,
-                          this->input.args.get_argv() + cmd_arg_offset);
-            result = true;
-        }
+    if (!this->input.args.resolve_into_args()) {
+        return false;
     }
-
+    const auto [cmd, cmd_arg_offset] = this->find_cmd(this->input.args.get_argc(), this->input.args.get_argv());
+    if (!cmd) {
+        this->print("\e[39mcommand not found\n");
+        this->prompt_new();
+        return false;
+    }
+    this->execute(*cmd, this->input.args.get_argc() - cmd_arg_offset, this->input.args.get_argv() + cmd_arg_offset);
     this->prompt_new();
-
-    return result;
+    return true;
 }
 
 /** @result false - nothing to handle */
 bool CLI::handle_escape(const char &c) {
-    bool result = false;
-
     if (c == '\e') {
         this->escape_start_time = FreeRTOS::Addons::Clock::now();
         this->escape_state = EscapeState::escaped;
-        result = true;
+        return true;
     }
-    else if (this->escape_state == EscapeState::escaped || this->escape_state == EscapeState::delimited ||
-             this->escape_state == EscapeState::intermediate || this->escape_state == EscapeState::finished) {
-        if (FreeRTOS::Addons::Clock::now() - this->escape_start_time > std::chrono::milliseconds(2)) {
-            /* timed out */
-            this->escape_state = EscapeState::none;
-        }
-        else if (c == 0x7F) // DELete
-        {
-            delete_char();
-            result = true;
-            this->escape_state = EscapeState::finished;
-        }
-        else {
-            result = this->handle_ansi_escape(c);
-        }
+    if (this->escape_state != EscapeState::escaped && this->escape_state != EscapeState::delimited &&
+        this->escape_state != EscapeState::intermediate && this->escape_state != EscapeState::finished) {
+        this->escape_state = EscapeState::none; // unexpected state
+        return false;
     }
-    else {
-        this->escape_state = EscapeState::failed;
-    }
-
-    if (this->escape_state == EscapeState::failed || this->escape_state == EscapeState::finished) {
+    if (FreeRTOS::Addons::Clock::now() - this->escape_start_time > std::chrono::milliseconds(2)) {
+        /* timed out */
         this->escape_state = EscapeState::none;
+        return false;
     }
-
-    return result;
+    if (c == 0x7F) // DELete
+    {
+        delete_char();
+        this->escape_state = EscapeState::none;
+        return true;
+    }
+    return this->handle_ansi_escape(c);
 }
 
 /** @result false - nothing to handle */
 bool CLI::handle_ansi_escape(const char &c) {
-    bool result = false;
-
     if (c == '[') /* open delimiter */
     {
         this->escape_state = EscapeState::delimited;
-        result = true;
+        return true;
     }
-    else if (this->escape_state == EscapeState::delimited || this->escape_state == EscapeState::intermediate ||
-             this->escape_state == EscapeState::finished) {
-        result = this->handle_ansi_delimited_escape(c);
-    }
-    else {
+    if (this->escape_state != EscapeState::delimited && this->escape_state != EscapeState::intermediate &&
+        this->escape_state != EscapeState::finished) {
         this->escape_state = EscapeState::failed;
+        return false;
     }
-
-    return result;
+    return this->handle_ansi_delimited_escape(c);
 }
 
 bool CLI::handle_ansi_delimited_escape(const char &c) {
-    bool result = false;
-
     if (this->handle_ansi_delimited_del_escape(c)) {
-        result = true;
+        return true;
     }
-    else if (c == 'H') {
+    if (c == 'H') {
         this->on_home_key();
-        result = true;
         this->escape_state = EscapeState::finished;
+        return true;
     }
-    else if (c == 'A') {
+    if (c == 'A') {
         this->on_arrow_up_key();
-        result = true;
         this->escape_state = EscapeState::finished;
+        return true;
     }
-    else if (c == 'B') {
+    if (c == 'B') {
         this->on_arrow_down_key();
-        result = true;
         this->escape_state = EscapeState::finished;
+        return true;
     }
-    else if (c == 'C') {
+    if (c == 'C') {
         this->on_arrow_right_key();
-        result = true;
         this->escape_state = EscapeState::finished;
+        return true;
     }
-    else if (c == 'D') {
+    if (c == 'D') {
         this->on_arrow_left_key();
-        result = true;
         this->escape_state = EscapeState::finished;
+        return true;
     }
-    else {
-        this->escape_state = EscapeState::failed;
-    }
-
-    return result;
+    this->escape_state = EscapeState::failed;
+    return false;
 }
 
 bool CLI::handle_ansi_delimited_del_escape(const char &c) {
-    bool result = false;
-
     if ((this->escape_state == EscapeState::delimited || this->escape_state == EscapeState::intermediate ||
          this->escape_state == EscapeState::finished) &&
         c == '3') {
         this->escape_state = EscapeState::intermediate;
-        result = true;
+        return true;
     }
-    else if ((this->escape_state == EscapeState::intermediate || this->escape_state == EscapeState::finished) &&
-             c == '~') {
+    if ((this->escape_state == EscapeState::intermediate || this->escape_state == EscapeState::finished) && c == '~') {
         this->delete_char();
         this->escape_state = EscapeState::finished;
-        result = true;
+        return true;
     }
-    else {
-        this->escape_state = EscapeState::failed;
-    }
-
-    return result;
+    this->escape_state = EscapeState::failed;
+    return false;
 }
 
 bool CLI::delete_char() {
-    bool result = false;
-
-    if (this->input.delete_char_at_cursor()) {
-        std::size_t string_at_cursor_length;
-        const char *string_at_cursor = this->input.get_buffer_at_cursor(string_at_cursor_length);
-        this->print_unformatted(string_at_cursor, string_at_cursor_length + 1);
-        this->print("  ");
-        this->print('\b', string_at_cursor_length + 1);
-        result = true;
+    if (!this->input.delete_char_at_cursor()) {
+        return false;
     }
-
-    return result;
+    std::size_t string_at_cursor_length;
+    const char *string_at_cursor = this->input.get_buffer_at_cursor(string_at_cursor_length);
+    this->print_unformatted(string_at_cursor, string_at_cursor_length + 1);
+    this->print("  ");
+    this->print('\b', string_at_cursor_length + 1);
+    return true;
 }
 
 bool CLI::on_home_key() {
@@ -298,18 +252,17 @@ bool CLI::on_home_key() {
 }
 
 bool CLI::on_arrow_up_key() {
-    bool result = false;
-
-    if (this->input.args.restore_into_string()) {
-        int chars_printed = this->printf(this->input.get_buffer_at_base());
-        if (chars_printed > 0) {
-            if (this->input.set_cursor(chars_printed)) {
-                result = true;
-            }
-        }
+    if (!this->input.args.restore_into_string()) {
+        return false;
     }
-
-    return result;
+    int chars_printed = this->printf(this->input.get_buffer_at_base());
+    if (chars_printed <= 0) {
+        return false;
+    }
+    if (!this->input.set_cursor(chars_printed)) {
+        return false;
+    }
+    return true;
 }
 
 bool CLI::on_arrow_down_key() {
@@ -319,26 +272,20 @@ bool CLI::on_arrow_down_key() {
 }
 
 bool CLI::on_arrow_left_key() {
-    bool result = false;
-
-    if (this->input.cursor_step_left()) {
-        this->print('\b');
-        result = true;
+    if (!this->input.cursor_step_left()) {
+        return false;
     }
-
-    return result;
+    this->print('\b');
+    return true;
 }
 
 bool CLI::on_arrow_right_key() {
-    bool result = false;
-
-    if (this->input.cursor_step_right()) {
-        std::size_t length;
-        this->print(*(this->input.get_buffer_at_cursor(length) - 1));
-        result = true;
+    if (!this->input.cursor_step_right()) {
+        return false;
     }
-
-    return result;
+    std::size_t length;
+    this->print(*(this->input.get_buffer_at_cursor(length) - 1));
+    return true;
 }
 
 void CLI::prompt_new(void) {
@@ -350,43 +297,36 @@ void CLI::print_prompt(void) { this->print(ANSI_COLOR_BLUE "> " ANSI_COLOR_YELLO
 
 /** @return true if actually backspaced */
 bool CLI::backspace_char() {
-    bool result = false;
-
-    if (this->input.backspace_char_at_cursor()) {
-        std::size_t string_at_cursor_length;
-        const char *string_at_cursor = this->input.get_buffer_at_cursor(string_at_cursor_length);
-        this->print('\b');
-        this->print_unformatted(string_at_cursor, string_at_cursor_length);
-        this->print(' ');
-        for (std::size_t i = string_at_cursor_length; i > 0; i--) {
-            this->print('\b');
-        }
-        result = true;
+    if (!this->input.backspace_char_at_cursor()) {
+        return false;
     }
-
-    return result;
+    std::size_t string_at_cursor_length;
+    const char *string_at_cursor = this->input.get_buffer_at_cursor(string_at_cursor_length);
+    this->print('\b');
+    this->print_unformatted(string_at_cursor, string_at_cursor_length);
+    this->print(' ');
+    for (std::size_t i = string_at_cursor_length; i > 0; i--) {
+        this->print('\b');
+    }
+    return true;
 }
 
 /** @return true if actually inserted */
 bool CLI::insert_char(const char &c) {
-    bool result = false;
-
-    if (this->input.insert_char(c)) {
-        result = true;
-        if (this->input.is_cursor_on_end()) {
-            /* append */
-            this->print(c);
-        }
-        else {
-            /* insert in middle */
-            std::size_t length;
-            this->print(c);
-            this->print(this->input.get_buffer_at_cursor(length));
-            this->print('\b', length - 1);
-        }
+    if (!this->input.insert_char(c)) {
+        return false;
     }
-
-    return result;
+    if (this->input.is_cursor_on_end()) {
+        /* append */
+        this->print(c);
+        return true;
+    }
+    /* insert in middle */
+    std::size_t length;
+    this->print(c);
+    this->print(this->input.get_buffer_at_cursor(length));
+    this->print('\b', length - 1);
+    return true;
 }
 
 } // namespace ln::shell

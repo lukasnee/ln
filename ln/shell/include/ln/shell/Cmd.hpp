@@ -51,8 +51,8 @@ public:
     const char *description = nullptr;
     const Function function = nullptr;
 
-    Err print_help(CLI &cli, bool recurse, const std::size_t max_depth = 1, std::size_t depth = 0,
-                   std::size_t indent = 0) const;
+    void print_help(CLI &cli, bool recurse, const std::size_t max_depth = 1, std::size_t depth = 0,
+                    std::size_t indent = 0) const;
 
 protected:
     void link_to(Cmd *&parent_cmd);
