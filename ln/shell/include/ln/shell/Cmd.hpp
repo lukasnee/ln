@@ -35,34 +35,34 @@ public:
     using CtorCallback = std::function<void()>;
 
     Cmd(const char *name, const char *usage, const char *description, Function function,
-        CtorCallback ctorCallback = nullptr);
+        CtorCallback ctor_cb = nullptr);
     Cmd(Cmd &parent, const char *name, const char *usage, const char *description, Function function,
-        CtorCallback ctorCallback = nullptr);
+        CtorCallback ctor_cb = nullptr);
     Cmd(const char *name, const char *description, Function function);
     Cmd(const char *name, Function function);
 
-    const Cmd *findNeighbourCommand(const char *name) const;
-    const Cmd *findSubcommand(const char *name) const;
+    const Cmd *find_neighbour_cmd(const char *name) const;
+    const Cmd *find_subcmd(const char *name) const;
 
-    static bool matchToken(const char *strTokens, const char *strToken);
+    static bool match_token(const char *str_tokens, const char *str_token);
 
     const char *name = nullptr;
     const char *usage = nullptr;
     const char *description = nullptr;
     const Function function = nullptr;
 
-    Err print_help(CLI &cli, bool recurse, const std::size_t maxDepth = 1, std::size_t depth = 0,
+    Err print_help(CLI &cli, bool recurse, const std::size_t max_depth = 1, std::size_t depth = 0,
                    std::size_t indent = 0) const;
 
 protected:
-    void linkTo(Cmd *&pParent);
+    void link_to(Cmd *&parent_cmd);
 
-    Cmd *pSubcommands = nullptr;
-    Cmd *pNext = nullptr;
+    Cmd *subcmd = nullptr;
+    Cmd *next = nullptr;
 
 private:
     friend CLI;
-    static Cmd *globalCommandList;
+    static Cmd *global_command_list;
 
     static Cmd help_cmd;
 };

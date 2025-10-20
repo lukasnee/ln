@@ -31,48 +31,48 @@ namespace ln::shell {
 class CLI {
 public:
     struct Config {
-        static constexpr std::size_t printfBufferSize = 256;
-        static constexpr bool regularResponseIsEnabled = true;
-        bool coloredOutput = true;
+        static constexpr std::size_t printf_buffer_size = 256;
+        static constexpr bool regular_response_is_enabled = true;
+        bool colored_output = true;
     } config;
 
-    CLI(ln::OutStream<char> &out_stream, Cmd *commandList = Cmd::globalCommandList);
+    CLI(ln::OutStream<char> &out_stream, Cmd *cmd_list = Cmd::global_command_list);
 
     // NOTE: escape sequences are time sensitive !
     // TODO: move this to a dedicated uart receiver task and join by char queue
     // escape sequence finished (not time sensitive)
-    bool putChar(const char &c);
+    bool put_char(const char &c);
 
-    void print(const char &c, std::size_t timesToRepeat = 1);
-    int print(const char *str, std::size_t timesToRepeat = 1);
-    void printUnformatted(const char *pData, const std::size_t len, std::size_t timesToRepeat = 1);
+    void print(const char &c, std::size_t times_to_repeat = 1);
+    int print(const char *str, std::size_t times_to_repeat = 1);
+    void print_unformatted(const char *data, const std::size_t len, std::size_t times_to_repeat = 1);
     int printf(const char *fmt, ...);
 
-    std::tuple<const Cmd *, std::size_t> findCommand(std::size_t argcIn, const char *argvIn[]);
+    std::tuple<const Cmd *, std::size_t> find_cmd(std::size_t argcIn, const char *argvIn[]);
 
-    Err execute(const Cmd &command, std::size_t argc, const char *argv[],
-                const char *outputColorEscapeSequence = "\e[32m"); // default in green
-    Err execute(const Cmd &command, const char *strArgs = nullptr, const char *outputColorEscapeSequence = "\e[33m");
+    Err execute(const Cmd &cmd, std::size_t argc, const char *argv[],
+                const char *output_color_escape_sequence = "\e[32m"); // default in green
+    Err execute(const Cmd &cmd, const char *str_args = nullptr, const char *output_color_escape_sequence = "\e[33m");
 
 private:
-    bool lineFeed();
+    bool line_feed();
 
-    bool handleEscape(const char &c);
-    bool handleAnsiEscape(const char &c);
-    bool handleAnsiDelimitedEscape(const char &c);
-    bool handleAnsiDelimitedDelEscape(const char &c);
-    bool deleteChar();
-    bool onHomeKey();
-    bool onArrowUpKey();
-    bool onArrowDownKey();
-    bool onArrowRightKey();
-    bool onArrowLeftKey();
+    bool handle_escape(const char &c);
+    bool handle_ansi_escape(const char &c);
+    bool handle_ansi_delimited_escape(const char &c);
+    bool handle_ansi_delimited_del_escape(const char &c);
+    bool delete_char();
+    bool on_home_key();
+    bool on_arrow_up_key();
+    bool on_arrow_down_key();
+    bool on_arrow_right_key();
+    bool on_arrow_left_key();
 
-    bool backspaceChar();
-    bool insertChar(const char &c);
+    bool backspace_char();
+    bool insert_char(const char &c);
 
-    void promptNew();
-    void printPrompt();
+    void prompt_new();
+    void print_prompt();
 
     enum class EscapeState : std::int8_t {
         failed = -1,
@@ -81,13 +81,13 @@ private:
         delimited,
         intermediate,
         finished,
-    } escapeState;
+    } escape_state;
 
-    FreeRTOS::Addons::Clock::time_point escapeStartTime;
+    FreeRTOS::Addons::Clock::time_point escape_start_time;
 
     Input input;
-    bool isPrompted = true;
+    bool is_prompted = true;
     ln::OutStream<char> &out_stream;
-    Cmd *commandList = nullptr;
+    Cmd *cmd_list = nullptr;
 };
 } // namespace ln::shell

@@ -47,7 +47,7 @@ Cmd repeat("repeat,r", "<period_ms> <COMMAND...>", "repeat command at a given pe
 
     if (ctx.argc > 2) {
         constexpr std::size_t arg_offset = 2;
-        auto [cmd, _] = ctx.cli.findCommand(ctx.argc - arg_offset, ctx.argv + arg_offset);
+        auto [cmd, _] = ctx.cli.find_cmd(ctx.argc - arg_offset, ctx.argv + arg_offset);
 
         if (!cmd) {
             return Err::fail;
