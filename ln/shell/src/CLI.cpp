@@ -14,23 +14,19 @@ void CLI::print(const char &c, std::size_t times_to_repeat) {
     }
 }
 
-void CLI::print_unformatted(const char *data, const std::size_t len, std::size_t times_to_repeat) {
-    while (times_to_repeat--) {
-        std::size_t len_left = len;
-        const char *data_it = data;
-        while (len_left--) {
-            this->print(*(data_it++));
-        }
+void CLI::print(const char *data, const std::size_t size) {
+    std::size_t size_left = size;
+    const char *data_it = data;
+    while (size_left--) {
+        this->print(*(data_it++));
     }
 }
 
-int CLI::print(const char *string, std::size_t times_to_repeat) {
+int CLI::print(const char *str) {
     int chars_printed = 0;
-    while (times_to_repeat--) {
-        for (const char *c = string; *c != '\0'; ++c) {
-            this->print(*c); // TODO print whole sentence not char by char !
-            chars_printed++;
-        }
+    for (const char *c = str; *c != '\0'; ++c) {
+        this->print(*c); // TODO print whole sentence not char by char !
+        chars_printed++;
     }
     return chars_printed;
 }
@@ -239,7 +235,7 @@ bool CLI::delete_char() {
     }
     std::size_t string_at_cursor_length;
     const char *string_at_cursor = this->input.get_buffer_at_cursor(string_at_cursor_length);
-    this->print_unformatted(string_at_cursor, string_at_cursor_length + 1);
+    this->print(string_at_cursor, string_at_cursor_length + 1);
     this->print("  ");
     this->print('\b', string_at_cursor_length + 1);
     return true;
@@ -303,7 +299,7 @@ bool CLI::backspace_char() {
     std::size_t string_at_cursor_length;
     const char *string_at_cursor = this->input.get_buffer_at_cursor(string_at_cursor_length);
     this->print('\b');
-    this->print_unformatted(string_at_cursor, string_at_cursor_length);
+    this->print(string_at_cursor, string_at_cursor_length);
     this->print(' ');
     for (std::size_t i = string_at_cursor_length; i > 0; i--) {
         this->print('\b');

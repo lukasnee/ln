@@ -44,8 +44,8 @@ public:
     bool put_char(const char &c);
 
     void print(const char &c, std::size_t times_to_repeat = 1);
-    int print(const char *str, std::size_t times_to_repeat = 1);
-    void print_unformatted(const char *data, const std::size_t len, std::size_t times_to_repeat = 1);
+    int print(const char *str);
+    void print(const char *data, const std::size_t size);
     int printf(const char *fmt, ...);
 
     std::tuple<const Cmd *, std::size_t> find_cmd(std::size_t argcIn, const char *argvIn[]);
