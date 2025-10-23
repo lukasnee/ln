@@ -69,7 +69,7 @@ std::tuple<const Cmd *, std::size_t> CLI::find_cmd(std::size_t argc, const char 
 
 Err CLI::execute(const Cmd &cmd, std::size_t argc, const char *argv[], const char *output_color_escape_sequence) {
     if (!cmd.function) {
-        this->print("\e[31mcommand has no method\n"); // red
+        this->print(ANSI_COLOR_RED "command has no method\n");
         return Err::unexpected;
     }
     this->print(output_color_escape_sequence); // response in green
@@ -84,7 +84,7 @@ Err CLI::execute(const Cmd &cmd, std::size_t argc, const char *argv[], const cha
         this->printf("\n" ANSI_COLOR_RED "FAIL: %d", static_cast<std::underlying_type_t<decltype(err)>>(err));
     }
     else if (err == Err::okQuiet) {
-        /* nothin */
+        /* nothing */
     }
     this->print(ANSI_COLOR_RESET "\n");
     return err;
@@ -128,13 +128,13 @@ bool CLI::line_feed() {
     if (!this->input.args.resolve_into_args()) {
         return false;
     }
-    const auto [cmd, cmd_arg_offset] = this->find_cmd(this->input.args.get_argc(), this->input.args.get_argv());
+    const auto [cmd, arg_offset] = this->find_cmd(this->input.args.get_argc(), this->input.args.get_argv());
     if (!cmd) {
         this->print("\e[39mcommand not found\n");
         this->prompt_new();
         return false;
     }
-    this->execute(*cmd, this->input.args.get_argc() - cmd_arg_offset, this->input.args.get_argv() + cmd_arg_offset);
+    this->execute(*cmd, this->input.args.get_argc() - arg_offset, this->input.args.get_argv() + arg_offset);
     this->prompt_new();
     return true;
 }
