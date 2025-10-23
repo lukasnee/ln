@@ -20,8 +20,8 @@ public:
     void clear();
 
     bool copy_from(std::size_t argc, const char *argv[]);
-    bool resolve_into_args();
-    bool restore_into_string();
+    bool tokenize();
+    bool untokenize();
 
     /**
      * @brief copy out arguments (contents) by given format into buffer.
@@ -39,17 +39,12 @@ public:
 
     const std::size_t &get_argc() { return this->count; }
 
-    const char **get_argv() { return this->args.data(); }
+    const char **get_argv() { return this->arr.data(); }
 
 private:
-    /**
-     * @attention this function modifies the input string !
-     */
-    bool resolve_string_to_args(char *str, std::size_t len);
-
     std::span<char> buf;
     std::size_t count = 0;
-    std::array<const char *, Config::max_args> args{{nullptr}};
+    std::array<const char *, Config::max_args> arr{{nullptr}};
 };
 
 } // namespace ln::shell

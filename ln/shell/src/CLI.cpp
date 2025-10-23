@@ -90,9 +90,9 @@ Err CLI::execute(const Cmd &cmd, std::size_t argc, const char *argv[], const cha
     return err;
 }
 
-Err CLI::execute(const Cmd &cmd, const char *arg_string, const char *output_color_escape_sequence) {
-    std::array<char, 256> args_buf;
-    Args args(args_buf, arg_string);
+Err CLI::execute(const Cmd &cmd, const char *arg_str, const char *output_color_escape_sequence) {
+    std::array<char, 256> buf;
+    Args args(buf, arg_str);
     return this->execute(cmd, args.get_argc(), args.get_argv(), output_color_escape_sequence);
 }
 
@@ -107,35 +107,38 @@ bool CLI::put_char(const char &c) {
     }
     if (' ' <= c && c <= '~') {
         if (this->is_prompted) {
-            this->input.reset();
+            this->input.clear();
             this->is_prompted = false;
         }
         this->insert_char(c);
         return true;
     }
     if (c == '\r') {
-        if (this->is_prompted) {
-            this->input.reset();
-        }
-        this->line_feed();
-        return true;
+        this->print("\r\n");
+        const auto res = this->handle_line();
+        this->input.clear();
+        this->is_prompted = true;
+        this->print_prompt();
+        return res;
     }
     return false;
 }
 
-bool CLI::line_feed() {
-    this->print("\n");
-    if (!this->input.args.resolve_into_args()) {
+bool CLI::handle_line() {
+    Args args(this->input.get());
+    if (!args.tokenize()) {
+        this->print(ANSI_COLOR_RED "error parsing arguments\n");
         return false;
     }
-    const auto [cmd, arg_offset] = this->find_cmd(this->input.args.get_argc(), this->input.args.get_argv());
+    if (args.get_argc() == 0) {
+        return true;
+    }
+    const auto [cmd, arg_offset] = this->find_cmd(args.get_argc(), args.get_argv());
     if (!cmd) {
-        this->print("\e[39mcommand not found\n");
-        this->prompt_new();
+        this->print(ANSI_COLOR_RED "command not found\n");
         return false;
     }
-    this->execute(*cmd, this->input.args.get_argc() - arg_offset, this->input.args.get_argv() + arg_offset);
-    this->prompt_new();
+    this->execute(*cmd, args.get_argc() - arg_offset, args.get_argv() + arg_offset);
     return true;
 }
 
@@ -248,21 +251,13 @@ bool CLI::on_home_key() {
 }
 
 bool CLI::on_arrow_up_key() {
-    if (!this->input.args.restore_into_string()) {
-        return false;
-    }
-    int chars_printed = this->printf(this->input.get_buffer_at_base());
-    if (chars_printed <= 0) {
-        return false;
-    }
-    if (!this->input.set_cursor(chars_printed)) {
-        return false;
-    }
-    return true;
+    // TODO: implement history buffer; consider using args.untokenize(), if 
+    // it turns out unuseful - remove it.
+    return false;
 }
 
 bool CLI::on_arrow_down_key() {
-    this->input.reset();
+    this->input.clear();
     this->is_prompted = true;
     return true;
 }
@@ -282,11 +277,6 @@ bool CLI::on_arrow_right_key() {
     std::size_t length;
     this->print(*(this->input.get_buffer_at_cursor(length) - 1));
     return true;
-}
-
-void CLI::prompt_new(void) {
-    this->is_prompted = true;
-    this->print_prompt();
 }
 
 void CLI::print_prompt(void) { this->print(ANSI_COLOR_BLUE "> " ANSI_COLOR_YELLOW); }

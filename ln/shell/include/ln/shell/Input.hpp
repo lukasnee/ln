@@ -5,15 +5,18 @@
 #include <cstdint>
 #include <cstddef>
 #include <array>
+#include <span>
 
 namespace ln::shell {
 
 class Input {
 public:
-    Input();
-    ~Input() = default;
+    Input() = default;
+    virtual ~Input() = default;
 
-    void reset();
+    void clear();
+
+    std::span<char> get() { return std::span<char>(this->buf.data(), this->chars_used - 1); }
 
     bool is_full();
     bool is_empty();
@@ -34,12 +37,7 @@ public:
     bool insert_char(const char &c);
 
 private:
-    std::array<char, 256> args_buf{};
-
-public:
-    Args args;
-
-private:
+    std::array<char, 256> buf{};
     std::size_t cursor_idx = 0;
     std::size_t chars_used = 1;
 };

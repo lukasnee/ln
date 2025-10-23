@@ -52,10 +52,10 @@ public:
 
     Err execute(const Cmd &cmd, std::size_t argc, const char *argv[],
                 const char *output_color_escape_sequence = "\e[32m"); // default in green
-    Err execute(const Cmd &cmd, const char *str_args = nullptr, const char *output_color_escape_sequence = "\e[33m");
+    Err execute(const Cmd &cmd, const char *arg_str = nullptr, const char *output_color_escape_sequence = "\e[33m");
 
 private:
-    bool line_feed();
+    bool handle_line();
 
     bool handle_escape(const char &c);
     bool handle_ansi_escape(const char &c);
@@ -70,8 +70,6 @@ private:
 
     bool backspace_char();
     bool insert_char(const char &c);
-
-    void prompt_new();
     void print_prompt();
 
     enum class EscapeState : std::int8_t {

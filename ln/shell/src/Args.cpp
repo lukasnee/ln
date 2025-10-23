@@ -10,17 +10,15 @@ namespace ln::shell {
 Args::Args(std::span<char> buf) : buf(buf) {}
 
 Args::Args(std::span<char> buf, std::string_view str) : buf(buf) {
-    const auto safe_len = std::min(str.length(), buf.size() - 1);
-    std::copy_n(str.begin(), safe_len, buf.data());
-    buf[safe_len] = '\0';
-    this->resolve_into_args();
+    std::copy_n(str.begin(), std::min(str.length(), buf.size()), buf.data());
+    this->tokenize();
 }
 
 Args::Args(std::span<char> buf, std::size_t argc, const char **argv) : buf(buf) { this->copy_from(argc, argv); }
 
 void Args::clear() {
     this->count = 0;
-    this->args.fill(nullptr);
+    this->arr.fill(nullptr);
 }
 
 bool Args::copy_from(std::size_t argc, const char *argv[]) {
@@ -28,9 +26,9 @@ bool Args::copy_from(std::size_t argc, const char *argv[]) {
         return false;
     }
     this->count = 0;
-    this->args.fill(nullptr);
+    this->arr.fill(nullptr);
     std::size_t buff_left = this->buf.size();
-    for (const char **argv_it = argv; (*argv_it && argv_it < (argv + argc) && count < this->args.size()); argv_it++) {
+    for (const char **argv_it = argv; (*argv_it && argv_it < (argv + argc) && count < this->arr.size()); argv_it++) {
         const std::string_view arg_it_sv{*argv_it};
         if ((arg_it_sv.length() + sizeof('\0')) > buff_left) {
             return false;
@@ -39,18 +37,14 @@ bool Args::copy_from(std::size_t argc, const char *argv[]) {
         std::copy_n(arg_it_sv.begin(), arg_it_sv.length(), arg);
         arg[arg_it_sv.length()] = '\0';
         buff_left -= (arg_it_sv.length() + sizeof('\0'));
-        this->args[this->count++] = arg;
+        this->arr[this->count++] = arg;
     }
     return true;
 }
 
-bool Args::resolve_into_args() {
-    return this->resolve_string_to_args(reinterpret_cast<char *>(this->buf.data()), this->buf.size());
-}
-
-bool Args::restore_into_string() {
+bool Args::untokenize() {
     for (std::size_t arg_it = 1; arg_it < this->count; arg_it++) {
-        std::size_t char_buff_offset = this->args[arg_it] - this->buf.data();
+        std::size_t char_buff_offset = this->arr[arg_it] - this->buf.data();
         if (char_buff_offset >= this->buf.size()) {
             return false;
         }
@@ -61,35 +55,41 @@ bool Args::restore_into_string() {
     return true;
 }
 
-bool Args::resolve_string_to_args(char *str, std::size_t len) {
-    this->count = 0;
-    this->args.fill(nullptr);
-
-    if (!str || len == 0) {
+bool Args::tokenize() {
+    if (!this->buf.data()) {
         return false;
     }
-    char *next_arg = nullptr;
-    for (char *string_head = str; static_cast<std::size_t>(string_head - str) < len; ++string_head) {
-        char *const ch = string_head;
-        if (*ch != ' ' && *ch != '\0') {
-            *ch = '\0';
-            if (next_arg) {
-                if (this->count >= this->args.size()) {
-                    return false;
-                }
-                this->args[this->count++] = next_arg;
-                next_arg = nullptr;
+    this->count = 0;
+    this->arr.fill(nullptr);
+    char *arg = nullptr;
+    for (char *head = this->buf.data();
+         static_cast<std::size_t>(head - this->buf.data()) < this->buf.size() && *head != '\0'; head++) {
+        if (*head == ' ') {
+            if (!arg) {
+                continue;
             }
+            *head = '\0';
+            if (this->count >= this->arr.size()) {
+                return false;
+            }
+            this->arr[this->count++] = arg;
+            arg = nullptr;
         }
-        else if (!next_arg) {
-            next_arg = ch;
+        else if (!arg) {
+            arg = head;
         }
+    }
+    if (arg) {
+        if (this->count >= this->arr.size()) {
+            return false;
+        }
+        this->arr[this->count++] = arg;
     }
     return true;
 }
 
 bool Args::print_to(char *buf, std::size_t size, const char *delimiter, bool null_separated) {
-    if (this->count == 0 || !this->args[0] || !buf || size == 0 || size > std::numeric_limits<int>::max() ||
+    if (this->count == 0 || !this->arr[0] || !buf || size == 0 || size > std::numeric_limits<int>::max() ||
         !delimiter) {
         return false;
     }
@@ -101,7 +101,7 @@ bool Args::print_to(char *buf, std::size_t size, const char *delimiter, bool nul
     char *buffer_out_head = buf;
     int buffer_out_size_left = static_cast<int>(size);
     std::size_t cnt = this->count;
-    for (auto &arg : this->args) {
+    for (auto &arg : this->arr) {
         if (cnt == 0 || !arg || buffer_out_size_left <= 0) {
             return true;
         }
