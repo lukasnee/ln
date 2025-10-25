@@ -101,7 +101,7 @@ def main():
             while ser.is_open and not stop_reading.is_set():
                 if ser.in_waiting > 0:
                     data = ser.read(ser.in_waiting).decode("utf-8", errors="ignore")
-                    data = data.replace("\r\n", "\n").replace("\n", "\r\n")
+                    data = data.replace('\n', '\r\n')
                     sys.stdout.write(data)
                     sys.stdout.flush()
 
@@ -113,6 +113,7 @@ def main():
             char = sys.stdin.read(1)
             if ord(char) == 3:  # Ctrl+C
                 break
+            char = char.replace("\r\n", "\r").replace("\r", "\n")
             ser.write(char.encode("utf-8"))
 
     except (serial.SerialException, KeyboardInterrupt):
