@@ -127,7 +127,7 @@ def main():
             if args.trace_output:
                 print(''.join(f'W<{ord(c):02x}> ({c if c.isprintable() else ''})\r' for c in char))
             ser.write(char.encode("utf-8"))
-
+        sys.stdout.write("\r\n")
     except (serial.SerialException, KeyboardInterrupt):
         pass
     except Exception as e:
