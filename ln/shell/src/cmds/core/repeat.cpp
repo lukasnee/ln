@@ -23,9 +23,9 @@ public:
 private:
     void taskFunction() override {
         while (true) {
-            std::array<char, 256> array;
-            this->args.print_to(array.data(), array.size(), " ");
-            this->cli.printf("repeating command \'%s\' every %lu ms\n\n", array.data(),
+            std::array<char, 256> arr;
+            this->args.print_to(arr.data(), arr.size(), " ");
+            this->cli.printf("repeating command \'%s\' every %lu ms\n\n", arr.data(),
                              std::chrono::duration_cast<std::chrono::milliseconds>(this->period).count());
             this->cli.execute(this->cmd, this->args.get_argc() - this->cmd_arg_offset,
                               this->args.get_argv() + this->cmd_arg_offset, "\e[36m");
