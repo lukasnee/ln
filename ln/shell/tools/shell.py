@@ -37,6 +37,16 @@ def main():
         "-b", "--baudrate", type=int, default=921600, help="baudrate (default: 921600)"
     )
     parser.add_argument(
+        "--trace_input",
+        action="store_true",
+        help="trace incoming data from the device for debugging purposes",
+    )
+    parser.add_argument(
+        "--trace_output",
+        action="store_true",
+        help="trace outgoing data to the device for debugging purposes",
+    )
+    parser.add_argument(
         "-r",
         "--reset",
         action="store_true",
@@ -101,7 +111,8 @@ def main():
             while ser.is_open and not stop_reading.is_set():
                 if ser.in_waiting > 0:
                     data = ser.read(ser.in_waiting).decode("utf-8", errors="ignore")
-                    data = data.replace('\n', '\r\n')
+                    if args.trace_input:
+                        print(''.join(f'R<{ord(c):02x}> ({c if c.isprintable() else ''})\r' for c in data))
                     sys.stdout.write(data)
                     sys.stdout.flush()
 
@@ -113,7 +124,8 @@ def main():
             char = sys.stdin.read(1)
             if ord(char) == 3:  # Ctrl+C
                 break
-            char = char.replace("\r\n", "\r").replace("\r", "\n")
+            if args.trace_output:
+                print(''.join(f'W<{ord(c):02x}> ({c if c.isprintable() else ''})\r' for c in char))
             ser.write(char.encode("utf-8"))
 
     except (serial.SerialException, KeyboardInterrupt):
