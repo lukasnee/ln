@@ -61,6 +61,8 @@ def main():
             while True:
                 try:
                     choice = input("Select device (1-{}): ".format(len(devices)))
+                    if not choice:
+                        choice = "1"
                     if 0 >= int(choice) or int(choice) > len(devices):
                         raise ValueError
                     idx = int(choice) - 1
