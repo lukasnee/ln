@@ -10,6 +10,9 @@ CLI::CLI(ln::OutStream<char> &out_stream, Cmd *cmd_list) : out_stream(out_stream
 
 void CLI::print(const char &c, std::size_t times_to_repeat) {
     while (times_to_repeat--) {
+        if (c == '\n') {
+            this->out_stream.put('\r');
+        }
         this->out_stream.put(c);
     }
 }
