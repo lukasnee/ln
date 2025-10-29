@@ -17,11 +17,9 @@ void CLI::print(const char &c, std::size_t times_to_repeat) {
     }
 }
 
-void CLI::print(const char *data, const std::size_t size) {
-    std::size_t size_left = size;
-    const char *data_it = data;
-    while (size_left--) {
-        this->print(*(data_it++));
+void CLI::print(std::span<char> chars) {
+    for (const char &c : chars) {
+        this->print(c);
     }
 }
 

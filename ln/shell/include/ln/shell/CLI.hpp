@@ -7,6 +7,7 @@
 #include "FreeRTOS/Addons/Clock.hpp"
 
 #include <array>
+#include <span>
 #include <cstdarg>
 #include <cstdint>
 #include <cstring>
@@ -45,7 +46,7 @@ public:
 
     void print(const char &c, std::size_t times_to_repeat = 1);
     int print(const char *str);
-    void print(const char *data, const std::size_t size);
+    void print(std::span<char> chars);
     int printf(const char *fmt, ...);
 
     std::tuple<const Cmd *, std::size_t> find_cmd(std::size_t argcIn, const char *argvIn[]);
