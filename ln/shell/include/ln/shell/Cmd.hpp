@@ -3,6 +3,8 @@
 #include <functional>
 #include <limits>
 #include <cstdint>
+#include <span>
+#include <string_view>
 
 namespace ln::shell {
 
@@ -27,8 +29,7 @@ class Cmd {
 public:
     struct Ctx {
         CLI &cli;
-        std::size_t argc;
-        const char **argv;
+        std::span<const std::string_view> args;
     };
 
     using Function = std::function<Err(Ctx)>;
@@ -41,10 +42,10 @@ public:
     Cmd(const char *name, const char *description, Function function);
     Cmd(const char *name, Function function);
 
-    const Cmd *find_neighbour_cmd(const char *name) const;
-    const Cmd *find_subcmd(const char *name) const;
+    const Cmd *find_neighbour_cmd(std::string_view name) const;
+    const Cmd *find_subcmd(std::string_view name) const;
 
-    static bool match_token(const char *str_tokens, const char *str_token);
+    static bool match_token(const char *str_tokens, std::string_view str_token);
 
     const char *name = nullptr;
     const char *usage = nullptr;

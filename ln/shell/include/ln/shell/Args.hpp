@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string_view>
 
@@ -8,20 +9,12 @@ namespace ln::shell {
 
 class Args {
 public:
-    struct Config {
-        static constexpr std::size_t max_args = 16;
-        static constexpr std::size_t max_delimiter_length = 8;
-    };
-
-    Args(std::span<char> buf);
-    Args(std::span<char> buf, std::string_view str);
-    Args(std::span<char> buf, std::size_t argc, const char **argv);
-
-    void clear();
-
-    bool copy_from(std::size_t argc, const char *argv[]);
-    bool tokenize();
-    bool untokenize();
+    
+    static std::optional<std::span<std::string_view>> tokenize(const std::string_view sv,
+                                                               std::span<std::string_view> args_buf);
+    static std::optional<std::span<std::string_view>> copy(const std::span<char> dst_str_buf,
+                                                           std::span<std::string_view> dst_args_buf,
+                                                           std::span<const std::string_view> src_args);
 
     /**
      * @brief copy out arguments (contents) by given format into buffer.
@@ -35,16 +28,7 @@ public:
      * @return false Could not format the delimter (delimiter too long) or could not finish printing (no space left in
      * buffer).
      */
-    bool print_to(char *buf, std::size_t size, const char *delimiter = " ", bool nullSeparated = false);
-
-    const std::size_t &get_argc() { return this->count; }
-
-    const char **get_argv() { return this->arr.data(); }
-
-private:
-    std::span<char> buf;
-    std::size_t count = 0;
-    std::array<const char *, Config::max_args> arr{{nullptr}};
+    static bool print_to(char *buf, std::size_t size, const char *delimiter = " ", bool nullSeparated = false);
 };
 
 } // namespace ln::shell

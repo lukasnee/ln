@@ -4,29 +4,28 @@
 
 namespace ln::shell::generic::cmds {
 
-Err on_off_command_parser(std::function<bool(bool)> onOffF, const char *strOnOffControlName, Cmd::Ctx ctx) {
-    Err result = Err::fail;
-
-    if (ctx.argc != 2) {
-        ctx.cli.print("no arg\n");
+Err on_off_command_parser(std::function<bool(bool)> on_off_fn, const char *strOnOffControlName, Cmd::Ctx ctx) {
+    using namespace std::literals::string_view_literals;
+    if (ctx.args.size() != 1) {
+        ctx.cli.print("error: no arg\n");
+        return Err::badArg;
     }
-    else if (!std::strcmp(ctx.argv[1], "on") || !std::strcmp(ctx.argv[1], "1") || !std::strcmp(ctx.argv[1], "true")) {
-        if (onOffF(true)) {
-            ctx.cli.printf("%s %s %s\n", strOnOffControlName, "turned", "on");
-            result = Err::ok;
+    if (ctx.args[0] == "on"sv || ctx.args[0] == "1"sv || ctx.args[0] == "true"sv) {
+        if (on_off_fn(true)) {
+            return Err::ok;
         }
+        ctx.cli.printf("error: failed to turn on %s\n", strOnOffControlName);
+        return Err::fail;
     }
-    else if (!std::strcmp(ctx.argv[1], "off") || !std::strcmp(ctx.argv[1], "0") || !std::strcmp(ctx.argv[1], "false")) {
-        if (onOffF(false)) {
-            ctx.cli.printf("%s %s %s\n", strOnOffControlName, "turned", "off");
-            result = Err::ok;
+    if (ctx.args[0] == "off"sv || ctx.args[0] == "0"sv || ctx.args[0] == "false"sv) {
+        if (on_off_fn(false)) {
+            return Err::ok;
         }
+        ctx.cli.printf("error: failed to turn off %s\n", strOnOffControlName);
+        return Err::fail;
     }
-    else {
-        ctx.cli.print("bad arg\n");
-    }
-
-    return result;
+    ctx.cli.print("error: unexpected arg\n");
+    return Err::badArg;
 };
 
 Err on_off_command_parser(bool &onOffControl, const char *strOnOffControlName, Cmd::Ctx ctx) {

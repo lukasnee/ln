@@ -49,8 +49,7 @@ Cmd::Cmd(const char *name, Cmd::Function function)
     this->link_to(Cmd::global_command_list);
 }
 
-bool Cmd::match_token(const char *str_tokens, const char *str_token) {
-    const std::size_t str_token_length = std::strlen(str_token);
+bool Cmd::match_token(const char *str_tokens, std::string_view str_token) {
     const char *str_this_token = str_tokens;
     for (const char *str_char_it = str_this_token; *str_char_it != '\0'; str_char_it++) {
         const bool it_at_last_char = (*(str_char_it + 1) == '\0');
@@ -58,7 +57,8 @@ bool Cmd::match_token(const char *str_tokens, const char *str_token) {
             continue;
         }
         const std::size_t this_token_length = str_char_it + (it_at_last_char ? 1 : 0) - str_this_token;
-        if (str_token_length == this_token_length && 0 == std::strncmp(str_token, str_this_token, this_token_length)) {
+        if (str_token.size() == this_token_length &&
+            0 == std::strncmp(str_token.data(), str_this_token, this_token_length)) {
             return true;
         }
         if (*str_char_it == ',') {
@@ -68,7 +68,7 @@ bool Cmd::match_token(const char *str_tokens, const char *str_token) {
     return false;
 }
 
-const Cmd *Cmd::find_neighbour_cmd(const char *name) const {
+const Cmd *Cmd::find_neighbour_cmd(std::string_view name) const {
     for (const Cmd *next = this; next != nullptr; next = next->next) {
         if (Cmd::match_token(next->name, name)) {
             return next;
@@ -77,7 +77,7 @@ const Cmd *Cmd::find_neighbour_cmd(const char *name) const {
     return nullptr;
 }
 
-const Cmd *Cmd::find_subcmd(const char *name) const {
+const Cmd *Cmd::find_subcmd(std::string_view name) const {
     for (const Cmd *next = this->subcmd; next != nullptr; next = next->next) {
         if (Cmd::match_token(next->name, name)) {
             return next;
@@ -124,19 +124,18 @@ void Cmd::print_help(CLI &cli, bool recurse, const std::size_t max_depth, std::s
 }
 
 Cmd Cmd::help_cmd = Cmd("help,?", "[all|[COMMAND...]]", "show command usage", [](Ctx ctx) -> Err {
-    if (ctx.argc == 1) {
+    if (ctx.args.size() == 0) {
         for (const Cmd *cmd_it = Cmd::global_command_list; cmd_it; cmd_it = cmd_it->next) {
             cmd_it->print_help(ctx.cli, false, 0);
         }
     }
-    else if (ctx.argc == 2 && !std::strcmp(ctx.argv[1], "all")) {
+    else if (ctx.args.size() == 1 && ctx.args[0] == "all"sv) {
         for (const Cmd *cmd_it = Cmd::global_command_list; cmd_it; cmd_it = cmd_it->next) {
             cmd_it->print_help(ctx.cli, true, 7);
         }
     }
-    else if (ctx.argc > 1) {
-        constexpr std::size_t helpCommandOffset = 1;
-        auto [cmd, _] = ctx.cli.find_cmd(ctx.argc - helpCommandOffset, ctx.argv + helpCommandOffset);
+    else if (ctx.args.size() >= 1) {
+        auto [cmd, _] = ctx.cli.find_cmd(ctx.args.subspan(1));
         if (cmd) {
             cmd->print_help(ctx.cli, true, 1);
         }

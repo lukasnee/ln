@@ -17,8 +17,8 @@ void CLI::print(const char &c, std::size_t times_to_repeat) {
     }
 }
 
-void CLI::print(std::span<char> chars) {
-    for (const char &c : chars) {
+void CLI::print(std::string_view sv) {
+    for (const char &c : sv) {
         this->print(c);
     }
 }
@@ -42,21 +42,24 @@ int CLI::printf(const char *fmt, ...) {
     return chars_printed;
 }
 
-std::tuple<const Cmd *, std::size_t> CLI::find_cmd(std::size_t argc, const char *argv[]) {
+std::tuple<const Cmd *, std::span<const std::string_view>> CLI::find_cmd(std::span<const std::string_view> args) {
     const Cmd *cmd = this->cmd_list;
     if (!cmd) {
-        return {nullptr, 0};
+        return {nullptr, {}};
     }
-    if (argc == 0 || !argv[0]) {
-        return {cmd, 0};
+    if (args.size() == 0) {
+        return {};
+    }
+    if (args[0].size() == 0) {
+        return {};
     }
     std::size_t arg_offset = 0;
-    cmd = cmd->find_neighbour_cmd(argv[arg_offset]);
+    cmd = cmd->find_neighbour_cmd(args[arg_offset]);
     if (!cmd) {
-        return {nullptr, 0};
+        return {};
     }
-    while (argc - arg_offset - 1) {
-        const Cmd *subcmd = cmd->find_subcmd(argv[arg_offset + 1]);
+    while (args.size() - arg_offset - 1) {
+        const Cmd *subcmd = cmd->find_subcmd(args[arg_offset + 1]);
         if (!subcmd) {
             break;
         }
@@ -64,17 +67,17 @@ std::tuple<const Cmd *, std::size_t> CLI::find_cmd(std::size_t argc, const char 
         cmd = subcmd;
         continue;
     }
-
-    return {cmd, arg_offset};
+    return {cmd, args.subspan(arg_offset + 1)};
 }
 
-Err CLI::execute(const Cmd &cmd, std::size_t argc, const char *argv[], const char *output_color_escape_sequence) {
+Err CLI::execute(const Cmd &cmd, const std::span<const std::string_view> args,
+                 const char *output_color_escape_sequence) {
     if (!cmd.function) {
         this->print(ANSI_COLOR_RED "command has no method\n");
         return Err::unexpected;
     }
     this->print(output_color_escape_sequence); // response in green
-    Err err = cmd.function(Cmd::Ctx{*this, argc, argv});
+    Err err = cmd.function(Cmd::Ctx{*this, args});
     if (!Config::regular_response_is_enabled) {
         return err;
     }
@@ -91,18 +94,12 @@ Err CLI::execute(const Cmd &cmd, std::size_t argc, const char *argv[], const cha
     return err;
 }
 
-Err CLI::execute(const Cmd &cmd, const char *arg_str, const char *output_color_escape_sequence) {
-    std::array<char, 256> buf;
-    Args args(buf, arg_str);
-    return this->execute(cmd, args.get_argc(), args.get_argv(), output_color_escape_sequence);
-}
-
 /** @return true if sequence finished */
 bool CLI::put_char(const char &c) {
     if (this->handle_escape(c)) {
         return false;
     }
-    if (c == '\b') {
+    if (c == '\x7F') {
         this->backspace_char();
         return true;
     }
@@ -126,20 +123,22 @@ bool CLI::put_char(const char &c) {
 }
 
 bool CLI::handle_line() {
-    Args args(this->input.get());
-    if (!args.tokenize()) {
+    std::array<std::string_view, 16> args_buf;
+    auto opt_args = Args::tokenize(this->input.get(), args_buf);
+    if (!opt_args) {
         this->print(ANSI_COLOR_RED "error parsing arguments\n");
         return false;
     }
-    if (args.get_argc() == 0) {
+    const auto args = *opt_args;
+    if (args.size() == 0) {
         return true;
     }
-    const auto [cmd, arg_offset] = this->find_cmd(args.get_argc(), args.get_argv());
+    const auto [cmd, cmd_args] = this->find_cmd(args);
     if (!cmd) {
         this->print(ANSI_COLOR_RED "command not found\n");
         return false;
     }
-    this->execute(*cmd, args.get_argc() - arg_offset, args.get_argv() + arg_offset);
+    this->execute(*cmd, cmd_args);
     return true;
 }
 
@@ -234,14 +233,11 @@ bool CLI::handle_ansi_delimited_del_escape(const char &c) {
 }
 
 bool CLI::delete_char() {
-    if (!this->input.delete_char_at_cursor()) {
+    if (!this->input.delete_char()) {
         return false;
     }
-    std::size_t string_at_cursor_length;
-    const char *string_at_cursor = this->input.get_buffer_at_cursor(string_at_cursor_length);
-    this->print(string_at_cursor, string_at_cursor_length + 1);
-    this->print("  ");
-    this->print('\b', string_at_cursor_length + 1);
+    this->print(this->input.get().substr(this->input.get_cursor_pos() - 1));
+    this->print(" \b");
     return true;
 }
 
@@ -252,7 +248,7 @@ bool CLI::on_home_key() {
 }
 
 bool CLI::on_arrow_up_key() {
-    // TODO: implement history buffer; consider using args.untokenize(), if 
+    // TODO: implement history buffer; consider using args.untokenize(), if
     // it turns out unuseful - remove it.
     return false;
 }
@@ -264,19 +260,19 @@ bool CLI::on_arrow_down_key() {
 }
 
 bool CLI::on_arrow_left_key() {
-    if (!this->input.cursor_step_left()) {
+    if (this->input.is_cursor_on_base()) {
         return false;
     }
+    this->input.step_left();
     this->print('\b');
     return true;
 }
 
 bool CLI::on_arrow_right_key() {
-    if (!this->input.cursor_step_right()) {
+    this->print(this->input.get().substr(this->input.get_cursor_pos(), 1));
+    if (!this->input.step_right()) {
         return false;
     }
-    std::size_t length;
-    this->print(*(this->input.get_buffer_at_cursor(length) - 1));
     return true;
 }
 
@@ -284,17 +280,13 @@ void CLI::print_prompt(void) { this->print(ANSI_COLOR_BLUE "> " ANSI_COLOR_YELLO
 
 /** @return true if actually backspaced */
 bool CLI::backspace_char() {
-    if (!this->input.backspace_char_at_cursor()) {
+    if (!this->input.backspace_char()) {
         return false;
     }
-    std::size_t string_at_cursor_length;
-    const char *string_at_cursor = this->input.get_buffer_at_cursor(string_at_cursor_length);
-    this->print('\b');
-    this->print(string_at_cursor, string_at_cursor_length);
-    this->print(' ');
-    for (std::size_t i = string_at_cursor_length; i > 0; i--) {
-        this->print('\b');
-    }
+    this->print("\b");
+    this->print(this->input.get().substr(this->input.get_cursor_pos()));
+    this->print(" \b");
+    this->print('\b', this->input.get().size() - this->input.get_cursor_pos());
     return true;
 }
 
@@ -303,16 +295,7 @@ bool CLI::insert_char(const char &c) {
     if (!this->input.insert_char(c)) {
         return false;
     }
-    if (this->input.is_cursor_on_end()) {
-        /* append */
-        this->print(c);
-        return true;
-    }
-    /* insert in middle */
-    std::size_t length;
-    this->print(c);
-    this->print(this->input.get_buffer_at_cursor(length));
-    this->print('\b', length - 1);
+    this->print(this->input.get().substr(this->input.get_cursor_pos() - 1));
     return true;
 }
 

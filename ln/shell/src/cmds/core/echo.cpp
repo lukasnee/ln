@@ -3,14 +3,11 @@
 namespace ln::shell {
 
 Cmd echo("echo", "echos typed content", [](Cmd::Ctx ctx) -> Err {
-    if (ctx.argc <= 1) {
-        return Err::fail;
+    if (ctx.args.size() == 0) {
+        ctx.cli.print('\n');
+        return Err::okQuiet;
     }
-    std::array<char, 256> buf;
-    Args args(buf, ctx.argc - 1, ctx.argv + 1);
-    std::array<char, 256> echo_buf;
-    args.print_to(echo_buf.data(), echo_buf.size(), " ", false);
-    ctx.cli.printf("%s\n", echo_buf.data());
+    ctx.cli.printf("%.*s\n", ctx.args.back().cend() - ctx.args.front().cbegin(), ctx.args.front().data());
     return Err::okQuiet;
 });
 

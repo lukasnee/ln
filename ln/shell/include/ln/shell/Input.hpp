@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <array>
-#include <span>
+#include <string_view>
 
 namespace ln::shell {
 
@@ -16,30 +16,27 @@ public:
 
     void clear();
 
-    std::span<char> get() { return std::span<char>(this->buf.data(), this->chars_used - 1); }
+    std::string_view get() { return std::string_view{this->buf.data(), this->chars_used}; }
+
+    size_t get_cursor_pos() { return this->cursor_idx; }
 
     bool is_full();
     bool is_empty();
 
-    const char &get_char_at_cursor();
-    const char *get_buffer_at_cursor(std::size_t &lengthOut);
-    const char *get_buffer_at_base();
-
     bool is_cursor_on_base();
     bool is_cursor_on_end();
 
-    bool set_cursor(std::size_t index);
-    bool cursor_step_right();
-    bool cursor_step_left();
+    bool step_right();
+    bool step_left();
 
-    bool delete_char_at_cursor();
-    bool backspace_char_at_cursor();
+    bool delete_char();
+    bool backspace_char();
     bool insert_char(const char &c);
 
 private:
     std::array<char, 256> buf{};
     std::size_t cursor_idx = 0;
-    std::size_t chars_used = 1;
+    std::size_t chars_used = 0;
 };
 
 } // namespace ln::shell

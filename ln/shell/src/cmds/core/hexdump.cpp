@@ -22,12 +22,16 @@ void hexdump(CLI &cli, const std::uint32_t &address, const std::size_t &size) {
 }
 
 Cmd hexdumpShellCommand("hexdump,hd", "<addressHex> <sizeHex>", "hex dump", [](Cmd::Ctx ctx) -> Err {
-    if (ctx.argc != 3) {
+    if (ctx.args.size() != 2) {
         return Err::fail;
     }
     unsigned int address;
     unsigned int size;
-    if (!std::sscanf(ctx.argv[1], "%x", &address) || !std::sscanf(ctx.argv[2], "%x", &size)) {
+    // TODO: string_view has no null terminator which can lead to issues here. Investigate later.
+    if (std::sscanf(ctx.args[0].data(), "%x", &address) != 1) {
+        return Err::fail;
+    }
+    if (std::sscanf(ctx.args[1].data(), "%x", &size) != 1) {
         return Err::fail;
     }
     hexdump(ctx.cli, address, size);

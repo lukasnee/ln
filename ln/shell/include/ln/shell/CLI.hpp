@@ -46,14 +46,14 @@ public:
 
     void print(const char &c, std::size_t times_to_repeat = 1);
     int print(const char *str);
-    void print(std::span<char> chars);
+    void print(std::string_view sv);
     int printf(const char *fmt, ...);
 
-    std::tuple<const Cmd *, std::size_t> find_cmd(std::size_t argcIn, const char *argvIn[]);
+    /** @return {cmd, args} */
+    std::tuple<const Cmd *, std::span<const std::string_view>> find_cmd(std::span<const std::string_view> args);
 
-    Err execute(const Cmd &cmd, std::size_t argc, const char *argv[],
+    Err execute(const Cmd &cmd, const std::span<const std::string_view> args,
                 const char *output_color_escape_sequence = "\e[32m"); // default in green
-    Err execute(const Cmd &cmd, const char *arg_str = nullptr, const char *output_color_escape_sequence = "\e[33m");
 
 private:
     bool handle_line();
