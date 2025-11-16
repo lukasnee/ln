@@ -109,7 +109,7 @@ int Logger::log_unsafe(const LoggerModule &module, const Logger::Level &level, c
         LN_CHECK(this->print_header(buff_file, module, level), rc, rc < 0, { chars_printed += rc; }, {});
     }
     LN_CHECK(vfprintf(buff_file, fmt.data(), arg_list), rc, rc < 0, { chars_printed += rc; }, {});
-    LN_CHECK(fputc('\n', buff_file), rc, rc < 0, { chars_printed += rc; }, {});
+    LN_CHECK(fprintf(buff_file, "%s", this->config.eol), rc, rc < 0, { chars_printed += rc; }, {});
     return chars_printed;
 }
 

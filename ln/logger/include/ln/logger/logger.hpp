@@ -36,6 +36,8 @@ struct Config {
     Level log_level = LOGGER_LEVEL_INFO;
     /* Colorize log messages */
     bool color = false;
+    /* end of line character(s) */
+    const char *eol = "\n";
     /* Print log message header */
     bool print_header_enabled = true;
 
