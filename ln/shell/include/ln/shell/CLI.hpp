@@ -16,6 +16,7 @@
 
 using namespace std::string_view_literals;
 
+// TODO: rework the OK FAIL tags, color codes, etc. Make the interface cleaner and flexible.
 #define ANSI_COLOR_BLACK "\e[30m"
 #define ANSI_COLOR_RED "\e[31m"
 #define ANSI_COLOR_GREEN "\e[32m"

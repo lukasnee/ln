@@ -34,9 +34,9 @@ Here are some important conventions:
 
 ## TODO
 
+- add GPL license preambles to all files.
 - shell backspace does not work.
-- shell `repeat` command does not work for something like `repeat 1000 echo
-  labas`. Also, `repeat 1000 repeat 1000 echo labas` should technically work.
+- `repeat 1000 repeat 1000 echo labas` should technically work.
 - Consider switching to
   [jonenz/FreeRTOS-Cpp](https://github.com/jonenz/FreeRTOS-Cpp) instead of
   [freertos-addons](https://github.com/michaelbecker/freertos-addons). It is
