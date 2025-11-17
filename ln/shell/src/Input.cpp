@@ -27,10 +27,10 @@ bool Input::is_empty() { return (this->is_cursor_on_base() && this->is_cursor_on
 bool Input::is_full() { return (this->chars_used == this->buf.size()); }
 
 bool Input::step_right() {
-    if (this->is_full()) {
+    if (this->is_cursor_on_end()) {
         return false;
     }
-    if (this->is_cursor_on_end()) {
+    if (this->is_full()) {
         return false;
     }
     this->cursor_idx++;

@@ -245,8 +245,9 @@ bool CLI::delete_char() {
     if (!this->input.delete_char()) {
         return false;
     }
-    this->print(this->input.get().substr(this->input.get_cursor_pos() - 1));
+    this->print(this->input.get().substr(this->input.get_cursor_pos()));
     this->print(" \b");
+    this->print('\b', this->input.get().size() - this->input.get_cursor_pos());
     return true;
 }
 
@@ -269,19 +270,18 @@ bool CLI::on_arrow_down_key() {
 }
 
 bool CLI::on_arrow_left_key() {
-    if (this->input.is_cursor_on_base()) {
+    if (!this->input.step_left()) {
         return false;
     }
-    this->input.step_left();
     this->print('\b');
     return true;
 }
 
 bool CLI::on_arrow_right_key() {
-    this->print(this->input.get().substr(this->input.get_cursor_pos(), 1));
     if (!this->input.step_right()) {
         return false;
     }
+    this->print(this->input.get().substr(this->input.get_cursor_pos() - 1, 1));
     return true;
 }
 
@@ -305,6 +305,7 @@ bool CLI::insert_char(const char &c) {
         return false;
     }
     this->print(this->input.get().substr(this->input.get_cursor_pos() - 1));
+    this->print('\b', this->input.get().size() - this->input.get_cursor_pos());
     return true;
 }
 
