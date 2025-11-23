@@ -10,9 +10,13 @@
 #pragma once
 
 #include <cstdio>
+#include <span>
 
 namespace ln {
 
+/**
+ * @brief Simple RAII wrapper class around standard C FILE*.
+ */
 class File {
 public:
     /**
@@ -28,6 +32,9 @@ public:
         this->file = file;
     }
 
+    /**
+     * @brief Construct for regular files on filesystem.
+     */
     File(const char *path, const char *mode) {
         this->file = fopen(path, mode);
         if (!this->file) {
@@ -35,8 +42,11 @@ public:
         }
     }
 
-    File(char *mem_data, size_t mem_size, const char *mode) {
-        this->file = fmemopen(mem_data, mem_size, mode);
+    /**
+     * @brief Construct for memory files.
+     */
+    File(std::span<char> mem_data, const char *mode) {
+        this->file = fmemopen(mem_data.data(), mem_data.size(), mode);
         if (!this->file) {
             LN_PANIC();
         }

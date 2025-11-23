@@ -58,7 +58,7 @@ void Logger::flush_buffer() {
 }
 
 void Logger::clear_buffer_unsafe() {
-    ln::File file(this->buff_mem.data(), this->buff_mem.size(), "w"); // effectively clears the buffer
+    ln::File file(this->buff_mem, "w"); // effectively clears the buffer
 }
 
 void Logger::flush_buffer_unsafe() {
@@ -112,7 +112,7 @@ int Logger::log(const LoggerModule &module, const Logger::Level &level, const st
 }
 int Logger::log_unsafe(const LoggerModule &module, const Logger::Level &level, const std::string_view fmt,
                        const va_list &arg_list) {
-    ln::File buff_file(this->buff_mem.data(), this->buff_mem.size(), "a+");
+    ln::File buff_file(this->buff_mem, "a+");
     int chars_printed = 0;
     if (this->config.print_header_enabled) {
         LN_CHECK(this->print_header(buff_file, module, level), rc, rc < 0, { chars_printed += rc; }, {});
