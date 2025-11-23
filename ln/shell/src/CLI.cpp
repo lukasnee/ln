@@ -136,19 +136,22 @@ bool CLI::handle_line() {
     std::array<std::string_view, 16> args_buf;
     auto opt_args = Args::tokenize(this->input.get(), args_buf);
     if (!opt_args) {
+        this->last_err = Err::badArg;
         this->print(ANSI_COLOR_RED "error parsing arguments\n");
         return false;
     }
     const auto args = *opt_args;
     if (args.size() == 0) {
+        this->last_err = Err::ok;
         return true;
     }
     const auto [cmd, cmd_args] = this->find_cmd(args);
     if (!cmd) {
+        this->last_err = Err::unknownCmd;
         this->print(ANSI_COLOR_RED "command not found\n");
         return false;
     }
-    this->execute(*cmd, cmd_args);
+    this->last_err = this->execute(*cmd, cmd_args);
     return true;
 }
 
@@ -286,7 +289,11 @@ bool CLI::on_arrow_right_key() {
     return true;
 }
 
-void CLI::print_prompt(void) { this->print(ANSI_COLOR_BLUE "> " ANSI_COLOR_YELLOW); }
+void CLI::print_prompt(void) {
+    this->print(this->last_err == Err::ok ? ANSI_COLOR_GREEN : ANSI_COLOR_RED);
+    this->print("> ");
+    this->print(ANSI_COLOR_YELLOW);
+}
 
 /** @return true if actually backspaced */
 bool CLI::backspace_char() {

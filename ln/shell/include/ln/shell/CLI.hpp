@@ -99,5 +99,6 @@ private:
     bool is_prompted = true;
     ln::OutStream<char> &out_stream;
     Cmd *cmd_list = nullptr;
+    Err last_err = Err::ok;
 };
 } // namespace ln::shell
