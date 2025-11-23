@@ -16,7 +16,7 @@ Cmd clear("clear,c", "clear screen", [](Cmd::Ctx ctx) -> Err {
     while (i--) {
         ctx.cli.print('\n');
     }
-    return Err::okQuiet;
+    return Err::ok;
 });
 
 } // namespace ln::shell

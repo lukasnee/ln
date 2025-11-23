@@ -44,7 +44,7 @@ Cmd hexdumpShellCommand("hexdump,hd", "<addressHex> <sizeHex>", "hex dump", [](C
         return Err::fail;
     }
     hexdump(ctx.cli, address, size);
-    return Err::okQuiet;
+    return Err::ok;
 });
 
 } // namespace ln::shell

@@ -20,16 +20,10 @@ namespace ln::shell {
 enum Err : std::int8_t {
     unknown = std::numeric_limits<std::int8_t>::min(),
     unexpected = unknown + 1,
-    fail8 = -8,
-    fail7 = -7,
-    fail6 = -6,
-    fail5 = -5,
-    fail4 = -4,
-    fail3 = -3,
+    unknownCmd = -3,
     badArg = -2,
     fail = -1,
-    ok = 0,
-    okQuiet,
+    ok = 0
 };
 
 class CLI;
