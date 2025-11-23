@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(LN_FREERTOS "Enable FreeRTOS and features depending on it" OFF)
+option(LN_LUA "Enable Lua scripting support" OFF)
 
 project(
   ln
@@ -24,6 +25,9 @@ if(PROJECT_IS_TOP_LEVEL)
 endif()
 
 include(cmake/extern/littlefs.cmake)
+if(LN_LUA)
+  add_subdirectory(extern/lua)
+endif()
 
 add_subdirectory(ln)
 
