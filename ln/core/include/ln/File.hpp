@@ -15,10 +15,17 @@ namespace ln {
 
 class File {
 public:
-    File(FILE *file) : file(file) {
-        if (!this->file) {
+    /**
+     * @brief Construct for standard files: stdin, stdout, stderr.
+     */
+    File(FILE *file) {
+        if (!file) {
             LN_PANIC();
         }
+        if (file != stdout && file != stdin && file != stderr) {
+            LN_PANIC();
+        }
+        this->file = file;
     }
 
     File(const char *path, const char *mode) {
@@ -39,6 +46,10 @@ public:
 
     ~File() {
         if (!this->file) {
+            return;
+        }
+        if (this->file == stdout || this->file == stdin || this->file == stderr) {
+            this->file = nullptr;
             return;
         }
         fclose(this->file);
