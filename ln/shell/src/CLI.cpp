@@ -91,10 +91,14 @@ Err CLI::execute(const Cmd &cmd, const std::span<const std::string_view> args,
         return err;
     }
     if (err == Err::ok) {
-        this->print("\n" ANSI_COLOR_GREEN "OK");
+        if (this->config.print_result_tags) {
+            this->print("\n" ANSI_COLOR_GREEN "OK");
+        }
     }
     else if (static_cast<std::int8_t>(err) < 0) {
-        this->printf("\n" ANSI_COLOR_RED "FAIL: %d", static_cast<std::underlying_type_t<decltype(err)>>(err));
+        if (this->config.print_result_tags) {
+            this->printf("\n" ANSI_COLOR_RED "FAIL: %d", static_cast<std::underlying_type_t<decltype(err)>>(err));
+        }
     }
     this->print(ANSI_COLOR_RESET "\n");
     return err;

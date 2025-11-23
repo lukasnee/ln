@@ -45,6 +45,7 @@ public:
         static constexpr std::size_t printf_buffer_size = 256;
         static constexpr bool regular_response_is_enabled = true;
         bool colored_output = true;
+        bool print_result_tags = false;
     } config;
 
     CLI(ln::OutStream<char> &out_stream, Cmd *cmd_list = Cmd::global_command_list);
