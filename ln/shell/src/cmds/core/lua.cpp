@@ -9,6 +9,8 @@
 
 #include "ln/shell/CLI.hpp"
 
+#include <string_view>
+
 extern "C"
 {
 #include <lua.h>
@@ -22,8 +24,8 @@ Cmd lua("lua", "runs lua code", [](Cmd::Ctx ctx) -> Err {
     (void)ctx;
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
-    const char *code = "print('Hello, World')";
-    if (luaL_loadstring(L, code) == LUA_OK) {
+    std::string_view code_sv{ctx.args.front().cbegin(), ctx.args.back().cend()};
+    if (luaL_loadbuffer(L, code_sv.data(), code_sv.size(), code_sv.data()) == LUA_OK) {
         if (lua_pcall(L, 0, 0, 0) == LUA_OK) {
             // If it was executed successfuly we
             // remove the code from the stack
