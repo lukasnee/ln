@@ -82,25 +82,45 @@ std::tuple<const Cmd *, std::span<const std::string_view>> CLI::find_cmd(std::sp
 Err CLI::execute(const Cmd &cmd, const std::span<const std::string_view> args,
                  const char *output_color_escape_sequence) {
     if (!cmd.function) {
-        this->print(ANSI_COLOR_RED "command has no method\n");
+        if (this->config.colored_output) {
+            this->print(ANSI_COLOR_RED);
+        }
+        this->print("command has no method\n");
+        if (this->config.colored_output) {
+            this->print(ANSI_COLOR_RESET);
+        }
         return Err::unexpected;
     }
     this->print(output_color_escape_sequence); // response in green
-    Err err = cmd.function(Cmd::Ctx{*this, args});
+    const auto err = cmd.function(Cmd::Ctx{*this, args});
     if (!Config::regular_response_is_enabled) {
         return err;
     }
     if (err == Err::ok) {
         if (this->config.print_result_tags) {
-            this->print("\n" ANSI_COLOR_GREEN "OK");
+            if (this->config.colored_output) {
+                this->print(ANSI_COLOR_GREEN);
+            }
+            this->print("\nOK");
+            if (this->config.colored_output) {
+                this->print(ANSI_COLOR_RESET);
+            }
         }
     }
     else if (static_cast<std::int8_t>(err) < 0) {
         if (this->config.print_result_tags) {
-            this->printf("\n" ANSI_COLOR_RED "FAIL: %d", static_cast<std::underlying_type_t<decltype(err)>>(err));
+            if (this->config.colored_output) {
+                this->print(ANSI_COLOR_RED);
+            }
+            this->print("\nFAIL");
+            if (err != Err::fail) {
+                this->printf(" (%d)", static_cast<std::underlying_type_t<decltype(err)>>(err));
+            }
+            if (this->config.colored_output) {
+                this->print(ANSI_COLOR_RESET);
+            }
         }
     }
-    this->print(ANSI_COLOR_RESET "\n");
     return err;
 }
 
@@ -137,7 +157,13 @@ bool CLI::handle_line() {
     auto opt_args = Args::tokenize(this->input.get(), args_buf);
     if (!opt_args) {
         this->last_err = Err::badArg;
-        this->print(ANSI_COLOR_RED "error parsing arguments\n");
+        if (this->config.colored_output) {
+            this->print(ANSI_COLOR_RED);
+        }
+        this->print("error parsing arguments\n");
+        if (this->config.colored_output) {
+            this->print(ANSI_COLOR_RESET);
+        }
         return false;
     }
     const auto args = *opt_args;
@@ -148,7 +174,13 @@ bool CLI::handle_line() {
     const auto [cmd, cmd_args] = this->find_cmd(args);
     if (!cmd) {
         this->last_err = Err::unknownCmd;
-        this->print(ANSI_COLOR_RED "command not found\n");
+        if (this->config.colored_output) {
+            this->print(ANSI_COLOR_RED);
+        }
+        this->print("command not found\n");
+        if (this->config.colored_output) {
+            this->print(ANSI_COLOR_RESET);
+        }
         return false;
     }
     this->last_err = this->execute(*cmd, cmd_args);
@@ -290,9 +322,13 @@ bool CLI::on_arrow_right_key() {
 }
 
 void CLI::print_prompt(void) {
-    this->print(this->last_err == Err::ok ? ANSI_COLOR_GREEN : ANSI_COLOR_RED);
+    if (this->config.colored_output) {
+        this->print(this->last_err == Err::ok ? ANSI_COLOR_GREEN : ANSI_COLOR_RED);
+    }
     this->print("> ");
-    this->print(ANSI_COLOR_YELLOW);
+    if (this->config.colored_output) {
+        this->print(ANSI_COLOR_YELLOW);
+    }
 }
 
 /** @return true if actually backspaced */
