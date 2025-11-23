@@ -108,7 +108,7 @@ public:
     void flush_buffer();
 
 protected:
-    Config config;
+    Config config = {};
 
     friend class Module;
 
