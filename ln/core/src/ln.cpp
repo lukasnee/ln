@@ -35,11 +35,4 @@ const char *get_current_thread_name() {
     return name;
 }
 
-Timestamp get_timestamp() {
-    using namespace std::chrono;
-    const auto uptime_ms = duration_cast<milliseconds>(FreeRTOS::Addons::Clock::now().time_since_epoch()).count();
-    const std::time_t uptime_seconds = uptime_ms / 1000;
-    return {.tm = *std::gmtime(&uptime_seconds), .ms = static_cast<std::uint32_t>(uptime_ms % 1000)};
-}
-
 } // namespace ln

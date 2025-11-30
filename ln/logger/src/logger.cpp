@@ -11,6 +11,7 @@
 #include "ln/ln.hpp"
 
 #include <FreeRTOS/Addons/LockGuard.hpp>
+#include <FreeRTOS/Addons/Clock.hpp>
 
 #include <cstdio>
 
@@ -146,10 +147,13 @@ int Logger::print_header(ln::File &file, const LoggerModule &module, const Logge
                                                    {"CRT", ANSI_COLOR_RED}};
     const auto level_clamped = std::min(level, LOGGER_LEVEL_MAX_);
     const auto level_descr_idx = level_clamped == 0 ? 0 : ((level - 1) / 10);
+    using Clock = FreeRTOS::Addons::Clock;
+    const auto [tm_buf, sec_remainder] = Clock::to_utc_tm_rem(Clock::now());
     char datetime_buffer[20];
-    const auto timestamp = ln::get_timestamp();
-    std::strftime(datetime_buffer, sizeof(datetime_buffer), "%Y-%m-%d %H:%M:%S", &timestamp.tm);
-    return this->printf(file, "%s.%03lu|%s%s%s|%s%s|%s|", datetime_buffer, timestamp.ms,
+    const auto ms =
+        static_cast<unsigned long>(std::chrono::duration_cast<std::chrono::milliseconds>(sec_remainder).count());
+    std::strftime(datetime_buffer, sizeof(datetime_buffer), "%Y-%m-%d %H:%M:%S", &tm_buf);
+    return this->printf(file, "%s.%03lu|%s%s%s|%s%s|%s|", datetime_buffer, ms,
                         (this->config.color ? level_descrs[level_descr_idx].color.data() : ""),
                         level_descrs[level_descr_idx].tag_name.data(), (this->config.color ? ANSI_COLOR_DEFAULT : ""),
                         (ln::is_inside_interrupt() ? "ISR!" : ""), get_current_thread_name(), module.name);

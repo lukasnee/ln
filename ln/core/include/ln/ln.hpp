@@ -27,11 +27,4 @@ using Timeout = FreeRTOS::Addons::Timeout;
 bool is_inside_interrupt();
 const char *get_current_thread_name();
 
-struct Timestamp {
-    std::tm tm;
-    std::uint32_t ms;
-};
-
-Timestamp get_timestamp();
-
 } // namespace ln
