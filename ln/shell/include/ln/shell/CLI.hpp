@@ -64,11 +64,11 @@ public:
     /** @return {cmd, args} */
     std::tuple<const Cmd *, std::span<const std::string_view>> find_cmd(std::span<const std::string_view> args);
 
-    Err execute(const Cmd &cmd, const std::span<const std::string_view> args,
-                const char *output_color_escape_sequence = "\e[32m"); // default in green
+    bool execute_line(std::string_view line);
 
 private:
-    bool handle_line();
+    Err execute(const Cmd &cmd, const std::span<const std::string_view> args,
+                const char *output_color_escape_sequence = "\e[32m"); // default in green
 
     bool handle_escape(const char &c);
     bool handle_ansi_escape(const char &c);

@@ -140,7 +140,7 @@ bool CLI::put_char(const char &c) {
     }
     if (c == '\r') {
         this->print("\r\n");
-        const auto res = this->handle_line();
+        const auto res = this->execute_line(this->input.get());
         this->input.clear();
         this->is_prompted = true;
         this->print_prompt();
@@ -149,9 +149,9 @@ bool CLI::put_char(const char &c) {
     return false;
 }
 
-bool CLI::handle_line() {
+bool CLI::execute_line(std::string_view line) {
     std::array<std::string_view, 16> args_buf;
-    auto opt_args = Args::tokenize(this->input.get(), args_buf);
+    auto opt_args = Args::tokenize(line, args_buf);
     if (!opt_args) {
         this->last_err = Err::badArg;
         if (this->config.colored_output) {
