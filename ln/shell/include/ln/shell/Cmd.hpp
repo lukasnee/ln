@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "ln/StaticForwardList.hpp"
+
 #include <functional>
 #include <limits>
 #include <cstdint>
@@ -28,7 +30,7 @@ enum Err : std::int8_t {
 
 class CLI;
 
-class Cmd {
+class Cmd : public ln::StaticForwardListNode<Cmd> {
 public:
     struct Ctx {
         CLI &cli;
@@ -45,8 +47,8 @@ public:
     Cmd(const char *name, const char *description, Function function);
     Cmd(const char *name, Function function);
 
-    const Cmd *find_neighbour_cmd(std::string_view name) const;
-    const Cmd *find_subcmd(std::string_view name) const;
+    static const Cmd *find_cmd_by_name(ln::StaticForwardList<Cmd> cmd_list, std::string_view name);
+    const Cmd *find_subcmd_by_name(std::string_view name) const;
 
     static bool match_token(const char *str_tokens, std::string_view str_token);
 
@@ -59,14 +61,12 @@ public:
                     std::size_t indent = 0) const;
 
 protected:
-    void link_to(Cmd *&parent_cmd);
-
-    Cmd *subcmd = nullptr;
-    Cmd *next = nullptr;
+    ln::StaticForwardList<Cmd> subcmd_list;
 
 private:
     friend CLI;
-    static Cmd *global_command_list;
+
+    static ln::StaticForwardList<Cmd> global_cmd_list;
 
     static Cmd help_cmd;
 };

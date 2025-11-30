@@ -15,7 +15,8 @@
 #include <type_traits>
 
 namespace ln::shell {
-CLI::CLI(ln::OutStream<char> &out_stream, Cmd *cmd_list) : out_stream(out_stream), cmd_list(cmd_list){};
+CLI::CLI(ln::OutStream<char> &out_stream, ln::StaticForwardList<Cmd> cmd_list)
+    : out_stream(out_stream), cmd_list(cmd_list){};
 
 void CLI::print(const char &c, std::size_t times_to_repeat) {
     while (times_to_repeat--) {
@@ -52,10 +53,6 @@ int CLI::printf(const char *fmt, ...) {
 }
 
 std::tuple<const Cmd *, std::span<const std::string_view>> CLI::find_cmd(std::span<const std::string_view> args) {
-    const Cmd *cmd = this->cmd_list;
-    if (!cmd) {
-        return {nullptr, {}};
-    }
     if (args.size() == 0) {
         return {};
     }
@@ -63,12 +60,12 @@ std::tuple<const Cmd *, std::span<const std::string_view>> CLI::find_cmd(std::sp
         return {};
     }
     std::size_t arg_offset = 0;
-    cmd = cmd->find_neighbour_cmd(args[arg_offset]);
+    auto cmd = Cmd::find_cmd_by_name(this->cmd_list, args[arg_offset]);
     if (!cmd) {
         return {};
     }
     while (args.size() - arg_offset - 1) {
-        const Cmd *subcmd = cmd->find_subcmd(args[arg_offset + 1]);
+        const Cmd *subcmd = cmd->find_subcmd_by_name(args[arg_offset + 1]);
         if (!subcmd) {
             break;
         }

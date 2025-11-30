@@ -77,54 +77,51 @@ bool Cmd::match_token(const char *str_tokens, std::string_view str_token) {
     return false;
 }
 
-const Cmd *Cmd::find_neighbour_cmd(std::string_view name) const {
-    for (const Cmd *next = this; next != nullptr; next = next->next) {
-        if (Cmd::match_token(next->name, name)) {
-            return next;
+const Cmd *Cmd::find_cmd_by_name(ln::StaticForwardList<Cmd> cmd_list, std::string_view name) {
+    for (const auto &cmd : cmd_list) {
+        if (Cmd::match_token(cmd.name, name)) {
+            return &cmd;
         }
     }
     return nullptr;
 }
 
-const Cmd *Cmd::find_subcmd(std::string_view name) const {
-    for (const Cmd *next = this->subcmd; next != nullptr; next = next->next) {
-        if (Cmd::match_token(next->name, name)) {
-            return next;
+const Cmd *Cmd::find_subcmd_by_name(std::string_view name) const {
+    for (const auto &cmd : this->subcmd_list) {
+        if (Cmd::match_token(cmd.name, name)) {
+            return &cmd;
         }
     }
-
     return nullptr;
 }
 
 void Cmd::print_help(CLI &cli, bool recurse, const std::size_t max_depth, std::size_t depth, std::size_t indent) const {
     constexpr int cmd_column_width = 40;
-    for (const Cmd *cmd_it = this; cmd_it != nullptr; cmd_it = cmd_it->next) {
         if (indent >= 3) {
             cli.print(' ', indent - 3);
-            // cli.print("|\n");
-            // cli.print(' ', indent - 3);
             cli.print("`- ");
         }
         int chars_printed = 0;
-        if (cmd_it->name) {
-            if (cmd_it->usage) {
-                chars_printed = cli.printf("%s %s ", cmd_it->name, cmd_it->usage);
+    if (this->name) {
+        if (this->usage) {
+            chars_printed = cli.printf("%s %s ", this->name, this->usage);
             }
             else {
-                chars_printed = cli.printf("%s  ", cmd_it->name);
+            chars_printed = cli.printf("%s  ", this->name);
             }
         }
         if (chars_printed > 0) {
             if (chars_printed < cmd_column_width) {
                 cli.print(' ', cmd_column_width - chars_printed - indent);
             }
-            if (cmd_it->description) {
-                chars_printed = cli.print(cmd_it->description);
+        if (this->description) {
+            chars_printed = cli.print(this->description);
             }
             cli.print('\n');
         }
-        if (recurse && depth < max_depth && cmd_it->subcmd) {
-            cmd_it->subcmd->print_help(cli, recurse, max_depth, depth + 1, indent + strlen(cmd_it->name) + sizeof(' '));
+    for (const auto &cmd : this->subcmd_list) {
+        if (recurse && depth < max_depth) {
+            cmd.print_help(cli, recurse, max_depth, depth + 1, indent + strlen(cmd.name) + sizeof(' '));
         }
         if (depth == 0) {
             break;
@@ -134,13 +131,13 @@ void Cmd::print_help(CLI &cli, bool recurse, const std::size_t max_depth, std::s
 
 Cmd Cmd::help_cmd = Cmd("help,?", "[all|[COMMAND...]]", "show command usage", [](Ctx ctx) -> Err {
     if (ctx.args.size() == 0) {
-        for (const Cmd *cmd_it = Cmd::global_command_list; cmd_it; cmd_it = cmd_it->next) {
-            cmd_it->print_help(ctx.cli, false, 0);
+        for (const auto &cmd : Cmd::global_cmd_list) {
+            cmd.print_help(ctx.cli, false, 0);
         }
     }
     else if (ctx.args.size() == 1 && ctx.args[0] == "all"sv) {
-        for (const Cmd *cmd_it = Cmd::global_command_list; cmd_it; cmd_it = cmd_it->next) {
-            cmd_it->print_help(ctx.cli, true, 7);
+        for (const auto &cmd : Cmd::global_cmd_list) {
+            cmd.print_help(ctx.cli, true, 7);
         }
     }
     else if (ctx.args.size() >= 1) {

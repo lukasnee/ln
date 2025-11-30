@@ -49,7 +49,7 @@ public:
         bool print_result_tags = false;
     } config;
 
-    CLI(ln::OutStream<char> &out_stream, Cmd *cmd_list = Cmd::global_command_list);
+    CLI(ln::OutStream<char> &out_stream, ln::StaticForwardList<Cmd> cmd_list = Cmd::global_cmd_list);
 
     // NOTE: escape sequences are time sensitive !
     // TODO: move this to a dedicated uart receiver task and join by char queue
@@ -99,7 +99,7 @@ private:
     Input input;
     bool is_prompted = true;
     ln::OutStream<char> &out_stream;
-    Cmd *cmd_list = nullptr;
+    ln::StaticForwardList<Cmd> cmd_list;
     Err last_err = Err::ok;
 };
 } // namespace ln::shell
