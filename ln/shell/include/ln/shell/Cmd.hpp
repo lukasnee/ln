@@ -90,8 +90,9 @@ public:
 
     Cmd(Cfg cfg);
 
-    void print_short_help(CLI &cli, const std::size_t max_depth = 1, std::size_t depth = 0) const;
-    void print_long_help(CLI &cli) const;
+    void print_args(CLI &cli) const;
+    void print_short_help(CLI &cli, std::size_t max_depth = 1, std::size_t depth = 0) const;
+    void print_long_help(CLI &cli, std::size_t max_depth = 1, std::size_t depth = 0) const;
 
     static ln::StaticForwardList<Cmd> base_cmd_list;
     static ln::StaticForwardList<Cmd> general_cmd_list;
@@ -102,6 +103,7 @@ private:
 
     static const Cmd *find_cmd_by_name(ln::StaticForwardList<Cmd> cmd_list, std::string_view name);
     const Cmd *find_child_cmd_by_name(std::string_view name) const;
+    std::size_t resolve_cmd_depth() const;
 
     ln::StaticForwardList<Cmd> children_cmd_list;
     Cfg cfg;
