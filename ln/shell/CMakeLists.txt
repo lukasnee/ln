@@ -5,4 +5,4 @@ target_sources(ln_shell PRIVATE src/CLI.cpp src/Input.cpp src/Cmd.cpp
 target_include_directories(ln_shell PUBLIC include)
 target_link_libraries(ln_shell PUBLIC ln::core)
 
-add_subdirectory(src/cmds/core)
+add_subdirectory(src/cmds/core) # TODO rename dir core -> general

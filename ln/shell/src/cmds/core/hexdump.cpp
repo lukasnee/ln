@@ -30,21 +30,26 @@ void hexdump(CLI &cli, const std::uint32_t &address, const std::size_t &size) {
     }
 }
 
-Cmd hexdumpShellCommand("hexdump,hd", "<addressHex> <sizeHex>", "hex dump", [](Cmd::Ctx ctx) -> Err {
-    if (ctx.args.size() != 2) {
-        return Err::fail;
-    }
-    unsigned int address;
-    unsigned int size;
-    // TODO: string_view has no null terminator which can lead to issues here. Investigate later.
-    if (std::sscanf(ctx.args[0].data(), "%x", &address) != 1) {
-        return Err::fail;
-    }
-    if (std::sscanf(ctx.args[1].data(), "%x", &size) != 1) {
-        return Err::fail;
-    }
-    hexdump(ctx.cli, address, size);
-    return Err::ok;
-});
+Cmd hexdump_cmd{Cmd::Cfg{.cmd_list = Cmd::general_cmd_list,
+                         .name = "hexdump,hd",
+                         .usage = "<addressHex> <sizeHex>",
+                         .short_description = "hex dump",
+                         .fn = [](Cmd::Ctx ctx) {
+                             if (ctx.args.size() != 2) {
+                                 return Err::fail;
+                             }
+                             unsigned int address;
+                             unsigned int size;
+                             // TODO: string_view has no null terminator which can lead to issues here.
+                             // Investigate later.
+                             if (std::sscanf(ctx.args[0].data(), "%x", &address) != 1) {
+                                 return Err::fail;
+                             }
+                             if (std::sscanf(ctx.args[1].data(), "%x", &size) != 1) {
+                                 return Err::fail;
+                             }
+                             hexdump(ctx.cli, address, size);
+                             return Err::ok;
+                         }}};
 
 } // namespace ln::shell

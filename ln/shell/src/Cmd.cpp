@@ -15,50 +15,17 @@
 
 namespace ln::shell {
 
-Cmd *Cmd::global_command_list = nullptr;
+ln::StaticForwardList<Cmd> Cmd::base_cmd_list = {};
+ln::StaticForwardList<Cmd> Cmd::general_cmd_list = {};
+ln::StaticForwardList<Cmd> Cmd::global_cmd_list = {};
 
-void Cmd::link_to(Cmd *&parent_cmd) {
-    if (!parent_cmd) {
-        parent_cmd = this;
-    }
-    else {
-        Cmd *next = parent_cmd;
-        while (next->next) {
-            next = next->next;
-        }
-        next->next = this;
-    }
+Cmd::Cmd(Cfg cfg) : cfg{cfg} {
+
+    auto &cmd_list = this->cfg.parent_cmd ? this->cfg.parent_cmd->children_cmd_list : this->cfg.cmd_list;
+    cmd_list.push_front(*this);
 }
 
-Cmd::Cmd(const char *name, const char *usage, const char *description, Cmd::Function function,
-         std::function<void()> ctor_cb)
-    : name(name), usage(usage), description(description), function(function) {
-    this->link_to(Cmd::global_command_list);
-    if (ctor_cb) {
-        ctor_cb();
-    }
-}
-
-Cmd::Cmd(Cmd &parent_cmd, const char *name, const char *usage, const char *description, Cmd::Function function,
-         std::function<void()> ctor_cb)
-    : name(name), usage(usage), description(description), function(function) {
-    this->link_to(parent_cmd.subcmd);
-    if (ctor_cb) {
-        ctor_cb();
-    }
-}
-
-Cmd::Cmd(const char *name, const char *description, Function function)
-    : name(name), usage(nullptr), description(description), function(function) {
-    this->link_to(Cmd::global_command_list);
-}
-
-Cmd::Cmd(const char *name, Cmd::Function function)
-    : name(name), usage(nullptr), description(nullptr), function(function) {
-    this->link_to(Cmd::global_command_list);
-}
-
-bool Cmd::match_token(const char *str_tokens, std::string_view str_token) {
+static bool matches_any_token(std::string_view str_token, const char *str_tokens) {
     const char *str_this_token = str_tokens;
     for (const char *str_char_it = str_this_token; *str_char_it != '\0'; str_char_it++) {
         const bool it_at_last_char = (*(str_char_it + 1) == '\0');
@@ -79,77 +46,97 @@ bool Cmd::match_token(const char *str_tokens, std::string_view str_token) {
 
 const Cmd *Cmd::find_cmd_by_name(ln::StaticForwardList<Cmd> cmd_list, std::string_view name) {
     for (const auto &cmd : cmd_list) {
-        if (Cmd::match_token(cmd.name, name)) {
+        if (matches_any_token(name, cmd.cfg.name)) {
             return &cmd;
         }
     }
     return nullptr;
 }
 
-const Cmd *Cmd::find_subcmd_by_name(std::string_view name) const {
-    for (const auto &cmd : this->subcmd_list) {
-        if (Cmd::match_token(cmd.name, name)) {
+const Cmd *Cmd::find_child_cmd_by_name(std::string_view name) const {
+    for (const auto &cmd : this->children_cmd_list) {
+        if (matches_any_token(name, cmd.cfg.name)) {
             return &cmd;
         }
     }
     return nullptr;
 }
 
-void Cmd::print_help(CLI &cli, bool recurse, const std::size_t max_depth, std::size_t depth, std::size_t indent) const {
-    constexpr int cmd_column_width = 40;
-        if (indent >= 3) {
-            cli.print(' ', indent - 3);
-            cli.print("`- ");
+void Cmd::print_short_help(CLI &cli, const std::size_t max_depth, std::size_t depth) const {
+    for (std::size_t i = depth; i > 0; i--) {
+        auto cmd = this;
+        for (std::size_t j = 0; j < i; j++) {
+            cmd = cmd->cfg.parent_cmd;
         }
-        int chars_printed = 0;
-    if (this->name) {
-        if (this->usage) {
-            chars_printed = cli.printf("%s %s ", this->name, this->usage);
-            }
-            else {
-            chars_printed = cli.printf("%s  ", this->name);
-            }
-        }
-        if (chars_printed > 0) {
-            if (chars_printed < cmd_column_width) {
-                cli.print(' ', cmd_column_width - chars_printed - indent);
-            }
-        if (this->description) {
-            chars_printed = cli.print(this->description);
-            }
-            cli.print('\n');
-        }
-    for (const auto &cmd : this->subcmd_list) {
-        if (recurse && depth < max_depth) {
-            cmd.print_help(cli, recurse, max_depth, depth + 1, indent + strlen(cmd.name) + sizeof(' '));
-        }
-        if (depth == 0) {
-            break;
-        }
+        cli.print(cmd->cfg.name);
+        cli.print(' ');
+    }
+    if (this->cfg.name) {
+        cli.print(this->cfg.name);
+    }
+    if (this->cfg.usage) {
+        cli.print(' ');
+        cli.print(this->cfg.usage);
+    }
+    if (this->cfg.short_description) {
+        cli.print(" - ");
+        cli.print(this->cfg.short_description);
+    }
+    cli.print('\n');
+    if (depth >= max_depth) {
+        return;
+    }
+    for (const auto &cmd : this->children_cmd_list) {
+        cmd.print_short_help(cli, max_depth, depth + 1);
     }
 }
 
-Cmd Cmd::help_cmd = Cmd("help,?", "[all|[COMMAND...]]", "show command usage", [](Ctx ctx) -> Err {
-    if (ctx.args.size() == 0) {
-        for (const auto &cmd : Cmd::global_cmd_list) {
-            cmd.print_help(ctx.cli, false, 0);
-        }
+void Cmd::print_long_help(CLI &cli) const {
+    this->print_short_help(cli, 0);
+    if (this->cfg.long_description) {
+        cli.print(this->cfg.long_description);
     }
-    else if (ctx.args.size() == 1 && ctx.args[0] == "all"sv) {
-        for (const auto &cmd : Cmd::global_cmd_list) {
-            cmd.print_help(ctx.cli, true, 7);
-        }
-    }
-    else if (ctx.args.size() >= 1) {
-        auto [cmd, _] = ctx.cli.find_cmd(ctx.args.subspan(1));
-        if (cmd) {
-            cmd->print_help(ctx.cli, true, 1);
-        }
-    }
-    else {
-        return Err::badArg;
-    }
-    return Err::ok;
-});
+    cli.print('\n');
+}
+
+Cmd help_cmd{Cmd::Cfg{.cmd_list = Cmd::base_cmd_list,
+                      .name = "help,?",
+                      .usage = "[all|[COMMAND...]]",
+                      .short_description = "show command usage",
+                      .fn = [](Cmd::Ctx ctx) {
+                          if (ctx.args.size() == 0) {
+                              for (const auto &cmd_list_ptr : ctx.cli.config.cmd_lists) {
+                                  if (!cmd_list_ptr) {
+                                      continue;
+                                  }
+                                  for (const auto &cmd : *cmd_list_ptr) {
+                                      cmd.print_short_help(ctx.cli, 0);
+                                  }
+                              }
+                              return Err::ok;
+                          }
+                          else if (ctx.args.size() == 1 && ctx.args[0] == "all"sv) {
+                              for (const auto &cmd_list_ptr : ctx.cli.config.cmd_lists) {
+                                  if (!cmd_list_ptr) {
+                                      continue;
+                                  }
+                                  for (const auto &cmd : *cmd_list_ptr) {
+                                      cmd.print_short_help(ctx.cli, 7);
+                                  }
+                              }
+                              return Err::ok;
+                          }
+                          else if (ctx.args.size() >= 1) {
+                              auto [cmd, _] = ctx.cli.find_cmd(ctx.args);
+                              if (cmd) {
+                                  cmd->print_long_help(ctx.cli);
+                                  return Err::ok;
+                              }
+                          }
+                          else {
+                              return Err::badArg;
+                          }
+                          return Err::unknownCmd;
+                      }}};
 
 } // namespace ln::shell

@@ -47,9 +47,12 @@ public:
         static constexpr bool regular_response_is_enabled = true;
         bool colored_output = true;
         bool print_result_tags = false;
+        static inline std::array<ln::StaticForwardList<Cmd> *, 3> default_cmd_lists = {
+            &Cmd::base_cmd_list, &Cmd::general_cmd_list, &Cmd::global_cmd_list};
+        std::span<ln::StaticForwardList<Cmd> *> cmd_lists = default_cmd_lists;
     } config;
 
-    CLI(ln::OutStream<char> &out_stream, ln::StaticForwardList<Cmd> cmd_list = Cmd::global_cmd_list);
+    CLI(ln::OutStream<char> &out_stream);
 
     // NOTE: escape sequences are time sensitive !
     // TODO: move this to a dedicated uart receiver task and join by char queue
@@ -99,7 +102,6 @@ private:
     Input input;
     bool is_prompted = true;
     ln::OutStream<char> &out_stream;
-    ln::StaticForwardList<Cmd> cmd_list;
     Err last_err = Err::ok;
 };
 } // namespace ln::shell

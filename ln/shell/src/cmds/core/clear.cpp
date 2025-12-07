@@ -11,12 +11,13 @@
 
 namespace ln::shell {
 
-Cmd clear("clear,c", "clear screen", [](Cmd::Ctx ctx) -> Err {
-    std::size_t i = 0x30;
-    while (i--) {
-        ctx.cli.print('\n');
-    }
-    return Err::ok;
-});
+Cmd clear_cmd{Cmd::Cfg{
+    .cmd_list = Cmd::general_cmd_list, .name = "clear,c", .short_description = "clear screen", .fn = [](Cmd::Ctx ctx) {
+        std::size_t i = 0x30;
+        while (i--) {
+            ctx.cli.print('\n');
+        }
+        return Err::ok;
+    }}};
 
 } // namespace ln::shell
