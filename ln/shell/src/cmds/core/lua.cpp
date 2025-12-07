@@ -20,20 +20,20 @@ extern "C"
 
 namespace ln::shell {
 
-Cmd lua("lua", "runs lua code", [](Cmd::Ctx ctx) -> Err {
-    (void)ctx;
-    lua_State *L = luaL_newstate();
-    luaL_openlibs(L);
-    std::string_view code_sv{ctx.args.front().cbegin(), ctx.args.back().cend()};
-    if (luaL_loadbuffer(L, code_sv.data(), code_sv.size(), code_sv.data()) == LUA_OK) {
-        if (lua_pcall(L, 0, 0, 0) == LUA_OK) {
-            // If it was executed successfuly we
-            // remove the code from the stack
-            lua_pop(L, lua_gettop(L));
+Cmd cmd_lua{Cmd::Cfg{
+    .cmd_list = Cmd::general_cmd_list, .name = "lua", .short_description = "runs lua code", .fn = [](Cmd::Ctx ctx) {
+        lua_State *L = luaL_newstate();
+        luaL_openlibs(L);
+        std::string_view code_sv{ctx.args.front().cbegin(), ctx.args.back().cend()};
+        if (luaL_loadbuffer(L, code_sv.data(), code_sv.size(), code_sv.data()) == LUA_OK) {
+            if (lua_pcall(L, 0, 0, 0) == LUA_OK) {
+                // If it was executed successfuly we
+                // remove the code from the stack
+                lua_pop(L, lua_gettop(L));
+            }
         }
-    }
-    lua_close(L);
-    return Err::ok;
-});
+        lua_close(L);
+        return Err::ok;
+    }}};
 
 } // namespace ln::shell

@@ -37,38 +37,74 @@ public:
         std::span<const std::string_view> args;
     };
 
-    using Function = std::function<Err(Ctx)>;
-    using CtorCallback = std::function<void()>;
+    using Fn = std::function<Err(Ctx)>;
 
-    Cmd(const char *name, const char *usage, const char *description, Function function,
-        CtorCallback ctor_cb = nullptr);
-    Cmd(Cmd &parent, const char *name, const char *usage, const char *description, Function function,
-        CtorCallback ctor_cb = nullptr);
-    Cmd(const char *name, const char *description, Function function);
-    Cmd(const char *name, Function function);
+    struct Cfg {
+        /**
+         * @brief Command list to register this command to. It can the
+         * global_cmd_list (default), a custom command list.
+         * @note Required.
+         */
+        ln::StaticForwardList<Cmd> &cmd_list = Cmd::global_cmd_list;
 
-    static const Cmd *find_cmd_by_name(ln::StaticForwardList<Cmd> cmd_list, std::string_view name);
-    const Cmd *find_subcmd_by_name(std::string_view name) const;
+        /**
+         * @brief Parent command. It is base command if nullptr (default).
+         * @note Optional.
+         */
+        Cmd *parent_cmd = nullptr;
 
-    static bool match_token(const char *str_tokens, std::string_view str_token);
+        /**
+         * @brief Command name tokens separated by commas, e.g. "help,?".
+         * @note Required.
+         */
+        const char *name = nullptr;
 
-    const char *name = nullptr;
-    const char *usage = nullptr;
-    const char *description = nullptr;
-    const Function function = nullptr;
+        /**
+         * @brief Command usage string, e.g. "[all|<command_name> [...]]".
+         * @note Optional. May be unspecified if the command has no arguments.
+         */
+        const char *usage = nullptr;
 
-    void print_help(CLI &cli, bool recurse, const std::size_t max_depth = 1, std::size_t depth = 0,
-                    std::size_t indent = 0) const;
+        /**
+         * @brief Short description in just a few words or up to around 60 to
+         * make it fit in one line in the help output. E.g. "show command
+         * usage".
+         * @note Optional.
+         */
+        const char *short_description = nullptr;
 
-protected:
-    ln::StaticForwardList<Cmd> subcmd_list;
+        /**
+         * @brief Long description that may include usage examples and command
+         * details. https://docopt.org style is recommended.
+         * @note Optional.
+         */
+        const char *long_description = nullptr;
+
+        /**
+         * @brief Command function to execute when the command is called.
+         * @note Optional, no command by default. Functionless commands can be
+         * used for grouping subcommands.
+         */
+        Fn fn = nullptr;
+    };
+
+    Cmd(Cfg cfg);
+
+    void print_short_help(CLI &cli, const std::size_t max_depth = 1, std::size_t depth = 0) const;
+    void print_long_help(CLI &cli) const;
+
+    static ln::StaticForwardList<Cmd> base_cmd_list;
+    static ln::StaticForwardList<Cmd> general_cmd_list;
+    static ln::StaticForwardList<Cmd> global_cmd_list;
 
 private:
     friend CLI;
 
-    static ln::StaticForwardList<Cmd> global_cmd_list;
+    static const Cmd *find_cmd_by_name(ln::StaticForwardList<Cmd> cmd_list, std::string_view name);
+    const Cmd *find_child_cmd_by_name(std::string_view name) const;
 
-    static Cmd help_cmd;
+    ln::StaticForwardList<Cmd> children_cmd_list;
+    Cfg cfg;
 };
 
 } // namespace ln::shell

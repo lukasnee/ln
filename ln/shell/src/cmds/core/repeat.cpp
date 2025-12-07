@@ -24,74 +24,62 @@ namespace ln::shell {
 class RepeatCommandThread : public FreeRTOS::Task {
 public:
     using Clock = FreeRTOS::Addons::Clock;
-    RepeatCommandThread(CLI &cli, Clock::duration period, const Cmd &cmd, const std::string_view args_str)
-        : Task{tskIDLE_PRIORITY + 1, 1000, "repeat"}, cli{cli}, period{period}, cmd{cmd} {
-        if (args_str.size() >= args_str_buf.size()) {
+    RepeatCommandThread(CLI &cli, Clock::duration period, const std::string_view line)
+        : Task{tskIDLE_PRIORITY + 1, 1000, "repeat"}, cli{cli}, period{period} {
+        if (line.size() >= line_buf.size()) {
             this->cli.printf("error: arguments too long for repeat command\n");
             return;
         }
-        this->args_str = std::string_view{this->args_str_buf.data(),
-                                          args_str.copy(this->args_str_buf.data(), this->args_str_buf.size())};
+        this->line = std::string_view{this->line_buf.data(), line.copy(this->line_buf.data(), this->line_buf.size())};
     }
 
 private:
     void taskFunction() override {
-        std::array<std::string_view, 16> args_buf;
-        auto opt_args = Args::tokenize(this->args_str, args_buf);
-        if (!opt_args) {
-            this->cli.printf("error: too many arguments for repeat command\n");
-            return;
-        }
-        const auto args = *opt_args;
         while (true) {
-            this->cli.execute(cmd, args, "\e[36m");
+            // TODO: could be optimized, prasing args only once
+            this->cli.execute_line(this->line);
             this->delayUntil(this->period);
         }
     }
 
     CLI &cli;
     Clock::duration period;
-    const Cmd &cmd;
-    std::array<char, 256> args_str_buf;
-    std::string_view args_str{};
-    // std::span<std::string_view> args;
+    std::array<char, 256> line_buf;
+    std::string_view line{};
 };
 
 // TODO: implement quotes for allowing multiple COMMAND arguments with spaces etc.
-Cmd repeat("repeat,r", "<period_ms> <COMMAND...>", "repeat command at a given period", [](Cmd::Ctx ctx) -> Err {
-    static RepeatCommandThread *thread = nullptr;
-    if (ctx.args.size() == 0 && thread) {
-        thread->~RepeatCommandThread();
-        vPortFree(thread);
-        thread = nullptr;
-        ctx.cli.printf("repeat thread stopped\n");
-        return Err::ok;
-    }
-    else if (ctx.args.size() > 1) {
-        if (thread) {
-            return Err::fail;
-        }
-        auto cmd_with_args = ctx.args.subspan(1);
-        auto [cmd_ptr, cmd_args] = ctx.cli.find_cmd(cmd_with_args);
-        if (!cmd_ptr) {
-            ctx.cli.printf("error: could not find command: \'%.*s\'\n",
-                           cmd_with_args.back().cend() - cmd_with_args.front().cbegin(), cmd_with_args.front().data());
-            return Err::fail;
-        }
-        void *thread_obj_mem = pvPortMalloc(sizeof(RepeatCommandThread));
-        if (!thread_obj_mem) {
-            ctx.cli.printf("error: could not allocate memory for repeat thread\n");
-            return Err::fail;
-        }
-        const auto repeat_period = std::chrono::milliseconds(std::strtoul(ctx.args[0].data(), nullptr, 10));
-        ctx.cli.printf("repeating \'%.*s\' every %lu ms\n\n",
-                       cmd_with_args.back().cend() - cmd_with_args.front().cbegin(), cmd_with_args.front().data(),
-                       repeat_period.count());
-        const std::string_view cmd_args_str = std::string_view{cmd_args.front().data(), cmd_args.back().cend()};
-        thread = new (thread_obj_mem) RepeatCommandThread(ctx.cli, repeat_period, *cmd_ptr, cmd_args_str);
-        return Err::ok;
-    }
-    return Err::badArg;
-});
+Cmd repeat{Cmd::Cfg{.cmd_list = Cmd::general_cmd_list,
+                    .name = "repeat,r",
+                    .usage = "<period_ms:u32> <expr:str>",
+                    .short_description = "repeat command at a given period",
+                    .fn = [](Cmd::Ctx ctx) {
+                        static RepeatCommandThread *thread = nullptr;
+                        if (ctx.args.size() == 0 && thread) {
+                            thread->~RepeatCommandThread();
+                            vPortFree(thread);
+                            thread = nullptr;
+                            ctx.cli.printf("repeat thread stopped\n");
+                            return Err::ok;
+                        }
+                        else if (ctx.args.size() == 2) {
+                            if (thread) {
+                                return Err::fail;
+                            }
+                            auto expr_sv = ctx.args[1];
+                            void *thread_obj_mem = pvPortMalloc(sizeof(RepeatCommandThread));
+                            if (!thread_obj_mem) {
+                                ctx.cli.printf("error: could not allocate memory for repeat thread\n");
+                                return Err::fail;
+                            }
+                            const auto repeat_period =
+                                std::chrono::milliseconds(std::strtoul(ctx.args[0].data(), nullptr, 10));
+                            ctx.cli.printf("repeating \'%.*s\' every %lu ms\n\n", expr_sv.size(), expr_sv.data(),
+                                           repeat_period.count());
+                            thread = new (thread_obj_mem) RepeatCommandThread(ctx.cli, repeat_period, expr_sv);
+                            return Err::ok;
+                        }
+                        return Err::badArg;
+                    }}};
 
 } // namespace ln::shell

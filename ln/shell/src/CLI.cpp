@@ -15,8 +15,7 @@
 #include <type_traits>
 
 namespace ln::shell {
-CLI::CLI(ln::OutStream<char> &out_stream, ln::StaticForwardList<Cmd> cmd_list)
-    : out_stream(out_stream), cmd_list(cmd_list){};
+CLI::CLI(ln::OutStream<char> &out_stream) : out_stream(out_stream){};
 
 void CLI::print(const char &c, std::size_t times_to_repeat) {
     while (times_to_repeat--) {
@@ -59,38 +58,54 @@ std::tuple<const Cmd *, std::span<const std::string_view>> CLI::find_cmd(std::sp
     if (args[0].size() == 0) {
         return {};
     }
-    std::size_t arg_offset = 0;
-    auto cmd = Cmd::find_cmd_by_name(this->cmd_list, args[arg_offset]);
-    if (!cmd) {
-        return {};
-    }
-    while (args.size() - arg_offset - 1) {
-        const Cmd *subcmd = cmd->find_subcmd_by_name(args[arg_offset + 1]);
-        if (!subcmd) {
-            break;
+    for (const auto &cmd_list_ptr : this->config.cmd_lists) {
+        if (!cmd_list_ptr) {
+            continue;
         }
-        arg_offset++;
-        cmd = subcmd;
-        continue;
+        std::size_t arg_offset = 0;
+        auto cmd = Cmd::find_cmd_by_name(*cmd_list_ptr, args[arg_offset]);
+        if (!cmd) {
+            continue;
+        }
+        while (args.size() - arg_offset - 1) {
+            const Cmd *child_cmd = cmd->find_child_cmd_by_name(args[arg_offset + 1]);
+            if (!child_cmd) {
+                break;
+            }
+            arg_offset++;
+            cmd = child_cmd;
+            continue;
+        }
+        return {cmd, args.subspan(arg_offset + 1)};
     }
-    return {cmd, args.subspan(arg_offset + 1)};
+    return {};
 }
 
 Err CLI::execute(const Cmd &cmd, const std::span<const std::string_view> args,
                  const char *output_color_escape_sequence) {
-    if (!cmd.function) {
+    if (!cmd.cfg.fn) {
         if (this->config.colored_output) {
             this->print(ANSI_COLOR_RED);
         }
-        this->print("command has no method\n");
+        this->print("command has no function\n");
         if (this->config.colored_output) {
             this->print(ANSI_COLOR_RESET);
         }
         return Err::unexpected;
     }
     this->print(output_color_escape_sequence); // response in green
-    const auto err = cmd.function(Cmd::Ctx{*this, args});
+    const auto err = cmd.cfg.fn(Cmd::Ctx{*this, args});
     if (!Config::regular_response_is_enabled) {
+        return err;
+    }
+    if (err == Err::badArg) {
+        if (this->config.colored_output) {
+            this->print(ANSI_COLOR_YELLOW);
+        }
+        this->print("bad arguments\n");
+        if (this->config.colored_output) {
+            this->print(ANSI_COLOR_RESET);
+        }
         return err;
     }
     if (err == Err::ok) {
