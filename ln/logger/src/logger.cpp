@@ -34,7 +34,11 @@ extern "C" void ln_logger_log(LoggerModule *module, LoggerLevel level, const cha
     va_end(arg_list);
 }
 
-void Logger::enable() { get_instance().config.enabled_run_time = true; }
+void Logger::enable() {
+    auto config = this->config;
+    config.enabled_run_time = true;
+    this->set_config(config);
+}
 
 extern "C" void ln_logger_enable() { Logger::get_instance().enable(); }
 
