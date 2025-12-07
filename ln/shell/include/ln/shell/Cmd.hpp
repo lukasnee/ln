@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "ln/shell/Args.hpp"
+
 #include "ln/StaticForwardList.hpp"
 
 #include <functional>
@@ -61,9 +63,19 @@ public:
 
         /**
          * @brief Command usage string, e.g. "[all|<command_name> [...]]".
+         * Prefer using `args` for automatic usage generation. Currently,
+         * `usage` overrides `args` for short help generation.
+         * @todo Remove `usage` in favor of automatic usage generation from
+         * `args`.
          * @note Optional. May be unspecified if the command has no arguments.
          */
         const char *usage = nullptr;
+
+        /**
+         * @brief Command arguments descriptor.
+         * @note Optional.
+         */
+        const Args args = {};
 
         /**
          * @brief Short description in just a few words or up to around 60 to

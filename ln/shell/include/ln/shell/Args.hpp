@@ -16,9 +16,29 @@
 
 namespace ln::shell {
 
+class Arg {
+public:
+    std::string_view name;
+    enum class Type {
+        num,
+        str,
+    } type = Type::str;
+    std::string_view description;
+
+    static std::string_view to_string(Arg::Type type) {
+        switch (type) {
+        case Arg::Type::num:
+            return "num";
+        case Arg::Type::str:
+            return "str";
+        default:
+            return "unknown";
+        }
+    }
+};
+
 class Args {
 public:
-    
     static std::optional<std::span<std::string_view>> tokenize(const std::string_view sv,
                                                                std::span<std::string_view> args_buf);
     static std::optional<std::span<std::string_view>> copy(const std::span<char> dst_str_buf,
@@ -38,6 +58,8 @@ public:
      * buffer).
      */
     static bool print_to(char *buf, std::size_t size, const char *delimiter = " ", bool nullSeparated = false);
+
+    const std::span<const Arg> positional;
 };
 
 } // namespace ln::shell
