@@ -1,5 +1,9 @@
 {
     "C_Cpp.autoAddFileAssociations": false,
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "C_Cpp.formatting": "disabled",
+    "C_Cpp.autocomplete": "disabled",
+    "C_Cpp.errorSquiggles": "disabled",
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"
     },
@@ -7,5 +11,13 @@
     "cmake.configureSettings": {
         "CMAKE_TOOLCHAIN_FILE": "arm-none-eabi-gcc.cmake",
     },
-    "cmake.useCMakePresets": "always"
+    "cmake.useCMakePresets": "always",
+    "clangd.enable": true,
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/.build",
+        "--query-driver=**", // clangd becomes aware of arm-none-eabi-gcc and its standard includes
+        "--background-index",
+        "--clang-tidy",
+        "--completion-style=detailed"
+    ]
 }

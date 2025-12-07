@@ -100,3 +100,5 @@ function(generate_firmware_artifacts fw_target)
     COMMAND echo "${dir}/${fw_target}.symbols"
   )
 endfunction()
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
