@@ -34,6 +34,10 @@ Here are some important conventions:
 
 ## TODO
 
+- Rename all command objects from `<name>_cmd` to `cmd_<name>` - makes more
+  sense when naming nested commands.
+- Change build directory from `.build` to `build` to match CMake convention and work
+  better with tools like `clangd`.
 - add GPL license preambles to all files.
 - shell backspace does not work.
 - `repeat 1000 repeat 1000 echo labas` should technically work.
