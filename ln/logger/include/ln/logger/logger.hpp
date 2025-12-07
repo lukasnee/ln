@@ -40,7 +40,7 @@ struct Config {
     /* Switch logger on/off at compile time */
     static constexpr bool enabled_compile_time = true;
     /* Switch logger on/off at run-time */
-    bool enabled_run_time = true;
+    bool enabled_run_time = false;
     /* Global log level printing threshold */
     Level log_level = LOGGER_LEVEL_INFO;
     /* Colorize log messages */
