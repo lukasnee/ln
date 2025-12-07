@@ -43,6 +43,8 @@ Logger &Logger::get_instance() {
     return instance;
 };
 
+Logger &get_instance() { return Logger::get_instance(); }
+
 bool Logger::is_enabled() { return Config::enabled_compile_time && get_instance().config.enabled_run_time; }
 
 extern "C" void ln_logger_flush_buffer() { Logger::get_instance().flush_buffer(); }

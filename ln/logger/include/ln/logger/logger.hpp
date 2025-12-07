@@ -131,6 +131,13 @@ private:
     std::array<char, Config::out_buffer_size> buff_mem{};
 };
 
+/**
+ * @brief A shorthand for logger::Logger::get_instance().
+ *
+ * @retval Logger&
+ */
+Logger &get_instance();
+
 struct Hex {
     template <std::size_t N>
     static const char *format(std::array<char, N> &out_buff, const uint8_t *in_data, size_t in_size,
