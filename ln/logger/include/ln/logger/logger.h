@@ -39,7 +39,7 @@ extern "C"
 
     void ln_logger_flush_buffer();
 
-#define LOG_SCOPE(_logger_module) LoggerModule *__logger_curr_scope = &_logger_module
+#define LOG_SCOPE(_logger_module) LoggerModule *__logger_curr_scope __attribute__((unused)) = &_logger_module
 
 #define LOG_MODULE_DEFINITION(_obj_name, _name, _level) LoggerModule _obj_name = {.name = #_name, .log_level = _level}
 
