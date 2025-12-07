@@ -3,3 +3,8 @@ add_library(ln::logger ALIAS ln_logger)
 target_sources(ln_logger PRIVATE src/logger.cpp)
 target_include_directories(ln_logger PUBLIC include)
 target_link_libraries(ln_logger PUBLIC ln::core)
+
+add_library(ln_logger_cmds INTERFACE)
+add_library(ln::logger::cmds ALIAS ln_logger_cmds)
+target_sources(ln_logger_cmds INTERFACE src/cmds.cpp)
+target_link_libraries(ln_logger_cmds INTERFACE ln::logger ln::shell)
