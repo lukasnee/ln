@@ -88,6 +88,16 @@ void Cmd::print_short_help(CLI &cli, std::size_t max_depth, std::size_t depth) c
         cli.print(' ');
         cli.print(this->cfg.usage);
     }
+    else {
+        for (const auto &arg : this->cfg.args.positional) {
+            cli.print(' ');
+            cli.print('<');
+            cli.print(arg.name);
+            cli.print(':');
+            cli.print(Arg::to_string(arg.type));
+            cli.print('>');
+        }
+    }
     if (this->cfg.short_description) {
         cli.print(" - ");
         cli.print(this->cfg.short_description);
@@ -98,6 +108,24 @@ void Cmd::print_short_help(CLI &cli, std::size_t max_depth, std::size_t depth) c
     }
     for (const auto &cmd : this->children_cmd_list) {
         cmd.print_short_help(cli, max_depth, depth + 1);
+    }
+}
+
+void Cmd::print_args(CLI &cli) const {
+    if (this->cfg.args.positional.size() == 0) {
+        return;
+    }
+    cli.print("Positional arguments:\n");
+    for (const auto &arg : this->cfg.args.positional) {
+        cli.print("  ");
+        cli.print(arg.name);
+        cli.print(" : ");
+        cli.print(Arg::to_string(arg.type));
+        if (arg.description.size() > 0) {
+            cli.print(" - ");
+            cli.print(arg.description);
+        }
+        cli.print('\n');
     }
 }
 
@@ -123,6 +151,7 @@ void Cmd::print_long_help(CLI &cli, std::size_t max_depth, std::size_t depth) co
         depth += curr_cmd_depth;
     }
     this->print_short_help(cli, 0);
+    this->print_args(cli);
     if (top_level_call && this->cfg.long_description) {
         cli.print(this->cfg.long_description);
         cli.print('\n');
