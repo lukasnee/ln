@@ -110,7 +110,7 @@ def main():
         def read_serial():
             while ser.is_open and not stop_reading.is_set():
                 if ser.in_waiting > 0:
-                    data = ser.read(ser.in_waiting).decode("utf-8", errors="ignore")
+                    data = ser.read(ser.in_waiting).decode("utf-8", errors="ignore").replace('\r\n', '\n').replace('\n', '\r\n')
                     if args.trace_input:
                         print(''.join(f'R<{ord(c):02x}> ({c if c.isprintable() else ''})\r' for c in data))
                     sys.stdout.write(data)
