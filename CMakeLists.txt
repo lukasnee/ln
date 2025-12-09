@@ -24,6 +24,13 @@ if(PROJECT_IS_TOP_LEVEL)
   target_link_libraries(freertos_config INTERFACE ln::tests) # FreeRTOSCOnfig.h
 endif()
 
+include(FetchContent)
+FetchContent_Declare(
+  etl
+  GIT_REPOSITORY https://github.com/ETLCPP/etl
+  GIT_TAG 20.44.1)
+FetchContent_MakeAvailable(etl)
+
 include(cmake/extern/littlefs.cmake)
 if(LN_LUA)
   add_subdirectory(extern/lua)
