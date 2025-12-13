@@ -166,7 +166,7 @@ bool CLI::put_char(const char &c) {
 
 bool CLI::execute_line(std::string_view line) {
     std::array<std::string_view, 16> args_buf;
-    auto opt_args = Args::tokenize(line, args_buf);
+    auto opt_args = Parser::tokenize(line, args_buf);
     if (!opt_args) {
         this->last_err = Err::badArg;
         if (this->config.colored_output) {

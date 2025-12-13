@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "ln/shell/Args.hpp"
+#include "ln/shell/Parser.hpp"
 
 #include "ln/StaticForwardList.hpp"
 
@@ -72,10 +72,10 @@ public:
         const char *usage = nullptr;
 
         /**
-         * @brief Command arguments descriptor.
+         * @brief Command arguments parser.
          * @note Optional.
          */
-        const Args args = {};
+        const Parser parser = {};
 
         /**
          * @brief Short description in just a few words or up to around 60 to

@@ -89,7 +89,7 @@ void Cmd::print_short_help(CLI &cli, std::size_t max_depth, std::size_t depth) c
         cli.print(this->cfg.usage);
     }
     else {
-        for (const auto &arg : this->cfg.args.positional) {
+        for (const auto &arg : this->cfg.parser.positional_args) {
             cli.print(' ');
             cli.print('<');
             cli.print(arg.name);
@@ -112,11 +112,11 @@ void Cmd::print_short_help(CLI &cli, std::size_t max_depth, std::size_t depth) c
 }
 
 void Cmd::print_args(CLI &cli) const {
-    if (this->cfg.args.positional.size() == 0) {
+    if (this->cfg.parser.positional_args.size() == 0) {
         return;
     }
     cli.print("Positional arguments:\n");
-    for (const auto &arg : this->cfg.args.positional) {
+    for (const auto &arg : this->cfg.parser.positional_args) {
         cli.print("  ");
         cli.print(arg.name);
         cli.print(" : ");

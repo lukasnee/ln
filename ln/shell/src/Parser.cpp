@@ -7,18 +7,16 @@
  * (at your option) any later version.
  */
 
-#include "ln/shell/Args.hpp"
+#include "ln/shell/Parser.hpp"
 
 #include <string_view>
-#include <algorithm>
 #include <cstdio>
 #include <optional>
-#include <ranges>
 
 namespace ln::shell {
 
-std::optional<std::span<std::string_view>> Args::tokenize(const std::string_view sv,
-                                                          std::span<std::string_view> args_buf) {
+std::optional<std::span<std::string_view>> Parser::tokenize(const std::string_view sv,
+                                                            std::span<std::string_view> args_buf) {
     size_t arg_count = 0;
     const char *arg_begin = nullptr;
     char quote_char = '\0';
@@ -71,26 +69,6 @@ std::optional<std::span<std::string_view>> Args::tokenize(const std::string_view
         args_buf[arg_count++] = std::string_view(arg_begin, sv.data() + sv.length() - arg_begin);
     }
     return args_buf.first(arg_count);
-}
-
-std::optional<std::span<std::string_view>> Args::copy(const std::span<char> dst_str_buf,
-                                                      std::span<std::string_view> dst_args_buf,
-                                                      std::span<const std::string_view> src_args) {
-    if (src_args.size() > dst_args_buf.size()) {
-        return std::nullopt;
-    }
-    size_t dst_str_buf_used = 0;
-    for (auto [arg_idx, arg] : std::views::enumerate(src_args)) {
-        const auto dst_str_buf_left = dst_str_buf.size() - dst_str_buf_used;
-        if (dst_str_buf_left <= arg.size()) {
-            return std::nullopt;
-        }
-        const auto dst_str_buf_head = dst_str_buf.data() + dst_str_buf_used;
-        std::copy_n(arg.data(), arg.size(), dst_str_buf_head);
-        dst_args_buf[arg_idx] = std::string_view(dst_str_buf_head, arg.size());
-        dst_str_buf_used += arg.size();
-    }
-    return dst_args_buf.first(src_args.size());
 }
 
 } // namespace ln::shell

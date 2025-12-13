@@ -37,7 +37,7 @@ static constexpr std::array<Arg, 2> hexdump_cmd_positional_args{{
 
 Cmd hexdump_cmd{Cmd::Cfg{.cmd_list = Cmd::general_cmd_list,
                          .name = "hexdump,hd",
-                         .args = Args{.positional = hexdump_cmd_positional_args},
+                         .parser = Parser{.positional = hexdump_cmd_positional_args},
                          .short_description = "hex dump",
                          .fn = [](Cmd::Ctx ctx) {
                              if (ctx.args.size() != 2) {
