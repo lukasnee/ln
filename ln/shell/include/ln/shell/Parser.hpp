@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "ln/File.hpp"
 #include "ln/shell/Arg.hpp"
 
 #include <optional>
@@ -23,7 +24,9 @@ public:
     static std::optional<std::span<std::string_view>> tokenize(const std::string_view sv,
                                                                std::span<std::string_view> args_buf);
 
-    const std::span<const Arg> positional;
+    bool validate(File &ostream, std::span<const std::string_view> args) const;
+
+    const std::span<const Arg> positional_args;
 };
 
 } // namespace ln::shell

@@ -93,6 +93,16 @@ Err CLI::execute(const Cmd &cmd, const std::span<const std::string_view> args,
         }
         return Err::unexpected;
     }
+    if (!cmd.cfg.parser.validate(this->config.ostream, args)) {
+        if (this->config.colored_output) {
+            this->print(ANSI_COLOR_YELLOW);
+        }
+        this->print("bad arguments\n");
+        if (this->config.colored_output) {
+            this->print(ANSI_COLOR_RESET);
+        }
+        return Err::badArg;
+    }
     this->print(output_color_escape_sequence); // response in green
     const auto err = cmd.cfg.fn(Cmd::Ctx{*this, args});
     if (!Config::regular_response_is_enabled) {

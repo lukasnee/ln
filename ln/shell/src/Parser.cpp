@@ -71,4 +71,11 @@ std::optional<std::span<std::string_view>> Parser::tokenize(const std::string_vi
     return args_buf.first(arg_count);
 }
 
+bool Parser::validate(File &ostream, std::span<const std::string_view> args) const {
+    // TODO: implement
+    (void)ostream;
+    (void)args;
+    return false;
+}
+
 } // namespace ln::shell
