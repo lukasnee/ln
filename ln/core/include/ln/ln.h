@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <string.h> // for strrchr
+#include <cstring>
 
 #ifdef __cplusplus
 extern "C"

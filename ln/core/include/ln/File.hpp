@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "ln/ln.h"
+
 #include <cstdio>
 #include <span>
 
