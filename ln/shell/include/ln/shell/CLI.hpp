@@ -9,9 +9,9 @@
 
 #pragma once
 
+#include "ln/File.hpp"
 #include "ln/shell/Input.hpp"
 #include "ln/shell/Cmd.hpp"
-#include "ln/stream.hpp"
 
 #include "FreeRTOS/Addons/Clock.hpp"
 
@@ -43,6 +43,7 @@ namespace ln::shell {
 class CLI {
 public:
     struct Config {
+        File ostream = File(stdout);
         static constexpr std::size_t printf_buffer_size = 256;
         static constexpr bool regular_response_is_enabled = true;
         bool colored_output = true;
@@ -52,7 +53,7 @@ public:
         std::span<ln::StaticForwardList<Cmd> *> cmd_lists = default_cmd_lists;
     } config;
 
-    CLI(ln::OutStream<char> &out_stream);
+    CLI() = default;
 
     // NOTE: escape sequences are time sensitive !
     // TODO: move this to a dedicated uart receiver task and join by char queue
@@ -61,7 +62,7 @@ public:
 
     void print(const char &c, std::size_t times_to_repeat = 1);
     int print(const char *str);
-    void print(std::string_view sv);
+    int print(std::string_view sv);
     int printf(const char *fmt, ...);
 
     /** @return {cmd, args} */
@@ -101,7 +102,6 @@ private:
 
     Input input;
     bool is_prompted = true;
-    ln::OutStream<char> &out_stream;
     Err last_err = Err::ok;
 };
 } // namespace ln::shell

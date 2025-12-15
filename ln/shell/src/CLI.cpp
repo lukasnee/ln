@@ -11,34 +11,32 @@
 // TODO: make arrow up repeat buffer
 // TODO: some kind of esacpe signal mechanism to inform running cmd to exit.
 
+#include <cstdio>
 #include <cstring>
 #include <type_traits>
 
 namespace ln::shell {
-CLI::CLI(ln::OutStream<char> &out_stream) : out_stream(out_stream){};
 
 void CLI::print(const char &c, std::size_t times_to_repeat) {
     while (times_to_repeat--) {
         if (c == '\n') {
-            this->out_stream.put('\r');
+            std::fputc('\r', this->config.ostream);
         }
-        this->out_stream.put(c);
+        std::fputc(c, this->config.ostream);
     }
+    std::fflush(this->config.ostream);
 }
 
-void CLI::print(std::string_view sv) {
-    for (const char &c : sv) {
-        this->print(c);
-    }
+int CLI::print(std::string_view sv) {
+    const auto rc = static_cast<int>(std::fwrite(sv.data(), 1, sv.size(), this->config.ostream));
+    std::fflush(this->config.ostream);
+    return rc;
 }
 
 int CLI::print(const char *str) {
-    int chars_printed = 0;
-    for (const char *c = str; *c != '\0'; ++c) {
-        this->print(*c); // TODO print whole sentence not char by char !
-        chars_printed++;
-    }
-    return chars_printed;
+    const auto rc = static_cast<int>(std::fputs(str, this->config.ostream));
+    std::fflush(this->config.ostream);
+    return rc;
 }
 
 int CLI::printf(const char *fmt, ...) {
