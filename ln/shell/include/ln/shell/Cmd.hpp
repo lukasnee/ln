@@ -36,7 +36,8 @@ class Cmd : public ln::StaticForwardListNode<Cmd> {
 public:
     struct Ctx {
         CLI &cli;
-        std::span<const std::string_view> args;
+        ArgParser &argp;
+        std::span<const std::string_view> args; // TODO: deprecated and remove becuase argp has args
     };
 
     using Fn = std::function<Err(Ctx)>;
@@ -72,10 +73,10 @@ public:
         const char *usage = nullptr;
 
         /**
-         * @brief Command arguments parser.
+         * @brief Command arguments parser configuration.
          * @note Optional.
          */
-        const Parser parser = {};
+        const ArgParser::Cfg argp_cfg = {};
 
         /**
          * @brief Short description in just a few words or up to around 60 to

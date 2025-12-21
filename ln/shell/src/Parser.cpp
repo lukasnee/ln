@@ -8,15 +8,18 @@
  */
 
 #include "ln/shell/Parser.hpp"
+#include "ln/shell/Arg.hpp"
 
 #include <string_view>
 #include <cstdio>
 #include <optional>
+#include <ranges>
+#include <charconv>
 
 namespace ln::shell {
 
-std::optional<std::span<std::string_view>> Parser::tokenize(const std::string_view sv,
-                                                            std::span<std::string_view> args_buf) {
+std::optional<std::span<std::string_view>> ArgParser::tokenize(const std::string_view sv,
+                                                               std::span<std::string_view> args_buf) {
     size_t arg_count = 0;
     const char *arg_begin = nullptr;
     char quote_char = '\0';
@@ -71,11 +74,28 @@ std::optional<std::span<std::string_view>> Parser::tokenize(const std::string_vi
     return args_buf.first(arg_count);
 }
 
-bool Parser::validate(File &ostream, std::span<const std::string_view> args) const {
-    // TODO: implement
-    (void)ostream;
-    (void)args;
-    return false;
+bool ArgParser::validate_arg_composition(File &ostream, std::span<const std::string_view> args) const {
+    if (args.size() < this->cfg.positional_args.size()) {
+        std::fprintf(ostream, "Error: not enough arguments (expected %zu, got %zu)\n", this->cfg.positional_args.size(),
+                     args.size());
+        return false;
+    }
+    for (const auto [i, arg_cfg] : std::views::enumerate(this->cfg.positional_args)) {
+        auto arg = args[i];
+        if (arg.empty()) {
+            std::fprintf(ostream, "Error: expected non-empty positional argument %zu\n", i);
+            return false;
+        }
+        switch (arg_cfg.type) {
+        case Arg::Type::num: {
+            // TODO
+        }
+        case Arg::Type::str:
+            // no additional validation for strings
+            break;
+        }
+    }
+    return true;
 }
 
 } // namespace ln::shell

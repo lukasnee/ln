@@ -18,15 +18,33 @@
 
 namespace ln::shell {
 
-// TODO: consider rename to ArgParser.
-class Parser {
+class ArgParser {
 public:
+    struct Cfg {
+        std::span<const Arg> positional_args;
+    };
+
+    ArgParser(const Cfg &cfg, const std::span<const std::string_view> &args) : cfg{cfg}, args{args} {}
+
+    Arg get_positional(std::size_t index) const {
+        if (index >= this->cfg.positional_args.size()) {
+            return Arg{.role = Arg::Role::non_existent};
+        }
+        Arg arg = this->cfg.positional_args[index];
+        if (index < this->args.size()) {
+            arg.value = this->args[index];
+        }
+        return arg;
+    }
+
     static std::optional<std::span<std::string_view>> tokenize(const std::string_view sv,
                                                                std::span<std::string_view> args_buf);
 
-    bool validate(File &ostream, std::span<const std::string_view> args) const;
+    bool validate_arg_composition(File &ostream, std::span<const std::string_view> args) const;
 
-    const std::span<const Arg> positional_args;
+    // TODO: private:
+    const Cfg &cfg;
+    const std::span<const std::string_view> &args;
 };
 
 } // namespace ln::shell

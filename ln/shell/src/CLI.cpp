@@ -8,6 +8,7 @@
  */
 
 #include "ln/shell/CLI.hpp"
+#include "ln/shell/Parser.hpp"
 // TODO: make arrow up repeat buffer
 // TODO: some kind of esacpe signal mechanism to inform running cmd to exit.
 
@@ -91,7 +92,8 @@ Err CLI::execute(const Cmd &cmd, const std::span<const std::string_view> args,
         }
         return Err::unexpected;
     }
-    if (!cmd.cfg.parser.validate(this->config.ostream, args)) {
+    ArgParser argp{cmd.cfg.argp_cfg, args};
+    if (!argp.validate_arg_composition(this->config.ostream, args)) {
         if (this->config.colored_output) {
             this->print(ANSI_COLOR_YELLOW);
         }
@@ -102,7 +104,7 @@ Err CLI::execute(const Cmd &cmd, const std::span<const std::string_view> args,
         return Err::badArg;
     }
     this->print(output_color_escape_sequence); // response in green
-    const auto err = cmd.cfg.fn(Cmd::Ctx{*this, args});
+    const auto err = cmd.cfg.fn(Cmd::Ctx{*this, argp, args});
     if (!Config::regular_response_is_enabled) {
         return err;
     }
@@ -174,7 +176,7 @@ bool CLI::put_char(const char &c) {
 
 bool CLI::execute_line(std::string_view line) {
     std::array<std::string_view, 16> args_buf;
-    auto opt_args = Parser::tokenize(line, args_buf);
+    auto opt_args = ArgParser::tokenize(line, args_buf);
     if (!opt_args) {
         this->last_err = Err::badArg;
         if (this->config.colored_output) {

@@ -37,22 +37,22 @@ static constexpr std::array<Arg, 2> cmd_hexdump_positional_args{{
 
 Cmd cmd_hexdump{Cmd::Cfg{.cmd_list = Cmd::general_cmd_list,
                          .name = "hexdump,hd",
-                         .parser = Parser{.positional_args = cmd_hexdump_positional_args},
+                         .argp_cfg = ArgParser::Cfg{.positional_args = cmd_hexdump_positional_args},
                          .short_description = "hex dump",
                          .fn = [](Cmd::Ctx ctx) {
                              if (ctx.args.size() != 2) {
                                  return Err::fail;
                              }
-                             unsigned int address;
-                             unsigned int size;
-                             // TODO: string_view has no null terminator which can lead to issues here.
-                             // Investigate later.
-                             if (std::sscanf(ctx.args[0].data(), "%x", &address) != 1) {
-                                 return Err::fail;
+                             auto opt_address = ctx.argp.get_positional(0).as_u32();
+                             if (!opt_address.has_value()) {
+                                 return Err::badArg;
                              }
-                             if (std::sscanf(ctx.args[1].data(), "%x", &size) != 1) {
-                                 return Err::fail;
+                             auto address = *opt_address;
+                             auto opt_size = ctx.argp.get_positional(1).as_u32();
+                             if (!opt_size.has_value()) {
+                                 return Err::badArg;
                              }
+                             auto size = *opt_size;
                              hexdump(ctx.cli, address, size);
                              return Err::ok;
                          }}};
