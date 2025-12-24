@@ -19,20 +19,16 @@ set(CMAKE_ASM_COMPILER ${arm_toolchain_dir}/${toolchain_prefix}gcc)
 set(CMAKE_AR ${arm_toolchain_dir}/${toolchain_prefix}ar)
 set(CMAKE_OBJCOPY
     ${arm_toolchain_dir}/${toolchain_prefix}objcopy
-    CACHE INTERNAL "objcopy tool"
-)
+    CACHE INTERNAL "objcopy tool")
 set(CMAKE_OBJDUMP
     ${arm_toolchain_dir}/${toolchain_prefix}objdump
-    CACHE INTERNAL "objdump tool"
-)
+    CACHE INTERNAL "objdump tool")
 set(CMAKE_NM
     ${arm_toolchain_dir}/${toolchain_prefix}nm
-    CACHE INTERNAL "nm tool"
-)
+    CACHE INTERNAL "nm tool")
 set(CMAKE_SIZE_UTIL
     ${arm_toolchain_dir}/${toolchain_prefix}size
-    CACHE INTERNAL "size tool"
-)
+    CACHE INTERNAL "size tool")
 
 set(CMAKE_FIND_ROOT_PATH ${arm_toolchain_dir})
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
@@ -43,13 +39,11 @@ set(CMAKE_C_COMPILER_WORKS 1)
 set(CMAKE_CXX_COMPILER_WORKS 1)
 
 set(compiler_flags
-    "--specs=nosys.specs -fstack-usage -fdata-sections -ffunction-sections -g"
-)
+    "--specs=nosys.specs -fstack-usage -fdata-sections -ffunction-sections -g")
 
 set(CMAKE_C_FLAGS " ${compiler_flags}")
 set(CMAKE_CXX_FLAGS
-    " ${compiler_flags} -fno-rtti -fno-exceptions -fno-threadsafe-statics"
-)
+    " ${compiler_flags} -fno-rtti -fno-exceptions -fno-threadsafe-statics")
 set(CMAKE_ASM_FLAGS " ${compiler_flags} -x assembler-with-cpp")
 set(CMAKE_EXE_LINKER_FLAGS
     " -static -Wl,--gc-sections -Wl,--print-memory-usage -u _printf_float -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group"
@@ -71,12 +65,8 @@ set(CMAKE_ASM_FLAGS_RELEASE_INIT ${compiler_flags_release})
 
 function(generate_firmware_artifacts fw_target)
   target_link_options(
-    ${fw_target}
-    PUBLIC
-    -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/${fw_target}.map
-    -Wl,--cref
-    -Wl,--no-warn-rwx-segment
-  )
+    ${fw_target} PUBLIC -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/${fw_target}.map
+    -Wl,--cref -Wl,--no-warn-rwx-segment)
 
   file(RELATIVE_PATH dir ${PROJECT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
   add_custom_command(
@@ -97,8 +87,7 @@ function(generate_firmware_artifacts fw_target)
             ${fw_target}.size-sort.nm
     COMMAND echo "${dir}/${fw_target}.size-sort.nm"
     COMMAND ${CMAKE_NM} -lnC ${fw_target} > ${fw_target}.symbols
-    COMMAND echo "${dir}/${fw_target}.symbols"
-  )
+    COMMAND echo "${dir}/${fw_target}.symbols")
 endfunction()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
