@@ -1,3 +1,4 @@
+fail_fast: false
 repos:
 - hooks:
   - id: trailing-whitespace
@@ -13,3 +14,11 @@ repos:
     - pre-push
   repo: https://github.com/commitizen-tools/commitizen
   rev: v4.10.1
+- repo: https://github.com/pocc/pre-commit-hooks
+  rev: master
+  hooks:
+    - id: clang-format
+    - id: clang-tidy
+    # - id: cppcheck # TODO
+    # - id: cpplint # TODO
+    # - id: include-what-you-use
