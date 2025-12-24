@@ -14,7 +14,6 @@
 namespace ln::shell::generic::cmds {
 // TODO: make better API for on_off_command "overriding". Now its a bit clunky.
 
-
 static constexpr const char *on_off_command_usage = "<on|off>";
 
 Err on_off_command_parser(std::function<bool(bool)> onOffF, const char *strOnOffControlName, Cmd::Ctx ctx);
