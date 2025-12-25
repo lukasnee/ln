@@ -9,13 +9,10 @@
 
 #pragma once
 
-#include "ln/ln.h"
-
 #include "FreeRTOS/Addons/Clock.hpp"
 #include "FreeRTOS/Addons/LockGuard.hpp"
 #include "FreeRTOS/Addons/Timeout.hpp"
 
-#include <cstdint>
 #include <ctime>
 
 namespace ln {

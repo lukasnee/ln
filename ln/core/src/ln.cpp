@@ -9,9 +9,7 @@
 
 #include "ln/ln.hpp"
 
-#include "ln/logger/logger.hpp"
-
-#include "FreeRTOS/Addons/Clock.hpp"
+#include "ln/logger/logger.h"
 
 namespace ln {
 
