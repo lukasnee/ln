@@ -7,8 +7,6 @@
  * (at your option) any later version.
  */
 
-
-
 #include "ln/shell/generic/cmds.hpp"
 
 namespace ln::shell::generic::cmds {
