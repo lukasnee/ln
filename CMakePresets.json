@@ -9,7 +9,7 @@
             "name": "main",
             "hidden": true,
             "generator": "Ninja",
-            "binaryDir": ".build",
+            "binaryDir": "build",
             "toolchainFile": "cmake/toolchains/arm-none-eabi-gcc.STM32H750.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"

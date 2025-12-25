@@ -28,18 +28,16 @@ The naming scheme mostly follows the [Rust Naming](https://rust-lang.github.io/a
 
 Here are some important conventions:
 
-- modular feature folder name and C++ namespace has to be the same and in
+- Modular feature folder name and C++ namespace has to be the same and in
   snake_case. For example, the [`ln/drivers`](ln/drivers) folder contains
   features that are in the `ln::drivers` namespace.
 
-## TODO
+## TODO List
 
 - Rename all command objects from `<name>_cmd` to `cmd_<name>` - makes more
   sense when naming nested commands.
-- Change build directory from `.build` to `build` to match CMake convention and work
-  better with tools like `clangd`.
-- add GPL license preambles to all files.
-- shell backspace does not work.
+- Add GPL license preambles to all files.
+- Shell backspace does not work.
 - `repeat 1000 repeat 1000 echo labas` should technically work.
 - Consider switching to
   [jonenz/FreeRTOS-Cpp](https://github.com/jonenz/FreeRTOS-Cpp) instead of
