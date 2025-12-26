@@ -21,7 +21,7 @@ public:
     /**
      * @brief Syntactic role of the argument.
      */
-    enum class Role {
+    enum class Role : uint8_t {
         non_existent,
         positional,
         flag,
@@ -31,21 +31,21 @@ public:
     /**
      * @brief Semantic type of the argument.
      */
-    enum class Type {
+    enum class Type : uint8_t {
         num,
         str,
     };
-    std::string_view name = "";
+    std::string_view name;
     Type type = Type::str;
-    std::string_view description = "";
-    std::string_view default_value = "";
+    std::string_view description;
+    std::string_view default_value;
     Role role = Role::non_existent;
     std::string_view value = default_value;
 
-    std::optional<uint32_t> as_u32();
-    std::optional<int32_t> as_i32();
-    std::optional<float> as_f32();
-    std::optional<double> as_f64();
+    [[nodiscard]] std::optional<uint32_t> as_u32() const;
+    [[nodiscard]] std::optional<int32_t> as_i32() const;
+    [[nodiscard]] std::optional<float> as_f32() const;
+    [[nodiscard]] std::optional<double> as_f64() const;
 
     static std::string_view to_string(Arg::Type type) {
         switch (type) {
@@ -60,8 +60,8 @@ public:
 
     // TODO private:
     static bool is_alpha(char c);
-    static bool is_flag(const std::string_view arg);
-    static bool is_option(const std::string_view arg);
+    static bool is_flag(std::string_view arg);
+    static bool is_option(std::string_view arg);
 };
 
 } // namespace ln::shell

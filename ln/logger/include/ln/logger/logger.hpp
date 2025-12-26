@@ -9,8 +9,6 @@
 
 #pragma once
 
-#include "ln/ln.hpp"
-
 #include "ln/File.hpp"
 
 extern "C"
@@ -56,7 +54,7 @@ struct Config {
 
 class Module : public LoggerModule {
 public:
-    Module(const std::string_view name, Level log_level = LOGGER_LEVEL_NOTSET);
+    explicit Module(std::string_view name, Level log_level = LOGGER_LEVEL_NOTSET);
 
     template <typename... Args> void debug(const std::string_view fmt, Args &&...args) {
         log(LOGGER_LEVEL_DEBUG, fmt, std::forward<Args>(args)...);
@@ -73,7 +71,7 @@ public:
     template <typename... Args> void critical(const std::string_view fmt, Args &&...args) {
         log(LOGGER_LEVEL_CRITICAL, fmt, std::forward<Args>(args)...);
     }
-    void log(const Level &level, const std::string_view fmt, ...);
+    void log(const Level &level, std::string_view fmt, ...);
 
     void set_level(Level log_level);
 };
@@ -89,7 +87,7 @@ public:
 
     void enable();
 
-    bool is_enabled();
+    static bool is_enabled();
 
     void set_level(Level log_level);
 
@@ -97,7 +95,7 @@ public:
 
     const Config &get_config() const { return config; }
 
-    int log(const LoggerModule &module, const Level &level, const std::string_view fmt, const va_list &argList);
+    int log(const LoggerModule &module, const Level &level, std::string_view fmt, const va_list &arg_list);
 
     /**
      * @brief Flush the output buffer to the output stream. Note that buffer is flushed automatically when it reaches
@@ -118,12 +116,12 @@ private:
     void operator=(Logger const &) = delete;
     ~Logger() = default;
 
-    int log_unsafe(const LoggerModule &module, const Level &level, const std::string_view fmt, const va_list &argList);
+    int log_unsafe(const LoggerModule &module, const Level &level, std::string_view fmt, const va_list &arg_list);
 
     void clear_buffer_unsafe();
     void flush_buffer_unsafe();
 
-    int print_header(File &file, const LoggerModule &module, const Level &level);
+    int print_header(File &file, const LoggerModule &module, const Level &level) const;
     static int printf(File &file, const char *fmt, ...);
 
     FreeRTOS::StaticRecursiveMutex mutex;

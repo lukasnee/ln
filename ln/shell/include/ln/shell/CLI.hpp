@@ -23,8 +23,6 @@
 #include <string_view>
 #include <tuple>
 
-using namespace std::string_view_literals;
-
 // TODO: extract color code for logger and CLI
 // TODO: rework the OK FAIL tags, color codes, etc. Make the interface cleaner and flexible.
 #define ANSI_COLOR_BLACK "\e[30m"
@@ -53,7 +51,7 @@ public:
         std::span<ln::StaticForwardList<Cmd> *> cmd_lists = default_cmd_lists;
     } config;
 
-    CLI() = default;
+    explicit CLI(std::span<char> input_line_buf) : input{input_line_buf} {}
 
     // NOTE: escape sequences are time sensitive !
     // TODO: move this to a dedicated uart receiver task and join by char queue
@@ -71,7 +69,7 @@ public:
     bool execute_line(std::string_view line);
 
 private:
-    Err execute(const Cmd &cmd, const std::span<const std::string_view> args,
+    Err execute(const Cmd &cmd, std::span<const std::string_view> args,
                 const char *output_color_escape_sequence = "\e[32m"); // default in green
 
     bool handle_escape(const char &c);

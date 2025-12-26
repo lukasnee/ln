@@ -11,21 +11,25 @@
 
 namespace ln::shell {
 
-void hexdump(CLI &cli, const std::uint32_t &address, const std::size_t &size) {
-    unsigned char *buf = reinterpret_cast<unsigned char *>(address);
-    int buflen = static_cast<int>(size);
-    int i, j;
-    for (i = 0; i < buflen; i += 16) {
+void hexdump(CLI &cli, const uint32_t &address, const size_t &size) {
+    const size_t bytes_per_line = 16;
+    uint8_t *buf = reinterpret_cast<uint8_t *>(address);
+    for (size_t i = 0; i < size; i += bytes_per_line) {
         cli.printf("%08x: ", address + i);
-        for (j = 0; j < 16; j++)
-            if (i + j < buflen)
+        for (size_t j = 0; j < bytes_per_line; j++) {
+            if (i + j < size) {
                 cli.printf("%02x ", buf[i + j]);
-            else
+            }
+            else {
                 cli.print("   ");
+            }
+        }
         cli.print(' ');
-        for (j = 0; j < 16; j++)
-            if (i + j < buflen)
+        for (size_t j = 0; j < bytes_per_line; j++) {
+            if (i + j < size) {
                 cli.print(isprint(buf[i + j]) ? buf[i + j] : '.');
+            }
+        }
         cli.print('\n');
     }
 }

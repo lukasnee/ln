@@ -19,7 +19,7 @@ ln::StaticForwardList<Cmd> Cmd::base_cmd_list = {};
 ln::StaticForwardList<Cmd> Cmd::general_cmd_list = {};
 ln::StaticForwardList<Cmd> Cmd::global_cmd_list = {};
 
-Cmd::Cmd(Cfg cfg) : cfg{cfg} {
+Cmd::Cmd(Cfg cfg) : cfg{std::move(cfg)} {
 
     auto &cmd_list = this->cfg.parent_cmd ? this->cfg.parent_cmd->children_cmd_list : this->cfg.cmd_list;
     cmd_list.push_front(*this);
@@ -112,7 +112,7 @@ void Cmd::print_short_help(CLI &cli, std::size_t max_depth, std::size_t depth) c
 }
 
 void Cmd::print_args(CLI &cli) const {
-    if (this->cfg.argp_cfg.positional_args.size() == 0) {
+    if (this->cfg.argp_cfg.positional_args.empty()) {
         return;
     }
     cli.print("Positional arguments:\n");
@@ -121,7 +121,7 @@ void Cmd::print_args(CLI &cli) const {
         cli.print(arg.name);
         cli.print(" : ");
         cli.print(Arg::to_string(arg.type));
-        if (arg.description.size() > 0) {
+        if (!arg.description.empty()) {
             cli.print(" - ");
             cli.print(arg.description);
         }
@@ -171,9 +171,10 @@ Cmd cmd_help{Cmd::Cfg{.cmd_list = Cmd::base_cmd_list,
                       .fn = [](Cmd::Ctx ctx) {
                           const std::size_t depth_of_all = 7;
                           // TODO: proper abstraction to parse optional args
+                          using namespace std::literals::string_view_literals;
                           const bool all = ctx.args.back() == "--all"sv;
                           const auto cmd_args = all ? ctx.args.subspan(0, ctx.args.size() - 1) : ctx.args;
-                          if (cmd_args.size() == 0) {
+                          if (cmd_args.empty()) {
                               for (const auto &cmd_list_ptr : ctx.cli.config.cmd_lists) {
                                   if (!cmd_list_ptr) {
                                       continue;
@@ -184,15 +185,13 @@ Cmd cmd_help{Cmd::Cfg{.cmd_list = Cmd::base_cmd_list,
                               }
                               return Err::ok;
                           }
-                          else if (cmd_args.size() >= 1) {
-                              auto [cmd, _] = ctx.cli.find_cmd(ctx.args);
-                              if (cmd) {
-                                  cmd->print_long_help(ctx.cli, all ? depth_of_all : 1);
-                                  return Err::ok;
-                              }
-                          }
-                          else {
+                          if (cmd_args.empty()) {
                               return Err::badArg;
+                          }
+                          auto [cmd, _] = ctx.cli.find_cmd(ctx.args);
+                          if (cmd) {
+                              cmd->print_long_help(ctx.cli, all ? depth_of_all : 1);
+                              return Err::ok;
                           }
                           return Err::unknownCmd;
                       }}};

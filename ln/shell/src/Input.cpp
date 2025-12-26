@@ -18,13 +18,13 @@ void Input::clear() {
     this->cursor_idx = 0;
 }
 
-bool Input::is_cursor_on_base() { return (this->cursor_idx == 0); }
+bool Input::is_cursor_on_base() const { return (this->cursor_idx == 0); }
 
-bool Input::is_cursor_on_end() { return this->chars_used == this->cursor_idx; }
+bool Input::is_cursor_on_end() const { return this->chars_used == this->cursor_idx; }
 
-bool Input::is_empty() { return (this->is_cursor_on_base() && this->is_cursor_on_end()); }
+bool Input::is_empty() const { return (this->is_cursor_on_base() && this->is_cursor_on_end()); }
 
-bool Input::is_full() { return (this->chars_used == this->buf.size()); }
+bool Input::is_full() const { return (this->chars_used == this->line_buf.size()); }
 
 bool Input::step_right() {
     if (this->is_cursor_on_end()) {
@@ -49,7 +49,7 @@ bool Input::delete_char() {
     if (this->is_empty() || this->is_cursor_on_end()) {
         return false;
     }
-    std::memmove(&this->buf[this->cursor_idx], &this->buf[this->cursor_idx + 1],
+    std::memmove(&this->line_buf[this->cursor_idx], &this->line_buf[this->cursor_idx + 1],
                  this->chars_used - (this->cursor_idx + 1));
     this->chars_used--;
     return true;
@@ -60,7 +60,7 @@ bool Input::backspace_char() {
         return false;
     }
     if (!this->is_cursor_on_end()) {
-        std::memmove(&this->buf[this->cursor_idx - 1], &this->buf.at(this->cursor_idx),
+        std::memmove(&this->line_buf[this->cursor_idx - 1], &this->line_buf.at(this->cursor_idx),
                      this->chars_used - this->cursor_idx + 1);
     }
     this->cursor_idx--;
@@ -72,9 +72,9 @@ bool Input::insert_char(const char &c) {
     if (this->is_full()) {
         return false;
     }
-    std::memmove(&this->buf[this->cursor_idx + 1], &this->buf.at(this->cursor_idx),
+    std::memmove(&this->line_buf[this->cursor_idx + 1], &this->line_buf.at(this->cursor_idx),
                  this->chars_used - this->cursor_idx);
-    this->buf[this->cursor_idx] = c;
+    this->line_buf[this->cursor_idx] = c;
     this->cursor_idx++;
     this->chars_used++;
     return true;

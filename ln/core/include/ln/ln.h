@@ -16,11 +16,11 @@ extern "C"
 {
 #endif
 
-#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#define LN_FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
     void ln_panic(const char *file, int line);
 
-#define LN_PANIC() ln_panic(__FILENAME__, __LINE__)
+#define LN_PANIC() ln_panic(LN_FILENAME, __LINE__)
 
 #define LN_ASSERT(expr, on_failure)                                                                                    \
     do {                                                                                                               \

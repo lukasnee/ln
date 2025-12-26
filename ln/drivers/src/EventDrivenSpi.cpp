@@ -153,9 +153,9 @@ void EventDrivenSpi::ll_async_complete_common_signal() {
         this->write_semaphore.give();
     }
     if (is_inside_interrupt) {
-        portYIELD_FROM_ISR(&higherPriorityTaskWoken);
+        FreeRTOS::Kernel::yieldFromISR(higherPriorityTaskWoken);
     }
-    // portYIELD_FROM_ISR must be called the last here.
+    /// @attention FreeRTOS::Kernel::yieldFromISR() must be called last!
 }
 
 void EventDrivenSpi::ll_async_read_completed_cb() { this->ll_async_complete_common_signal(); }

@@ -22,11 +22,12 @@ class ArgParser {
 public:
     struct Cfg {
         std::span<const Arg> positional_args;
+        static constexpr size_t args_buf_size_default = 16;
     };
 
     ArgParser(const Cfg &cfg, const std::span<const std::string_view> &args) : cfg{cfg}, args{args} {}
 
-    Arg get_positional(std::size_t index) const {
+    [[nodiscard]] Arg get_positional(std::size_t index) const {
         if (index >= this->cfg.positional_args.size()) {
             return Arg{.role = Arg::Role::non_existent};
         }
@@ -37,7 +38,7 @@ public:
         return arg;
     }
 
-    static std::optional<std::span<std::string_view>> tokenize(const std::string_view sv,
+    static std::optional<std::span<std::string_view>> tokenize(std::string_view sv,
                                                                std::span<std::string_view> args_buf);
 
     bool validate_arg_composition(File &ostream, std::span<const std::string_view> args) const;

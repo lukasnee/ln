@@ -10,27 +10,31 @@
 #pragma once
 
 #include <cstddef>
-#include <array>
 #include <string_view>
+#include <span>
 
 namespace ln::shell {
 
 class Input {
 public:
-    Input() = default;
+    explicit Input(std::span<char> line_buf) : line_buf(line_buf) {}
+    Input() = delete;
+    Input(const Input &) = delete;
+    Input &operator=(const Input &) = delete;
+    Input(Input &&) = delete;
+    Input &operator=(Input &&) = delete;
     virtual ~Input() = default;
 
     void clear();
 
-    std::string_view get() { return std::string_view{this->buf.data(), this->chars_used}; }
+    [[nodiscard]] std::string_view get() const { return std::string_view{this->line_buf.data(), this->chars_used}; }
+    [[nodiscard]] size_t get_cursor_pos() const { return this->cursor_idx; }
 
-    size_t get_cursor_pos() { return this->cursor_idx; }
+    [[nodiscard]] bool is_full() const;
+    [[nodiscard]] bool is_empty() const;
 
-    bool is_full();
-    bool is_empty();
-
-    bool is_cursor_on_base();
-    bool is_cursor_on_end();
+    [[nodiscard]] bool is_cursor_on_base() const;
+    [[nodiscard]] bool is_cursor_on_end() const;
 
     bool step_right();
     bool step_left();
@@ -40,7 +44,7 @@ public:
     bool insert_char(const char &c);
 
 private:
-    std::array<char, 256> buf{};
+    std::span<char> line_buf;
     std::size_t cursor_idx = 0;
     std::size_t chars_used = 0;
 };

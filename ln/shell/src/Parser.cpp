@@ -14,7 +14,6 @@
 #include <cstdio>
 #include <optional>
 #include <ranges>
-#include <charconv>
 
 namespace ln::shell {
 
@@ -76,14 +75,14 @@ std::optional<std::span<std::string_view>> ArgParser::tokenize(const std::string
 
 bool ArgParser::validate_arg_composition(File &ostream, std::span<const std::string_view> args) const {
     if (args.size() < this->cfg.positional_args.size()) {
-        std::fprintf(ostream, "Error: not enough arguments (expected %zu, got %zu)\n", this->cfg.positional_args.size(),
-                     args.size());
+        std::fprintf(ostream.c_file(), "Error: not enough arguments (expected %zu, got %zu)\n",
+                     this->cfg.positional_args.size(), args.size());
         return false;
     }
     for (const auto [i, arg_cfg] : std::views::enumerate(this->cfg.positional_args)) {
         auto arg = args[i];
         if (arg.empty()) {
-            std::fprintf(ostream, "Error: expected non-empty positional argument %zu\n", i);
+            std::fprintf(ostream.c_file(), "Error: expected non-empty positional argument %zu\n", i);
             return false;
         }
         switch (arg_cfg.type) {

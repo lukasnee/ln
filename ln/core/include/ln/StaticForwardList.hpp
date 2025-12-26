@@ -21,7 +21,7 @@ template <typename T> class StaticForwardList {
 public:
     class iterator {
     public:
-        iterator(StaticForwardListNode<T> *node) : current(node) {}
+        explicit iterator(StaticForwardListNode<T> *node) : current(node) {}
 
         T &operator*() { return static_cast<T &>(*current); }
         T *operator->() { return static_cast<T *>(current); }
@@ -49,7 +49,7 @@ public:
 
     class const_iterator {
     public:
-        const_iterator(const StaticForwardListNode<T> *node) : current(node) {}
+        explicit const_iterator(const StaticForwardListNode<T> *node) : current(node) {}
 
         const T &operator*() const { return static_cast<const T &>(*current); }
         const T *operator->() const { return static_cast<const T *>(current); }
@@ -85,11 +85,11 @@ public:
     iterator begin() { return iterator(head); }
     iterator end() { return iterator(nullptr); }
 
-    const_iterator begin() const { return const_iterator(head); }
-    const_iterator end() const { return const_iterator(nullptr); }
+    [[nodiscard]] const_iterator begin() const { return const_iterator(head); }
+    [[nodiscard]] const_iterator end() const { return const_iterator(nullptr); }
 
-    const_iterator cbegin() const { return const_iterator(head); }
-    const_iterator cend() const { return const_iterator(nullptr); }
+    [[nodiscard]] const_iterator cbegin() const { return const_iterator(head); }
+    [[nodiscard]] const_iterator cend() const { return const_iterator(nullptr); }
 
 private:
     StaticForwardListNode<T> *head = nullptr;
