@@ -101,7 +101,7 @@ public:
         Fn fn = nullptr;
     };
 
-    Cmd(Cfg cfg);
+    explicit Cmd(Cfg cfg);
 
     void print_args(CLI &cli) const;
     void print_short_help(CLI &cli, std::size_t max_depth = 1, std::size_t depth = 0) const;

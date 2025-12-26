@@ -21,22 +21,22 @@ namespace ln::shell {
 void CLI::print(const char &c, std::size_t times_to_repeat) {
     while (times_to_repeat--) {
         if (c == '\n') {
-            std::fputc('\r', this->config.ostream);
+            std::fputc('\r', this->config.ostream.c_file());
         }
-        std::fputc(c, this->config.ostream);
+        std::fputc(c, this->config.ostream.c_file());
     }
-    std::fflush(this->config.ostream);
+    std::fflush(this->config.ostream.c_file());
 }
 
 int CLI::print(std::string_view sv) {
-    const auto rc = static_cast<int>(std::fwrite(sv.data(), 1, sv.size(), this->config.ostream));
-    std::fflush(this->config.ostream);
+    const auto rc = static_cast<int>(std::fwrite(sv.data(), 1, sv.size(), this->config.ostream.c_file()));
+    std::fflush(this->config.ostream.c_file());
     return rc;
 }
 
 int CLI::print(const char *str) {
-    const auto rc = static_cast<int>(std::fputs(str, this->config.ostream));
-    std::fflush(this->config.ostream);
+    const auto rc = std::fputs(str, this->config.ostream.c_file());
+    std::fflush(this->config.ostream.c_file());
     return rc;
 }
 
@@ -51,10 +51,10 @@ int CLI::printf(const char *fmt, ...) {
 }
 
 std::tuple<const Cmd *, std::span<const std::string_view>> CLI::find_cmd(std::span<const std::string_view> args) {
-    if (args.size() == 0) {
+    if (args.empty()) {
         return {};
     }
-    if (args[0].size() == 0) {
+    if (args[0].empty()) {
         return {};
     }
     for (const auto &cmd_list_ptr : this->config.cmd_lists) {
@@ -73,7 +73,6 @@ std::tuple<const Cmd *, std::span<const std::string_view>> CLI::find_cmd(std::sp
             }
             arg_offset++;
             cmd = child_cmd;
-            continue;
         }
         return {cmd, args.subspan(arg_offset + 1)};
     }
@@ -175,7 +174,7 @@ bool CLI::put_char(const char &c) {
 }
 
 bool CLI::execute_line(std::string_view line) {
-    std::array<std::string_view, 16> args_buf;
+    std::array<std::string_view, ArgParser::Cfg::args_buf_size_default> args_buf;
     auto opt_args = ArgParser::tokenize(line, args_buf);
     if (!opt_args) {
         this->last_err = Err::badArg;
@@ -189,7 +188,7 @@ bool CLI::execute_line(std::string_view line) {
         return false;
     }
     const auto args = *opt_args;
-    if (args.size() == 0) {
+    if (args.empty()) {
         this->last_err = Err::ok;
         return true;
     }
@@ -226,8 +225,8 @@ bool CLI::handle_escape(const char &c) {
         this->escape_state = EscapeState::none;
         return false;
     }
-    if (c == 0x7F) // DELete
-    {
+    const char ascii_char_del = 0x7F;
+    if (c == ascii_char_del) {
         delete_char();
         this->escape_state = EscapeState::none;
         return true;

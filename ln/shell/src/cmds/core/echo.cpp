@@ -15,7 +15,7 @@ Cmd echo_cmd{Cmd::Cfg{.cmd_list = Cmd::general_cmd_list,
                       .name = "echo",
                       .short_description = "echos typed content",
                       .fn = [](Cmd::Ctx ctx) {
-                          if (ctx.args.size() == 0) {
+                          if (ctx.args.empty()) {
                               ctx.cli.print('\n');
                               return Err::ok;
                           }

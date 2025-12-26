@@ -13,8 +13,6 @@
 #include "FreeRTOS/Addons/LockGuard.hpp"
 #include "FreeRTOS/Addons/Timeout.hpp"
 
-#include <ctime>
-
 namespace ln {
 
 using Clock = FreeRTOS::Addons::Clock;

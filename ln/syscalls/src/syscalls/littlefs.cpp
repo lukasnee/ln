@@ -9,12 +9,12 @@
 
 #include "ln/syscalls/littlefs.hpp"
 
-#include <sys/fcntl.h>  // for O_* constants
-#include <sys/unistd.h> // for STDIN_FILENO, etc.
+#include <sys/_default_fcntl.h> // for O_* constants
+#include <sys/unistd.h>         // for STDIN_FILENO, etc.
 
+#include <array>
 #include <cerrno>
-// #include <cstdio> // TODO necessary?
-// #include <cstring> // TODO necessary?
+#include <cstddef>
 
 #ifndef UNUSED
 #define UNUSED(x) (void)(x)
@@ -25,31 +25,38 @@ namespace ln::syscalls::littlefs {
 template <size_t N> struct FileTable {
     int alloc() {
         for (size_t i = 0; i < N; i++) {
-            if (!this->files[i].active) {
-                this->files[i].active = true;
+            if (!this->file_entries[i].active) {
+                this->file_entries[i].active = true;
                 return static_cast<int>(i);
             }
         }
         return -1;
     }
 
-    void free(int fd) { this->files[fd].active = false; }
+    void free(int fd) {
+        if (fd < 0 || fd >= static_cast<int>(N)) {
+            return;
+        }
+        this->file_entries[fd].active = false;
+    }
 
     lfs_file_t *get_lfs_file_of(int fd) {
         if (fd < 0 || fd >= static_cast<int>(N)) {
             return nullptr;
         }
-        if (!this->files[fd].active) {
+        if (!this->file_entries[fd].active) {
             return nullptr;
         }
-        return &this->files[fd].file;
+        return &this->file_entries[fd].file;
     }
 
 private:
-    struct {
+    struct FileEntry {
         lfs_file_t file;
         bool active;
-    } files[N];
+    };
+
+    std::array<FileEntry, N> file_entries{};
 };
 
 static FileTable<config::max_open_files> file_table;
@@ -70,11 +77,18 @@ int open(char *path, int flags) {
         errno = EINVAL;
         return -1;
     }
-    const struct {
+    struct FlagMap {
         int newlib_flag;
         int lfs_flag;
-    } flag_map[] = {{O_RDONLY, LFS_O_RDONLY}, {O_WRONLY, LFS_O_WRONLY}, {O_RDWR, LFS_O_RDWR}, {O_APPEND, LFS_O_APPEND},
-                    {O_CREAT, LFS_O_CREAT},   {O_TRUNC, LFS_O_TRUNC},   {O_EXCL, LFS_O_EXCL}};
+    };
+
+    const std::array<FlagMap, 7> flag_map = {{{O_RDONLY, LFS_O_RDONLY},
+                                              {O_WRONLY, LFS_O_WRONLY},
+                                              {O_RDWR, LFS_O_RDWR},
+                                              {O_APPEND, LFS_O_APPEND},
+                                              {O_CREAT, LFS_O_CREAT},
+                                              {O_TRUNC, LFS_O_TRUNC},
+                                              {O_EXCL, LFS_O_EXCL}}};
     for (const auto &fm : flag_map) {
         if (flags & fm.newlib_flag) {
             lfs_flags |= fm.lfs_flag;

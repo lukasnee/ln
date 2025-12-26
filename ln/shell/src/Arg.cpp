@@ -11,13 +11,18 @@
 #include "ln/shell/Arg.hpp"
 
 #include <charconv>
+#include <cstddef>
 
 namespace ln::shell {
 template <typename T> std::optional<T> from_chars_auto_base(std::string_view str) {
     T value = 0;
-    size_t base = 10;
+    enum Base : size_t {
+        dec = 10,
+        hex = 16
+    };
+    size_t base = Base::dec;
     if (str.length() > 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
-        base = 16;
+        base = Base::hex;
         str.remove_prefix(2);
     }
     const auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.length(), value, base);
@@ -27,12 +32,12 @@ template <typename T> std::optional<T> from_chars_auto_base(std::string_view str
     return value;
 }
 
-std::optional<uint32_t> Arg::as_u32() { return from_chars_auto_base<uint32_t>(this->value); }
+std::optional<uint32_t> Arg::as_u32() const { return from_chars_auto_base<uint32_t>(this->value); }
 
-std::optional<int32_t> Arg::as_i32() { return from_chars_auto_base<int32_t>(this->value); }
+std::optional<int32_t> Arg::as_i32() const { return from_chars_auto_base<int32_t>(this->value); }
 
-std::optional<float> Arg::as_f32() {
-    float value = 0.0f;
+std::optional<float> Arg::as_f32() const {
+    float value = 0.0;
     const auto [ptr, ec] = std::from_chars(this->value.data(), this->value.data() + this->value.length(), value);
     if (ec != std::errc() || ptr != this->value.data() + this->value.length()) {
         return std::nullopt;
@@ -40,7 +45,7 @@ std::optional<float> Arg::as_f32() {
     return value;
 }
 
-std::optional<double> Arg::as_f64() {
+std::optional<double> Arg::as_f64() const {
     double value = 0.0;
     const auto [ptr, ec] = std::from_chars(this->value.data(), this->value.data() + this->value.length(), value);
     if (ec != std::errc() || ptr != this->value.data() + this->value.length()) {

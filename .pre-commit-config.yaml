@@ -19,6 +19,16 @@ repos:
     hooks:
       - id: clang-format
       - id: clang-tidy
+        args:
+          [
+            "-p=build",
+            "--header-filter=/home/lukasnee/dev/1/fibration/extern/ln/ln/.*",
+            "--extra-arg=--target=arm-none-eabi",
+            "--extra-arg=-isystem/opt/gcc-arm-none-eabi/arm-none-eabi/include/c++/14.3.1",
+            "--extra-arg=-isystem/opt/gcc-arm-none-eabi/arm-none-eabi/include/c++/14.3.1/arm-none-eabi/thumb/v7e-m+dp/hard",
+            "--extra-arg=-isystem/opt/gcc-arm-none-eabi/arm-none-eabi/include/c++/14.3.1/backward",
+            "--extra-arg=-isystem/opt/gcc-arm-none-eabi/arm-none-eabi/include",
+          ]
       # - id: cppcheck # TODO: try out cppcheck
       # - id: cpplint # TODO: try out cpplint
       # - id: include-what-you-use

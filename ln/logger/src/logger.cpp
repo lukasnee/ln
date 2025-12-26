@@ -21,7 +21,7 @@ extern "C" void ln_logger_log(LoggerModule *module, LoggerLevel level, const cha
     if (!module) {
         return;
     }
-    if (!Logger::get_instance().is_enabled()) {
+    if (!Logger::is_enabled()) {
         return;
     }
     if (level < (module->log_level == LOGGER_LEVEL_NOTSET ? Logger::get_instance().get_config().log_level
@@ -58,7 +58,7 @@ void Logger::flush_buffer() {
         LN_PANIC();
     }
     FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
-    if (!this->is_enabled()) {
+    if (!Logger::is_enabled()) {
         return;
     }
     this->flush_buffer_unsafe();
@@ -70,7 +70,7 @@ void Logger::clear_buffer_unsafe() {
 
 void Logger::flush_buffer_unsafe() {
     std::fwrite(this->buff_mem.data(), 1, std::min(strlen(this->buff_mem.data()), this->buff_mem.size()),
-                this->config.out_file);
+                this->config.out_file.c_file());
     this->clear_buffer_unsafe();
 }
 
@@ -88,7 +88,7 @@ Module::Module(const std::string_view name, Level log_level) {
 }
 
 void Module::log(const Level &level, const std::string_view fmt, ...) {
-    if (!Logger::get_instance().is_enabled()) {
+    if (!Logger::is_enabled()) {
         return;
     }
     if (level < (this->log_level == LOGGER_LEVEL_NOTSET ? Logger::get_instance().config.log_level : this->log_level)) {
@@ -124,12 +124,12 @@ int Logger::log_unsafe(const LoggerModule &module, const Logger::Level &level, c
     if (this->config.print_header_enabled) {
         LN_CHECK(this->print_header(buff_file, module, level), rc, rc < 0, { chars_printed += rc; }, {});
     }
-    LN_CHECK(vfprintf(buff_file, fmt.data(), arg_list), rc, rc < 0, { chars_printed += rc; }, {});
-    LN_CHECK(fprintf(buff_file, "%s", this->config.eol), rc, rc < 0, { chars_printed += rc; }, {});
+    LN_CHECK(vfprintf(buff_file.c_file(), fmt.data(), arg_list), rc, rc < 0, { chars_printed += rc; }, {});
+    LN_CHECK(fprintf(buff_file.c_file(), "%s", this->config.eol), rc, rc < 0, { chars_printed += rc; }, {});
     return chars_printed;
 }
 
-int Logger::print_header(ln::File &file, const LoggerModule &module, const Logger::Level &level) {
+int Logger::print_header(ln::File &file, const LoggerModule &module, const Logger::Level &level) const {
 
 #define ANSI_COLOR_BLACK "\e[30m"
 #define ANSI_COLOR_RED "\e[31m"
@@ -155,20 +155,19 @@ int Logger::print_header(ln::File &file, const LoggerModule &module, const Logge
     const auto level_descr_idx = level_clamped == 0 ? 0 : ((level - 1) / 10);
     using Clock = FreeRTOS::Addons::Clock;
     const auto [tm_buf, sec_remainder] = Clock::to_utc_tm_rem(Clock::now());
-    char datetime_buffer[20];
-    const auto ms =
-        static_cast<unsigned long>(std::chrono::duration_cast<std::chrono::milliseconds>(sec_remainder).count());
+    char datetime_buffer[sizeof("YYYY-MM-DD HH:MM:SS")];
+    const auto ms = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(sec_remainder).count());
     std::strftime(datetime_buffer, sizeof(datetime_buffer), "%Y-%m-%d %H:%M:%S", &tm_buf);
-    return this->printf(file, "%s.%03lu|%s%s%s|%s%s|%s|", datetime_buffer, ms,
-                        (this->config.color ? level_descrs[level_descr_idx].color.data() : ""),
-                        level_descrs[level_descr_idx].tag_name.data(), (this->config.color ? ANSI_COLOR_DEFAULT : ""),
-                        (ln::is_inside_interrupt() ? "ISR!" : ""), get_current_thread_name(), module.name);
+    return Logger::printf(file, "%s.%03lu|%s%s%s|%s%s|%s|", datetime_buffer, ms,
+                          (this->config.color ? level_descrs[level_descr_idx].color.data() : ""),
+                          level_descrs[level_descr_idx].tag_name.data(), (this->config.color ? ANSI_COLOR_DEFAULT : ""),
+                          (ln::is_inside_interrupt() ? "ISR!" : ""), get_current_thread_name(), module.name);
 }
 
 int Logger::printf(ln::File &file, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    const auto rc = vfprintf(file, fmt, args);
+    const auto rc = vfprintf(file.c_file(), fmt, args);
     va_end(args);
     return rc;
 }

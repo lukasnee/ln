@@ -12,6 +12,7 @@
 #include "ln/ln.h"
 
 #include <cstdio>
+#include <memory>
 #include <span>
 
 namespace ln {
@@ -21,24 +22,24 @@ namespace ln {
  */
 class File {
 public:
+    File() = delete;
+
     /**
      * @brief Construct for standard files: stdin, stdout, stderr.
      */
-    File(FILE *file) {
+    explicit File(FILE *file) : file{file, file_deleter} {
         if (!file) {
             LN_PANIC();
         }
         if (file != stdout && file != stdin && file != stderr) {
             LN_PANIC();
         }
-        this->file = file;
     }
 
     /**
      * @brief Construct for regular files on filesystem.
      */
-    File(const char *path, const char *mode) {
-        this->file = fopen(path, mode);
+    explicit File(const char *path, const char *mode) : file{fopen(path, mode), file_deleter} {
         if (!this->file) {
             LN_PANIC();
         }
@@ -47,29 +48,25 @@ public:
     /**
      * @brief Construct for memory files.
      */
-    File(std::span<char> mem_data, const char *mode) {
-        this->file = fmemopen(mem_data.data(), mem_data.size(), mode);
+    explicit File(std::span<char> mem_data, const char *mode)
+        : file{fmemopen(mem_data.data(), mem_data.size(), mode), file_deleter} {
         if (!this->file) {
             LN_PANIC();
         }
     }
 
-    operator FILE *() { return this->file; }
+    FILE *c_file() { return this->file.get(); }
 
-    ~File() {
-        if (!this->file) {
-            return;
-        }
-        if (this->file == stdout || this->file == stdin || this->file == stderr) {
-            this->file = nullptr;
-            return;
-        }
-        fclose(this->file);
-        this->file = nullptr;
-    };
+    ~File() = default;
 
 private:
-    FILE *file = nullptr;
+    static void file_deleter(FILE *f) {
+        if (f && f != stdin && f != stdout && f != stderr) {
+            fclose(f); // NOLINT
+        }
+    }
+
+    std::shared_ptr<FILE> file;
 };
 
 } // namespace ln

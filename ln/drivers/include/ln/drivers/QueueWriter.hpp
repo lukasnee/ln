@@ -9,48 +9,34 @@
 
 #pragma once
 
-#include "ln/ln.hpp"
+#include "FreeRTOS/Task.hpp"
+#include "FreeRTOS/Queue.hpp"
 
 #include <cstdint>
 
 namespace ln::drivers {
 
-class QueueWriter {
+class QueueWriter : public FreeRTOS::Task {
 public:
-    class thread : public ::thread {
-    public:
-        thread(QueueWriter &queue_writer, const char *name, uint16_t stack_depth, UBaseType_t priority)
-            : ::thread(name, stack_depth, priority) {}
+    QueueWriter(UBaseType_t size, const char *name, configSTACK_DEPTH_TYPE stack_depth, UBaseType_t priority)
+        : FreeRTOS::Task(priority, stack_depth, name), queue(size) {}
 
-        void run() final {
-            while (true) {
-                uint8_t byte;
-                if (this->queue_writer.queue.Dequeue(&byte, portMAX_DELAY)) {
-                    this->queue_writer.write_out(byte);
-                }
-            }
-        }
-
-    private:
-        QueueWriter &queue_writer;
-    }
-
-    QueueWriter(UBaseType_t size, const char *name, uint16_t stack_depth, UBaseType_t priority)
-        : queue(size, 1), thread(queue, name, stack_depth, priority) {
-    }
-
-    void init() { this->thread.start(); }
-
-    bool write_in(const uint8_t &byte) { return this->queue.Enqueue(&byte, portMAX_DELAY); }
+    bool write_in(const uint8_t &byte) { return this->queue.sendToBack(byte, portMAX_DELAY); }
 
 protected:
     virtual void write_out(const uint8_t &byte) = 0;
 
 private:
-    friend class thread;
+    void taskFunction() final {
+        while (true) {
+            auto opt_byte = this->queue.receive(portMAX_DELAY);
+            if (opt_byte) {
+                this->write_out(*opt_byte);
+            }
+        }
+    }
 
-    queue queue;
-    thread thread;
+    FreeRTOS::Queue<uint8_t> queue;
 };
 
 } // namespace ln::drivers

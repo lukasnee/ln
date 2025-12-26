@@ -24,6 +24,8 @@ if(PROJECT_IS_TOP_LEVEL)
   target_link_libraries(freertos_config INTERFACE ln::tests) # FreeRTOSCOnfig.h
 endif()
 
+include(cmake/clang-tidy.cmake)
+
 include(cmake/extern/littlefs.cmake)
 if(LN_LUA)
   add_subdirectory(extern/lua)

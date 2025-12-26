@@ -8,10 +8,11 @@
  */
 
 #include "ln/shell/generic/cmds.hpp"
+#include "ln/shell/CLI.hpp"
 
 namespace ln::shell::generic::cmds {
 
-Err on_off_command_parser(std::function<bool(bool)> on_off_fn, const char *strOnOffControlName, Cmd::Ctx ctx) {
+Err on_off_command_parser(std::function<bool(bool)> on_off_fn, const char *ctrl_name, Cmd::Ctx ctx) {
     using namespace std::literals::string_view_literals;
     if (ctx.args.size() != 1) {
         ctx.cli.print("error: no arg\n");
@@ -21,27 +22,27 @@ Err on_off_command_parser(std::function<bool(bool)> on_off_fn, const char *strOn
         if (on_off_fn(true)) {
             return Err::ok;
         }
-        ctx.cli.printf("error: failed to turn on %s\n", strOnOffControlName);
+        ctx.cli.printf("error: failed to turn on %s\n", ctrl_name);
         return Err::fail;
     }
     if (ctx.args[0] == "off"sv || ctx.args[0] == "0"sv || ctx.args[0] == "false"sv) {
         if (on_off_fn(false)) {
             return Err::ok;
         }
-        ctx.cli.printf("error: failed to turn off %s\n", strOnOffControlName);
+        ctx.cli.printf("error: failed to turn off %s\n", ctrl_name);
         return Err::fail;
     }
     ctx.cli.print("error: unexpected arg\n");
     return Err::badArg;
 };
 
-Err on_off_command_parser(bool &onOffControl, const char *strOnOffControlName, Cmd::Ctx ctx) {
+Err on_off_command_parser(bool &dst_state, const char *ctrl_name, Cmd::Ctx ctx) {
     return on_off_command_parser(
         [&](bool state) {
-            onOffControl = state;
+            dst_state = state;
             return true;
         },
-        strOnOffControlName, ctx);
+        ctrl_name, ctx);
 };
 
 } // namespace ln::shell::generic::cmds
