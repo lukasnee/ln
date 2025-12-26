@@ -76,7 +76,7 @@ public:
          * @brief Command arguments parser configuration.
          * @note Optional.
          */
-        const ArgParser::Cfg argp_cfg = {};
+        const std::span<const Arg> args = {};
 
         /**
          * @brief Short description in just a few words or up to around 60 to

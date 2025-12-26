@@ -34,14 +34,14 @@ void hexdump(CLI &cli, const uint32_t &address, const size_t &size) {
     }
 }
 
-static constexpr std::array<Arg, 2> cmd_hexdump_positional_args{{
-    Arg{.name = "address", .type = Arg::Type::num, .description = "Starting address"},
-    Arg{.name = "size", .type = Arg::Type::num, .description = "Size to print in bytes"},
+static constexpr std::array<Arg, 2> cmd_hexdump_args{{
+    Arg{.role = Arg::Role::positional, .name = "address", .type = Arg::Type::num, .description = "Starting address"},
+    Arg{.role = Arg::Role::positional, .name = "size", .type = Arg::Type::num, .description = "Size to print in bytes"},
 }};
 
 Cmd cmd_hexdump{Cmd::Cfg{.cmd_list = Cmd::general_cmd_list,
                          .name = "hexdump,hd",
-                         .argp_cfg = ArgParser::Cfg{.positional_args = cmd_hexdump_positional_args},
+                         .args = cmd_hexdump_args,
                          .short_description = "hex dump",
                          .fn = [](Cmd::Ctx ctx) {
                              if (ctx.args.size() != 2) {

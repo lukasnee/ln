@@ -74,12 +74,18 @@ std::optional<std::span<std::string_view>> ArgParser::tokenize(const std::string
 }
 
 bool ArgParser::validate_arg_composition(File &ostream, std::span<const std::string_view> args) const {
-    if (args.size() < this->cfg.positional_args.size()) {
-        std::fprintf(ostream.c_file(), "Error: not enough arguments (expected %zu, got %zu)\n",
-                     this->cfg.positional_args.size(), args.size());
+    size_t positional_arg_count = 0;
+    for (const auto &arg_cfg : this->arg_cfg) {
+        if (arg_cfg.role == Arg::Role::positional) {
+            positional_arg_count++;
+        }
+    }
+    if (args.size() < positional_arg_count) {
+        std::fprintf(ostream.c_file(), "Error: not enough arguments (expected %zu, got %zu)\n", positional_arg_count,
+                     args.size());
         return false;
     }
-    for (const auto [i, arg_cfg] : std::views::enumerate(this->cfg.positional_args)) {
+    for (const auto [i, arg_cfg] : std::views::enumerate(this->arg_cfg)) {
         auto arg = args[i];
         if (arg.empty()) {
             std::fprintf(ostream.c_file(), "Error: expected non-empty positional argument %zu\n", i);

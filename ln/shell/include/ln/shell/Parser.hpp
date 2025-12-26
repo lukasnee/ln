@@ -21,19 +21,19 @@ namespace ln::shell {
 class ArgParser {
 public:
     struct Cfg {
-        std::span<const Arg> positional_args;
         static constexpr size_t args_buf_size_default = 16;
     };
 
-    ArgParser(const Cfg &cfg, const std::span<const std::string_view> &args) : cfg{cfg}, args{args} {}
+    ArgParser(const std::span<const Arg> &arg_cfg, const std::span<const std::string_view> &input_args)
+        : arg_cfg{arg_cfg}, input_args{input_args} {}
 
     [[nodiscard]] Arg get_positional(std::size_t index) const {
-        if (index >= this->cfg.positional_args.size()) {
+        if (index >= this->arg_cfg.size()) {
             return Arg{.role = Arg::Role::non_existent};
         }
-        Arg arg = this->cfg.positional_args[index];
-        if (index < this->args.size()) {
-            arg.value = this->args[index];
+        Arg arg = this->arg_cfg[index];
+        if (index < this->input_args.size()) {
+            arg.value = this->input_args[index];
         }
         return arg;
     }
@@ -41,11 +41,11 @@ public:
     static std::optional<std::span<std::string_view>> tokenize(std::string_view sv,
                                                                std::span<std::string_view> args_buf);
 
-    bool validate_arg_composition(File &ostream, std::span<const std::string_view> args) const;
+    bool validate_arg_composition(File &ostream, std::span<const std::string_view> input_args) const;
 
     // TODO: private:
-    const Cfg &cfg;
-    const std::span<const std::string_view> &args;
+    const std::span<const Arg> &arg_cfg;
+    const std::span<const std::string_view> &input_args;
 };
 
 } // namespace ln::shell

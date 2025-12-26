@@ -91,7 +91,7 @@ Err CLI::execute(const Cmd &cmd, const std::span<const std::string_view> args,
         }
         return Err::unexpected;
     }
-    ArgParser argp{cmd.cfg.argp_cfg, args};
+    ArgParser argp{cmd.cfg.args, args};
     if (!argp.validate_arg_composition(this->config.ostream, args)) {
         if (this->config.colored_output) {
             this->print(ANSI_COLOR_YELLOW);

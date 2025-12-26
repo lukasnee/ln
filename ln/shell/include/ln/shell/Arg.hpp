@@ -35,11 +35,12 @@ public:
         num,
         str,
     };
+
+    Role role = Role::non_existent;
     std::string_view name = {};
     Type type = Type::str;
     std::string_view description = {};
     std::string_view default_value = {};
-    Role role = Role::non_existent;
     std::string_view value = default_value = {};
 
     [[nodiscard]] std::optional<uint32_t> as_u32() const;
