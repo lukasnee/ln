@@ -7,14 +7,11 @@
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"
     },
-    "cmake.buildDirectory": "${workspaceFolder}/build",
-    "cmake.configureSettings": {
-        "CMAKE_TOOLCHAIN_FILE": "arm-none-eabi-gcc.cmake",
-    },
+    "cmake.buildDirectory": "${workspaceFolder}/build/arm-none-eabi-gcc-dbg",
     "cmake.useCMakePresets": "always",
     "clangd.enable": true,
     "clangd.arguments": [
-        "--compile-commands-dir=${workspaceFolder}/build",
+        "--compile-commands-dir=${workspaceFolder}/build/arm-none-eabi-gcc-dbg",
         "--query-driver=**", // clangd becomes aware of arm-none-eabi-gcc and its standard includes
         "--background-index",
         "--clang-tidy",

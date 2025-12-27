@@ -6,25 +6,37 @@
     },
     "configurePresets": [
         {
-            "name": "main",
+            "name": "gcc",
+            "generator": "Ninja",
+            "binaryDir": "build/gcc",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "arm-none-eabi-gcc",
             "hidden": true,
             "generator": "Ninja",
-            "binaryDir": "build",
+            "binaryDir": "build/arm-none-eabi-gcc",
             "toolchainFile": "cmake/toolchains/arm-none-eabi-gcc.STM32H750.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         },
         {
-            "name": "main-dbg",
-            "inherits": "main",
+            "name": "arm-none-eabi-gcc-dbg",
+            "inherits": "arm-none-eabi-gcc",
+            "binaryDir": "build/arm-none-eabi-gcc-dbg",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         },
         {
-            "name": "main-rel",
-            "inherits": "main",
+            "name": "arm-none-eabi-gcc-rel",
+            "inherits": "arm-none-eabi-gcc",
+            "binaryDir": "build/arm-none-eabi-gcc-rel",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
@@ -32,38 +44,65 @@
     ],
     "buildPresets": [
         {
-            "name": "main-dbg",
-            "configurePreset": "main-dbg"
+            "name": "arm-none-eabi-gcc-dbg",
+            "configurePreset": "arm-none-eabi-gcc-dbg"
         },
         {
-            "name": "main-rel",
-            "configurePreset": "main-rel"
+            "name": "arm-none-eabi-gcc-rel",
+            "configurePreset": "arm-none-eabi-gcc-rel"
+        },
+        {
+            "name": "tests",
+            "configurePreset": "gcc"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "tests",
+            "configurePreset": "gcc"
         }
     ],
     "workflowPresets": [
         {
-            "name": "main-dbg",
+            "name": "arm-none-eabi-gcc-dbg",
             "steps": [
                 {
                     "type": "configure",
-                    "name": "main-dbg"
+                    "name": "arm-none-eabi-gcc-dbg"
                 },
                 {
                     "type": "build",
-                    "name": "main-dbg"
+                    "name": "arm-none-eabi-gcc-dbg"
                 }
             ]
         },
         {
-            "name": "main-rel",
+            "name": "arm-none-eabi-gcc-rel",
             "steps": [
                 {
                     "type": "configure",
-                    "name": "main-rel"
+                    "name": "arm-none-eabi-gcc-rel"
                 },
                 {
                     "type": "build",
-                    "name": "main-rel"
+                    "name": "arm-none-eabi-gcc-rel"
+                }
+            ]
+        },
+        {
+            "name": "tests",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "gcc"
+                },
+                {
+                    "type": "build",
+                    "name": "tests"
+                },
+                {
+                    "type": "test",
+                    "name": "tests"
                 }
             ]
         }

@@ -18,17 +18,6 @@ repos:
     rev: v1.3.5
     hooks:
       - id: clang-format
-      - id: clang-tidy
-        args:
-          [
-            "-p=build",
-            "--header-filter=/home/lukasnee/dev/1/fibration/extern/ln/ln/.*",
-            "--extra-arg=--target=arm-none-eabi",
-            "--extra-arg=-isystem/opt/gcc-arm-none-eabi/arm-none-eabi/include/c++/14.3.1",
-            "--extra-arg=-isystem/opt/gcc-arm-none-eabi/arm-none-eabi/include/c++/14.3.1/arm-none-eabi/thumb/v7e-m+dp/hard",
-            "--extra-arg=-isystem/opt/gcc-arm-none-eabi/arm-none-eabi/include/c++/14.3.1/backward",
-            "--extra-arg=-isystem/opt/gcc-arm-none-eabi/arm-none-eabi/include",
-          ]
       # - id: cppcheck # TODO: try out cppcheck
       # - id: cpplint # TODO: try out cpplint
       # - id: include-what-you-use
@@ -40,10 +29,17 @@ repos:
     #   revisited later
   - repo: local
     hooks:
-      - id: cmake-project-build-check
-        name: CMake Project Build Check
-        entry: cmake --build --preset main-dbg
+      - id: cmake-crosscompile-check
+        name: CMake Cross-Compile Build Check
+        entry: cmake --build --preset arm-none-eabi-gcc-dbg
         language: system
         files: \.(c|cpp|h|hpp|cmake|CMakeLists\.txt)$
         pass_filenames: false
-        description: Ensures the project builds successfully with CMake
+        description: Ensures the project cross-compiles successfully with CMake
+      - id: cmake-tests-check
+        name: CMake Project Tests Check
+        entry: cmake --workflow tests
+        language: system
+        files: \.(c|cpp|h|hpp|cmake|CMakeLists\.txt)$
+        pass_filenames: false
+        description: Ensures the project tests build and run successfully with CMake
