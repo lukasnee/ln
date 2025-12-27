@@ -1,5 +1,4 @@
-add_library(ln_core)
+add_library(ln_core INTERFACE)
 add_library(ln::core ALIAS ln_core)
-target_sources(ln_core PRIVATE src/ln.cpp)
-target_include_directories(ln_core PUBLIC include)
-target_link_libraries(ln_core PUBLIC FreeRTOS-Cpp ln::logger)
+target_include_directories(ln_core INTERFACE include)
+target_link_libraries(ln INTERFACE ln::core)

@@ -14,6 +14,8 @@ extern "C"
 {
 #endif
 
+#ifdef LN_LOGGER
+
     typedef enum {
         LOGGER_LEVEL_NOTSET = 0,
         LOGGER_LEVEL_LOWEST = 1,
@@ -63,6 +65,25 @@ extern "C"
 #define LOG_CRITICAL(...) LOG(LOGGER_LEVEL_CRITICAL, __VA_ARGS__)
 
 #define LOG_FLUSH() ln_logger_flush_buffer()
+
+#else
+
+#define LOG_SCOPE(_logger_module)
+#define LOG_MODULE_DEFINITION(_obj_name, _name, _level)
+#define LOG_MODULE_EXT(_obj_name)
+#define LOG_MODULE(_name, _level)
+#define LOG_MODULE_CLASS_MEMBER(_name, _level)
+
+#define LOG(_level, ...)
+#define LOG_DEBUG(...)
+#define LOG_INFO(...)
+#define LOG_WARNING(...)
+#define LOG_ERROR(...)
+#define LOG_CRITICAL(...)
+
+#define LOG_FLUSH()
+
+#endif // LN_LOGGER
 
 #ifdef __cplusplus
 }

@@ -8,10 +8,11 @@
  */
 
 #include "ln/logger/logger.hpp"
-#include "ln/ln.hpp"
+#include "ln/ln.h"
 
 #include <FreeRTOS/Addons/LockGuard.hpp>
 #include <FreeRTOS/Addons/Clock.hpp>
+#include <FreeRTOS/Addons/Kernel.hpp>
 
 #include <cstdio>
 
@@ -54,7 +55,7 @@ bool Logger::is_enabled() { return Config::enabled_compile_time && get_instance(
 extern "C" void ln_logger_flush_buffer() { Logger::get_instance().flush_buffer(); }
 
 void Logger::flush_buffer() {
-    if (ln::is_inside_interrupt()) {
+    if (FreeRTOS::Addons::Kernel::isInsideInterrupt()) {
         LN_PANIC();
     }
     FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
@@ -104,7 +105,7 @@ void Module::set_level(Level log_level) { this->log_level = log_level; }
 
 int Logger::log(const LoggerModule &module, const Logger::Level &level, const std::string_view fmt,
                 const va_list &arg_list) {
-    const auto is_interrupt_context = ln::is_inside_interrupt();
+    const auto is_interrupt_context = FreeRTOS::Addons::Kernel::isInsideInterrupt();
     if (!is_interrupt_context && !this->mutex.lock()) {
         return 0;
     }
@@ -158,10 +159,12 @@ int Logger::print_header(ln::File &file, const LoggerModule &module, const Logge
     char datetime_buffer[sizeof("YYYY-MM-DD HH:MM:SS")];
     const auto ms = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(sec_remainder).count());
     std::strftime(datetime_buffer, sizeof(datetime_buffer), "%Y-%m-%d %H:%M:%S", &tm_buf);
+    const auto current_task_name = FreeRTOS::Addons::Kernel::getCurrentTaskName();
     return Logger::printf(file, "%s.%03lu|%s%s%s|%s%s|%s|", datetime_buffer, ms,
                           (this->config.color ? level_descrs[level_descr_idx].color.data() : ""),
                           level_descrs[level_descr_idx].tag_name.data(), (this->config.color ? ANSI_COLOR_DEFAULT : ""),
-                          (ln::is_inside_interrupt() ? "ISR!" : ""), get_current_thread_name(), module.name);
+                          (FreeRTOS::Addons::Kernel::isInsideInterrupt() ? "ISR!" : ""),
+                          (current_task_name ? current_task_name : "-"), module.name);
 }
 
 int Logger::printf(ln::File &file, const char *fmt, ...) {

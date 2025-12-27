@@ -10,8 +10,7 @@
 #include "ln/drivers/EventDrivenSpi.hpp"
 
 #include <FreeRTOS/Addons/LockGuard.hpp>
-
-#include <algorithm> // std::min
+#include <FreeRTOS/Addons/Kernel.hpp>
 
 namespace ln::drivers {
 
@@ -145,7 +144,7 @@ bool EventDrivenSpi::deinit() { return this->ll_deinit(); }
 
 void EventDrivenSpi::ll_async_complete_common_signal() {
     bool higherPriorityTaskWoken = pdFALSE;
-    const auto is_inside_interrupt = xPortIsInsideInterrupt();
+    const auto is_inside_interrupt = FreeRTOS::Addons::Kernel::isInsideInterrupt();
     if (is_inside_interrupt) {
         this->write_semaphore.giveFromISR(higherPriorityTaskWoken);
     }

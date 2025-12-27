@@ -15,6 +15,7 @@
 #include "FreeRTOS/Semaphore.hpp"
 #include "FreeRTOS/Addons/LockGuard.hpp"
 #include "FreeRTOS/Addons/Timeout.hpp"
+#include "FreeRTOS/Addons/Kernel.hpp"
 
 #include <cstdint>
 #include <type_traits>
@@ -68,7 +69,7 @@ public:
      */
     void ll_async_read_completed_cb() {
         bool higherPriorityTaskWoken = false;
-        const auto is_inside_interrupt = xPortIsInsideInterrupt();
+        const auto is_inside_interrupt = FreeRTOS::Addons::Kernel::isInsideInterrupt();
         if (is_inside_interrupt) {
             this->semaphore.giveFromISR(higherPriorityTaskWoken);
         }
@@ -140,7 +141,7 @@ public:
      */
     void ll_async_write_completed_cb() {
         bool higherPriorityTaskWoken = false;
-        const auto is_inside_interrupt = xPortIsInsideInterrupt();
+        const auto is_inside_interrupt = FreeRTOS::Addons::Kernel::isInsideInterrupt();
         if (is_inside_interrupt) {
             this->semaphore.giveFromISR(higherPriorityTaskWoken);
         }

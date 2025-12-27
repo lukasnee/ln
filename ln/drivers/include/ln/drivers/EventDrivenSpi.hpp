@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "ln/ln.hpp"
+#include "ln/ln.h"
 
 #include "FreeRTOS/Mutex.hpp"
 #include "FreeRTOS/Semaphore.hpp"
