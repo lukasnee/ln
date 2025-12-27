@@ -9,13 +9,11 @@ TEST_CASE("ln::RingBuffer basic push/pop", "[ln::RingBuffer]") {
     REQUIRE(rb.empty());
     REQUIRE(rb.size() == 0);
     REQUIRE(rb.capacity() == 4);
-    REQUIRE(rb.front() == nullptr);
 
     REQUIRE(rb.push(1));
     REQUIRE_FALSE(rb.empty());
     REQUIRE(rb.size() == 1);
-    REQUIRE(rb.front() != nullptr);
-    REQUIRE(*rb.front() == 1);
+    REQUIRE(rb[0] == 1);
 
     auto v = rb.pop();
     REQUIRE(v.has_value());
@@ -35,6 +33,9 @@ TEST_CASE("ln::RingBuffer fill and full", "[ln::RingBuffer]") {
 
     REQUIRE(rb.full());
     REQUIRE(rb.size() == 3);
+    REQUIRE(rb[0] == 10);
+    REQUIRE(rb[1] == 20);
+    REQUIRE(rb[2] == 30);
     REQUIRE(rb.get_free_space() == 0);
 
     // Cannot push when full (PushMode::normal)
@@ -50,12 +51,24 @@ TEST_CASE("ln::RingBuffer preserves FIFO order across wrap-around", "[ln::RingBu
     REQUIRE(rb.push(2));
     REQUIRE(rb.push(3));
 
+    REQUIRE(rb[0] == 1);
+    REQUIRE(rb[1] == 2);
+    REQUIRE(rb[2] == 3);
+
     auto v1 = rb.pop();
     REQUIRE(v1.has_value());
     REQUIRE(v1.value() == 1);
 
+    REQUIRE(rb.size() == 2);
+    REQUIRE(rb[0] == 2);
+    REQUIRE(rb[1] == 3);
+
     // Now head advanced, tail at capacity, push should wrap tail
     REQUIRE(rb.push(4));
+
+    REQUIRE(rb[0] == 2);
+    REQUIRE(rb[1] == 3);
+    REQUIRE(rb[2] == 4);
 
     // Remaining order should be 2,3,4
     auto v2 = rb.pop();
@@ -87,6 +100,8 @@ TEST_CASE("ln::RingBuffer::clear resets state", "[ln::RingBuffer]") {
 
     // After clear, should behave as freshly constructed
     REQUIRE(rb.push(3));
+    REQUIRE(rb.size() == 1);
+    REQUIRE(rb[0] == 3);
     auto v = rb.pop();
     REQUIRE(v.has_value());
     REQUIRE(v.value() == 3);
@@ -104,18 +119,10 @@ TEST_CASE("ln::RingBuffer::push_overwrite overwrites oldest element", "[ln::Ring
     REQUIRE(rb.push_overwrite(4)); // overwrite oldest (1)
     REQUIRE(rb.full());
     REQUIRE(rb.size() == 3);
+    REQUIRE(rb[0] == 2);
+    REQUIRE(rb[1] == 3);
+    REQUIRE(rb[2] == 4);
     REQUIRE(rb.capacity() == 3);
-
-    auto v1 = rb.pop();
-    auto v2 = rb.pop();
-    auto v3 = rb.pop();
-
-    REQUIRE(v1.has_value());
-    REQUIRE(v2.has_value());
-    REQUIRE(v3.has_value());
-    CHECK(*v1 == 2);
-    CHECK(*v2 == 3);
-    CHECK(*v3 == 4);
 }
 
 TEST_CASE("ln::RingBuffer::push(std::span) in normal mode fails when not enough space", "[ln::RingBuffer][span]") {
@@ -130,15 +137,8 @@ TEST_CASE("ln::RingBuffer::push(std::span) in normal mode fails when not enough 
 
     REQUIRE_FALSE(rb.push(too_many));
     CHECK(rb.size() == 2);
-
-    auto v1 = rb.pop();
-    auto v2 = rb.pop();
-
-    REQUIRE(v1.has_value());
-    REQUIRE(v2.has_value());
-    CHECK(*v1 == 1);
-    CHECK(*v2 == 2);
-    CHECK(rb.empty());
+    REQUIRE(rb[0] == 1);
+    REQUIRE(rb[1] == 2);
 }
 
 TEST_CASE("ln::RingBuffer::push(std::span) in normal mode succeeds when enough space", "[ln::RingBuffer][span]") {
@@ -153,13 +153,11 @@ TEST_CASE("ln::RingBuffer::push(std::span) in normal mode succeeds when enough s
 
     CHECK(rb.full());
     CHECK(rb.size() == 5);
-
-    for (int expected : {1, 2, 3, 4, 5}) {
-        auto v = rb.pop();
-        REQUIRE(v.has_value());
-        CHECK(*v == expected);
-    }
-    CHECK(rb.empty());
+    REQUIRE(rb[0] == 1);
+    REQUIRE(rb[1] == 2);
+    REQUIRE(rb[2] == 3);
+    REQUIRE(rb[3] == 4);
+    REQUIRE(rb[4] == 5);
 }
 
 TEST_CASE("ln::RingBuffer::push(std::span) in overwrite mode replaces oldest elements", "[ln::RingBuffer][span]") {
@@ -174,21 +172,10 @@ TEST_CASE("ln::RingBuffer::push(std::span) in overwrite mode replaces oldest ele
 
     REQUIRE(rb.push_overwrite(overwrite_vals)); // overwrite 2 oldest
     CHECK(rb.size() == 4);
-
-    auto v1 = rb.pop();
-    auto v2 = rb.pop();
-    auto v3 = rb.pop();
-    auto v4 = rb.pop();
-
-    REQUIRE(v1.has_value());
-    REQUIRE(v2.has_value());
-    REQUIRE(v3.has_value());
-    REQUIRE(v4.has_value());
-    CHECK(*v1 == 3);
-    CHECK(*v2 == 4);
-    CHECK(*v3 == 5);
-    CHECK(*v4 == 6);
-    CHECK(rb.empty());
+    REQUIRE(rb[0] == 3);
+    REQUIRE(rb[1] == 4);
+    REQUIRE(rb[2] == 5);
+    REQUIRE(rb[3] == 6);
 }
 
 TEST_CASE("ln::RingBuffer::push(std::span) handles wrap-around correctly", "[ln::RingBuffer][span]") {
@@ -206,12 +193,10 @@ TEST_CASE("ln::RingBuffer::push(std::span) handles wrap-around correctly", "[ln:
 
     // capacity=5, size=1, free=4, pushing 4 -> should wrap internally
     REQUIRE(rb.push(b));
-    CHECK(rb.full());
-
-    for (int expected : {3, 4, 5, 6, 7}) {
-        auto v = rb.pop();
-        REQUIRE(v.has_value());
-        CHECK(*v == expected);
-    }
-    CHECK(rb.empty());
+    CHECK(rb.size() == 5);
+    REQUIRE(rb[0] == 3);
+    REQUIRE(rb[1] == 4);
+    REQUIRE(rb[2] == 5);
+    REQUIRE(rb[3] == 6);
+    REQUIRE(rb[4] == 7);
 }

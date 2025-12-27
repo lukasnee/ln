@@ -84,10 +84,10 @@ public:
             if (mode == PushMode::normal) {
                 return false;
             }
-            this->advance_tail(1);
+            this->advance_head(1);
         }
-        this->storage[this->head] = value;
-        this->advance_head(1);
+        this->storage[this->tail] = value;
+        this->advance_tail(1);
         return true;
     }
 
@@ -104,20 +104,20 @@ public:
                 return false;
             }
             size_t overwrite_count = to_push - free_space;
-            this->advance_tail(overwrite_count);
+            this->advance_head(overwrite_count);
             to_push = free_space + overwrite_count;
         }
 
         size_t first_chunk_size = this->get_contiguous_push_space(mode);
         if (first_chunk_size >= to_push) {
-            std::copy_n(values.data(), to_push, &this->storage[this->head]);
-            this->advance_head(to_push);
+            std::copy_n(values.data(), to_push, &this->storage[this->tail]);
+            this->advance_tail(to_push);
         }
         else {
-            std::copy_n(values.data(), first_chunk_size, &this->storage[this->head]);
+            std::copy_n(values.data(), first_chunk_size, &this->storage[this->tail]);
             size_t second_chunk_size = to_push - first_chunk_size;
             std::copy_n(values.data() + first_chunk_size, second_chunk_size, &this->storage[0]);
-            this->advance_head(to_push);
+            this->advance_tail(to_push);
         }
         return true;
     }
@@ -133,21 +133,31 @@ public:
         if (this->empty()) {
             return std::nullopt;
         }
-        T value = this->storage[this->tail];
-        this->advance_tail(1);
+        T value = this->storage[this->head];
+        this->advance_head(1);
         return value;
     }
 
     /**
-     * @brief Access the front element without removing it.
+     * @brief Random access operator (read/write) by logical index.
      *
-     * @return Pointer to the front element, or nullptr if the buffer is empty.
+     * Index 0 refers to the oldest element currently stored, index size()-1
+     * to the newest element. Behaviour is undefined if index >= size().
      */
-    [[nodiscard]] const T *front() const noexcept {
-        if (this->empty()) {
-            return nullptr;
-        }
-        return &this->storage[this->head - 1];
+    [[nodiscard]] T &operator[](size_t index) noexcept {
+        size_t physical = (this->head + index) % this->storage.size();
+        return this->storage[physical];
+    }
+
+    /**
+     * @brief Random access operator (read-only) by logical index.
+     *
+     * Index 0 refers to the oldest element currently stored, index size()-1
+     * to the newest element. Behaviour is undefined if index >= size().
+     */
+    [[nodiscard]] const T &operator[](size_t index) const noexcept {
+        size_t physical = (this->head + index) % this->storage.size();
+        return this->storage[physical];
     }
 
 private:
@@ -156,25 +166,25 @@ private:
             if (mode == PushMode::normal) {
                 return 0;
             }
-            return this->capacity() - this->tail;
-        }
-        if (this->head >= this->tail) {
             return this->capacity() - this->head;
         }
-        if (mode == PushMode::normal) {
-            return this->tail - this->head;
+        if (this->tail >= this->head) {
+            return this->capacity() - this->tail;
         }
-        return this->capacity() - this->head;
+        if (mode == PushMode::normal) {
+            return this->head - this->tail;
+        }
+        return this->capacity() - this->tail;
     }
 
     void advance_head(size_t step) noexcept {
         this->advance(this->head, step);
-        this->count += step;
+        this->count -= step;
     }
 
     void advance_tail(size_t step) noexcept {
         this->advance(this->tail, step);
-        this->count -= step;
+        this->count += step;
     }
 
     void advance(size_t &index, size_t step) noexcept { index = (index + step) % storage.size(); }
