@@ -15,6 +15,7 @@
 #include <type_traits>
 #include <optional>
 #include <algorithm>
+#include <ranges>
 
 namespace ln {
 
@@ -28,6 +29,72 @@ template <typename T> class RingBuffer {
                   "RingBuffer requires trivially destructible T for embedded safety");
 
 public:
+    template <bool is_const> struct _iterator {
+        using iterator_category = std::random_access_iterator_tag;
+        using value_type = T;
+        using difference_type = std::ptrdiff_t;
+        using pointer = std::conditional_t<is_const, const T *, T *>;
+        using reference = std::conditional_t<is_const, const T &, T &>;
+
+        std::conditional_t<is_const, const RingBufferView *, RingBufferView *> parent;
+        size_t index; // logical position from head
+
+        reference operator*() const { return (*parent)[index]; }
+
+        _iterator &operator++() {
+            ++index;
+            return *this;
+        }
+        _iterator operator++(int) {
+            auto tmp = *this;
+            ++index;
+            return tmp;
+        }
+        _iterator &operator--() {
+            --index;
+            return *this;
+        }
+        _iterator operator--(int) {
+            auto tmp = *this;
+            --index;
+            return tmp;
+        }
+        _iterator &operator+=(difference_type n) {
+            index += n;
+            return *this;
+        }
+        _iterator &operator-=(difference_type n) {
+            index -= n;
+            return *this;
+        }
+
+        friend _iterator operator+(_iterator it, difference_type n) {
+            it += n;
+            return it;
+        }
+        friend _iterator operator+(difference_type n, _iterator it) {
+            it += n;
+            return it;
+        }
+        friend _iterator operator-(_iterator it, difference_type n) {
+            it.index -= n;
+            return it;
+        }
+        difference_type operator-(const _iterator &other) const {
+            return static_cast<difference_type>(index) - static_cast<difference_type>(other.index);
+        }
+
+        auto operator<=>(const _iterator &other) const = default;
+    };
+
+    using iterator = _iterator<false>;
+    using const_iterator = _iterator<true>;
+
+    [[nodiscard]] auto begin() noexcept { return iterator{this, 0}; }
+    [[nodiscard]] auto end() noexcept { return iterator{this, this->size()}; }
+    [[nodiscard]] auto begin() const noexcept { return const_iterator{this, 0}; }
+    [[nodiscard]] auto end() const noexcept { return const_iterator{this, this->size()}; }
+
     /**
      * @brief Construct a ring buffer over the given span.
      *

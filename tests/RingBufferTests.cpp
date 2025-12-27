@@ -1,6 +1,7 @@
 #include "ln/RingBuffer.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <ranges>
 
 TEST_CASE("ln::RingBuffer basic push/pop", "[ln::RingBuffer]") {
     std::array<int, 4> storage{};
@@ -199,4 +200,197 @@ TEST_CASE("ln::RingBuffer::push(std::span) handles wrap-around correctly", "[ln:
     REQUIRE(rb[2] == 5);
     REQUIRE(rb[3] == 6);
     REQUIRE(rb[4] == 7);
+}
+
+TEST_CASE("ln::RingBuffer supports range-based for (mutable)", "[ln::RingBuffer][iterator]") {
+    std::array<int, 5> storage{};
+    ln::RingBuffer<int> rb(storage);
+
+    std::array<int, 3> a{{1, 2, 3}};
+    REQUIRE(rb.push(a));
+
+    int expected = 1;
+    for (auto &v : rb) {
+        REQUIRE(v == expected);
+        // Mutate through iterator to ensure non-const access works
+        v += 10;
+        ++expected;
+    }
+
+    REQUIRE(rb.size() == 3);
+    REQUIRE(rb[0] == 11);
+    REQUIRE(rb[1] == 12);
+    REQUIRE(rb[2] == 13);
+}
+
+TEST_CASE("ln::RingBuffer supports range-based for (const)", "[ln::RingBuffer][iterator]") {
+    std::array<int, 4> storage{};
+    ln::RingBuffer<int> rb(storage);
+
+    std::array<int, 3> a{{5, 6, 7}};
+    REQUIRE(rb.push(a));
+
+    const ln::RingBuffer<int> &crb = rb;
+
+    int sum = 0;
+    std::array<int, 3> expected{{5, 6, 7}};
+    size_t idx = 0;
+    for (const auto &v : crb) {
+        REQUIRE(v == expected[idx]);
+        sum += v;
+        ++idx;
+    }
+
+    REQUIRE(idx == 3);
+    REQUIRE(sum == 5 + 6 + 7);
+}
+
+TEST_CASE("ln::RingBuffer iterator traverses in FIFO order across wrap-around", "[ln::RingBuffer][iterator]") {
+    std::array<int, 4> storage{};
+    ln::RingBuffer<int> rb(storage);
+
+    // Fill and then pop some to force tail/head movement
+    std::array<int, 3> initial{{1, 2, 3}};
+    REQUIRE(rb.push(initial));
+    REQUIRE(rb.pop().has_value()); // remove 1
+
+    std::array<int, 2> more{{4, 5}};
+    REQUIRE(rb.push(more)); // should wrap head
+
+    std::array<int, 4> expected{{2, 3, 4, 5}};
+    size_t idx = 0;
+    for (auto v : rb) {
+        REQUIRE(v == expected[idx]);
+        ++idx;
+    }
+    REQUIRE(idx == 4);
+}
+
+TEST_CASE("ln::RingBuffer models std::ranges::range (non-const)", "[ln::RingBuffer][ranges]") {
+    std::array<int, 5> storage{};
+    ln::RingBuffer<int> rb(storage);
+
+    std::array<int, 4> data{{1, 2, 3, 4}};
+    REQUIRE(rb.push(data));
+
+    auto it_begin = std::ranges::begin(rb);
+    auto it_end = std::ranges::end(rb);
+
+    REQUIRE(it_begin != it_end);
+    REQUIRE(*it_begin == 1);
+
+    int expected = 1;
+    for (int v : rb) {
+        REQUIRE(v == expected);
+        ++expected;
+    }
+    REQUIRE(expected == 5); // 1..4
+}
+
+TEST_CASE("ln::RingBuffer models std::ranges::range (const)", "[ln::RingBuffer][ranges]") {
+    std::array<int, 5> storage{};
+    ln::RingBuffer<int> rb(storage);
+
+    std::array<int, 3> data{{10, 20, 30}};
+    REQUIRE(rb.push(data));
+
+    const ln::RingBuffer<int> &crb = rb;
+
+    auto it_begin = std::ranges::begin(crb);
+    auto it_end = std::ranges::end(crb);
+
+    REQUIRE(it_begin != it_end);
+    REQUIRE(*it_begin == 10);
+
+    std::array<int, 3> expected{{10, 20, 30}};
+    size_t idx = 0;
+    for (int v : crb) {
+        REQUIRE(v == expected[idx]);
+        ++idx;
+    }
+    REQUIRE(idx == expected.size());
+}
+
+TEST_CASE("ln::RingBuffer works with std::views::take/drop", "[ln::RingBuffer][ranges][views]") {
+    std::array<int, 6> storage{};
+    ln::RingBuffer<int> rb(storage);
+
+    std::array<int, 5> data{{1, 2, 3, 4, 5}};
+    REQUIRE(rb.push(data));
+
+    auto dropped = rb | std::views::drop(2);
+    REQUIRE(dropped.size() == 3);
+    std::array<int, 3> expected_drop{{3, 4, 5}};
+
+    size_t idx = 0;
+    for (int v : dropped) {
+        REQUIRE(v == expected_drop[idx]);
+        ++idx;
+    }
+
+    auto taken = rb | std::views::take(3);
+    REQUIRE(taken.size() == 3);
+    std::array<int, 3> expected_take{{1, 2, 3}};
+
+    idx = 0;
+    for (int v : taken) {
+        REQUIRE(v == expected_take[idx]);
+        ++idx;
+    }
+}
+
+TEST_CASE("ln::RingBuffer works with std::views::take/drop on const buffer", "[ln::RingBuffer][ranges][views]") {
+    std::array<int, 6> storage{};
+    ln::RingBuffer<int> rb(storage);
+
+    std::array<int, 5> data{{1, 2, 3, 4, 5}};
+    REQUIRE(rb.push(data));
+
+    const ln::RingBuffer<int> &crb = rb;
+
+    auto dropped = crb | std::views::drop(2);
+    REQUIRE(dropped.size() == 3);
+    std::array<int, 3> expected_drop{{3, 4, 5}};
+
+    size_t idx = 0;
+    for (int v : dropped) {
+        REQUIRE(v == expected_drop[idx]);
+        ++idx;
+    }
+}
+
+std::ranges::subrange<ln::RingBufferView<int>::iterator> last_5(ln::RingBufferView<int> &rb) {
+    auto last = rb.end();
+    auto first = (rb.size() > 5) ? last - 5 : rb.begin();
+    return {first, last};
+}
+TEST_CASE("ln::RingBuffer get last 3 element range", "[ln::RingBuffer][ranges]") {
+    ln::RingBuffer<int, 10> rb{};
+
+    for (int i = 1; i <= 7; ++i) {
+        REQUIRE(rb.push(i));
+    }
+
+    auto range = last_5(rb);
+    std::array<int, 5> expected{{3, 4, 5, 6, 7}};
+    size_t idx = 0;
+    for (int v : range) {
+        REQUIRE(v == expected[idx]);
+        ++idx;
+    }
+}
+
+TEST_CASE("ln::RingBuffer range reverse iteration", "[ln::RingBuffer][ranges]") {
+    ln::RingBuffer<int, 10> rb{};
+
+    for (int i = 1; i <= 5; ++i) {
+        REQUIRE(rb.push(i));
+    }
+
+    std::array<int, 5> expected{{5, 4, 3, 2, 1}};
+    size_t idx = 0;
+    for (int v : rb | std::views::reverse) {
+        REQUIRE(v == expected[idx]);
+        ++idx;
+    }
 }
