@@ -51,3 +51,8 @@ if(CROSSCOMPILE_TEST OR LN_FREERTOS)
   add_subdirectory(extern/FreeRTOS-Cpp)
   target_link_libraries(ln INTERFACE FreeRTOS-Cpp)
 endif()
+
+if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_CROSSCOMPILING)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
