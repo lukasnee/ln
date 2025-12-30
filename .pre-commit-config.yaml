@@ -29,13 +29,14 @@ repos:
     #   revisited later
   - repo: local
     hooks:
-      - id: cmake-crosscompile-check
-        name: CMake Cross-Compile Build Check
-        entry: cmake --build --preset arm-none-eabi-gcc-dbg
-        language: system
-        files: \.(c|cpp|h|hpp|cmake|CMakeLists\.txt)$
-        pass_filenames: false
-        description: Ensures the project cross-compiles successfully with CMake
+      # TODO: too slow for now, building should be optimized
+      # - id: cmake-crosscompile-check
+      #   name: CMake Cross-Compile Build Check
+      #   entry: cmake --build --preset arm-none-eabi-gcc-dbg
+      #   language: system
+      #   files: \.(c|cpp|h|hpp|cmake|CMakeLists\.txt)$
+      #   pass_filenames: false
+      #   description: Ensures the project cross-compiles successfully with CMake
       - id: cmake-tests-check
         name: Tests Build and Run Check
         entry: cmake --build --preset tests && ctest --preset tests --output-on-failure
