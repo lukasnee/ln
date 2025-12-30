@@ -159,7 +159,7 @@ bool CLI::put_char(const char &c) {
             this->input.clear();
             this->is_prompted = false;
         }
-        this->insert_char(c);
+        this->insert(c);
         return true;
     }
     if (c == '\r') {
@@ -365,8 +365,8 @@ bool CLI::backspace_char() {
 }
 
 /** @return true if actually inserted */
-bool CLI::insert_char(const char &c) {
-    if (!this->input.insert_char(c)) {
+bool CLI::insert(const char &c) {
+    if (!this->input.insert(c)) {
         return false;
     }
     this->print(this->input.get().substr(this->input.get_cursor_pos() - 1));

@@ -68,7 +68,7 @@ bool Input::backspace_char() {
     return true;
 }
 
-bool Input::insert_char(const char &c) {
+bool Input::insert(const char &c) {
     if (this->is_full()) {
         return false;
     }

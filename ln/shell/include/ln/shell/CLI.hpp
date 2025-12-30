@@ -84,7 +84,7 @@ private:
     bool on_arrow_left_key();
 
     bool backspace_char();
-    bool insert_char(const char &c);
+    bool insert(const char &c);
     void print_prompt();
 
     enum class EscapeState : std::int8_t {

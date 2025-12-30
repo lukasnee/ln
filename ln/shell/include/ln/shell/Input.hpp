@@ -41,7 +41,7 @@ public:
 
     bool delete_char();
     bool backspace_char();
-    bool insert_char(const char &c);
+    bool insert(const char &c);
 
 private:
     std::span<char> line_buf;
