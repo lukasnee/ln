@@ -18,7 +18,7 @@
 
 namespace ln::shell {
 
-void CLI::print(const char &c, std::size_t times_to_repeat) {
+void CLI::print(const char &c, size_t times_to_repeat) {
     while (times_to_repeat--) {
         if (c == '\n') {
             std::fputc('\r', this->config.ostream.c_file());
