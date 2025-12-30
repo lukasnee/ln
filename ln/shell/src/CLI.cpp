@@ -79,6 +79,7 @@ std::tuple<const Cmd *, std::span<const std::string_view>> CLI::find_cmd(std::sp
     return {};
 }
 
+// TODO: make first arg the name of the function
 Err CLI::execute(const Cmd &cmd, const std::span<const std::string_view> args,
                  const char *output_color_escape_sequence) {
     if (!cmd.cfg.fn) {
