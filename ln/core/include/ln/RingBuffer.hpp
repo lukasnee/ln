@@ -20,13 +20,13 @@
 namespace ln {
 
 /**
- * @brief Ring buffer (circular buffer) interface/manager over externally
+ * @brief Ring buffer (circular buffer) interface/manager for externally
  * provided storage.
  */
 
-template <typename T> class RingBuffer {
+template <typename T> class RingBufferView {
     static_assert(std::is_trivially_destructible<T>::value,
-                  "RingBuffer requires trivially destructible T for embedded safety");
+                  "RingBufferView requires trivially destructible T for embedded safety");
 
 public:
     template <bool is_const> struct _iterator {
@@ -100,7 +100,8 @@ public:
      *
      * The size of the span defines the capacity of the ring buffer.
      */
-    explicit RingBuffer(std::span<T> backing_storage) noexcept : storage(backing_storage), head(0), tail(0), count(0) {}
+    explicit RingBufferView(std::span<T> backing_storage) noexcept
+        : storage(backing_storage), head(0), tail(0), count(0) {}
 
     /**
      * @brief Returns the number of elements stored in the buffer.
@@ -266,14 +267,14 @@ private:
  * @brief Owning fixed-size ring buffer with internal static storage.
  *
  * This is a convenience wrapper that owns a statically-sized array and
- * exposes the same API as RingBuffer by providing its storage span.
+ * exposes the same API as RingBufferView by providing its storage span.
  */
-template <typename T, size_t N> class RingBufferStatic : public RingBuffer<T> {
-    static_assert(N > 0, "RingBufferStatic capacity N must be > 0");
+template <typename T, size_t N> class RingBuffer : public RingBufferView<T> {
+    static_assert(N > 0, "RingBuffer capacity N must be > 0");
 
 public:
-    using Base = RingBuffer<T>;
-    RingBufferStatic() noexcept : Base{buffer} {}
+    using Base = RingBufferView<T>;
+    RingBuffer() noexcept : Base{buffer} {}
 
 private:
     std::array<T, N> buffer;
