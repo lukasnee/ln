@@ -14,8 +14,6 @@
 #include "ln/shell/Input.hpp"
 #include "ln/shell/Cmd.hpp"
 
-#include "FreeRTOS/Addons/Clock.hpp"
-
 #include <array>
 #include <span>
 #include <cstdarg>
