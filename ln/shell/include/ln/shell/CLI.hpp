@@ -99,7 +99,6 @@ private:
     FreeRTOS::Addons::Clock::time_point escape_start_time;
 
     Input input;
-    bool is_prompted = true;
     Err last_err = Err::ok;
 };
 } // namespace ln::shell

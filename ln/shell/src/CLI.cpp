@@ -156,10 +156,6 @@ bool CLI::put_char(const char &c) {
         return true;
     }
     if (' ' <= c && c <= '~') {
-        if (this->is_prompted) {
-            this->input.clear();
-            this->is_prompted = false;
-        }
         this->insert(c);
         return true;
     }
@@ -167,7 +163,6 @@ bool CLI::put_char(const char &c) {
         this->print("\r\n");
         const auto res = this->execute_line(this->input.get());
         this->input.clear();
-        this->is_prompted = true;
         this->print_prompt();
         return res;
     }
@@ -321,11 +316,7 @@ bool CLI::on_arrow_up_key() {
     return false;
 }
 
-bool CLI::on_arrow_down_key() {
-    this->input.clear();
-    this->is_prompted = true;
-    return true;
-}
+bool CLI::on_arrow_down_key() { return false; }
 
 bool CLI::on_arrow_left_key() {
     if (!this->input.step_left()) {
