@@ -86,6 +86,7 @@ private:
     bool backspace_char();
     bool insert(const char &c);
     void print_prompt();
+    void clear_input();
 
     enum class EscapeState : std::int8_t {
         failed = -1,

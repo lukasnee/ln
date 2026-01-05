@@ -338,6 +338,19 @@ void CLI::print_prompt(void) {
     }
 }
 
+void CLI::clear_input() {
+    for (size_t i = 0; i < this->input.get().size(); i++) {
+        this->print('\b');
+    }
+    for (size_t i = 0; i < this->input.get().size(); i++) {
+        this->print(' ');
+    }
+    for (size_t i = 0; i < this->input.get().size(); i++) {
+        this->print('\b');
+    }
+    this->input.clear();
+}
+
 /** @return true if actually backspaced */
 bool CLI::backspace_char() {
     if (!this->input.backspace_char()) {
