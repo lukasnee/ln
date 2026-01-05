@@ -8,7 +8,7 @@
  */
 
 #include "ln/shell/History.hpp"
-#include "ln/ln.h"
+#include "ln/shell/CLI.hpp"
 
 #include "ln/logger/logger.h"
 #include <string_view>
@@ -63,5 +63,22 @@ std::ranges::subrange<ln::RingBufferView<char>::iterator> History::recall_next()
     }
     return std::ranges::subrange{line_begin_it, it};
 }
+
+Err History::cmd_history_fn(Cmd::Ctx ctx) {
+    for (const char c : ctx.cli.history.ring_buffer) {
+        ctx.cli.print(c);
+    }
+    return Err::ok;
+};
+
+Cmd History::cmd_history = Cmd{Cmd::Cfg{.cmd_list = Cmd::base_cmd_list,
+                                        .name = "history,hist",
+                                        .short_description = "print command history",
+                                        .fn = [](Cmd::Ctx ctx) {
+                                            for (const char c : ctx.cli.history.ring_buffer) {
+                                                ctx.cli.print(c);
+                                            }
+                                            return Err::ok;
+                                        }}};
 
 } // namespace ln::shell

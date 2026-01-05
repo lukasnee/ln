@@ -27,6 +27,9 @@ public:
     std::ranges::subrange<ln::RingBufferView<char>::iterator> recall_next();
 
 private:
+    static Err cmd_history_fn(Cmd::Ctx ctx);
+    static Cmd cmd_history;
+
     ln::RingBufferView<char> ring_buffer;
     ln::RingBufferView<char>::iterator recall_pos = ring_buffer.end();
     bool last_recall_was_matching = false;
