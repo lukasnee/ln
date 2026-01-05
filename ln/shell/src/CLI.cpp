@@ -207,18 +207,12 @@ bool CLI::execute_line(std::string_view line) {
 /** @result false - nothing to handle */
 bool CLI::handle_escape(const char &c) {
     if (c == '\e') {
-        this->escape_start_time = FreeRTOS::Addons::Clock::now();
         this->escape_state = EscapeState::escaped;
         return true;
     }
     if (this->escape_state != EscapeState::escaped && this->escape_state != EscapeState::delimited &&
         this->escape_state != EscapeState::intermediate && this->escape_state != EscapeState::finished) {
         this->escape_state = EscapeState::none; // unexpected state
-        return false;
-    }
-    if (FreeRTOS::Addons::Clock::now() - this->escape_start_time > std::chrono::milliseconds(2)) {
-        /* timed out */
-        this->escape_state = EscapeState::none;
         return false;
     }
     const char ascii_char_del = 0x7F;
