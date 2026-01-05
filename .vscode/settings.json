@@ -9,6 +9,7 @@
     },
     "cmake.buildDirectory": "${workspaceFolder}/build/arm-none-eabi-gcc-dbg",
     "cmake.useCMakePresets": "always",
+    "cmake.ctest.testExplorerIntegrationEnabled": false, // we use matepek.vscode-catch2-test-adapter instead
     "clangd.enable": true,
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build/arm-none-eabi-gcc-dbg",
