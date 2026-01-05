@@ -214,6 +214,8 @@ bool CLI::execute_line(std::string_view line) {
 
 /** @result false - nothing to handle */
 bool CLI::handle_escape(const char &c) {
+    // TODO: factor out ANSI escape handling in a separate class and support
+    // ctrl+left/right for moving cursor to begin or end of input line
     if (c == '\e') {
         this->escape_state = EscapeState::escaped;
         return true;
