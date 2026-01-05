@@ -170,6 +170,14 @@ bool CLI::put_char(const char &c) {
 }
 
 bool CLI::execute_line(std::string_view line) {
+    if (!this->input.get().empty()) {
+        if (std::ranges::equal(this->input.get(), this->history.get_current_recall_line())) {
+            this->previously_called_from_history = true;
+        }
+        else {
+            this->history.add_line(this->input.get());
+        }
+    }
     std::array<std::string_view, ArgParser::Cfg::args_buf_size_default> args_buf;
     auto opt_args = ArgParser::tokenize(line, args_buf);
     if (!opt_args) {
@@ -305,12 +313,35 @@ bool CLI::on_home_key() {
 }
 
 bool CLI::on_arrow_up_key() {
-    // TODO: implement history buffer; consider using args.untokenize(), if
-    // it turns out unuseful - remove it.
-    return false;
+    decltype((this->history.get_current_recall_line())) line = {};
+    if (this->previously_called_from_history) {
+        this->previously_called_from_history = false;
+        line = this->history.get_current_recall_line();
+    }
+    else {
+        line = this->history.recall_previous();
+    }
+    if (line.empty()) {
+        return false;
+    }
+    this->clear_input();
+    for (const char &c : line) {
+        this->insert(c);
+    }
+    return true;
 }
 
-bool CLI::on_arrow_down_key() { return false; }
+bool CLI::on_arrow_down_key() {
+    auto line = this->history.recall_next();
+    if (line.empty()) {
+        return false;
+    }
+    this->clear_input();
+    for (const char &c : line) {
+        this->insert(c);
+    }
+    return true;
+}
 
 bool CLI::on_arrow_left_key() {
     if (!this->input.step_left()) {

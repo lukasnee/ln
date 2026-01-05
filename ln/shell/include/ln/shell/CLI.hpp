@@ -10,6 +10,7 @@
 #pragma once
 
 #include "ln/File.hpp"
+#include "ln/shell/History.hpp"
 #include "ln/shell/Input.hpp"
 #include "ln/shell/Cmd.hpp"
 
@@ -51,7 +52,8 @@ public:
         std::span<ln::StaticForwardList<Cmd> *> cmd_lists = default_cmd_lists;
     } config;
 
-    explicit CLI(std::span<char> input_line_buf) : input{input_line_buf} {}
+    explicit CLI(std::span<char> input_line_buf, std::span<char> history_buf = {})
+        : input{input_line_buf}, history{history_buf} {}
 
     // NOTE: escape sequences are time sensitive !
     // TODO: move this to a dedicated uart receiver task and join by char queue
@@ -98,6 +100,9 @@ private:
     } escape_state;
 
     Input input;
+    friend class History;
+    History history;
+    bool previously_called_from_history = false;
     Err last_err = Err::ok;
 };
 } // namespace ln::shell
