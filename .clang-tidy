@@ -27,7 +27,12 @@ Checks:
   -readability-avoid-unconditional-preprocessor-if,
   google-*,
   -google-readability-todo,
-  misc-*
+  misc-*,
+  -misc-use-anonymous-namespace,
+  -misc-use-internal-linkage,
+  -misc-no-recursion,
+  -misc-non-private-member-variables-in-classes,
+  -misc-const-correctness,
   -misc-include-cleaner
   "
   # TODO: try out:

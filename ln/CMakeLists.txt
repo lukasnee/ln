@@ -1,3 +1,5 @@
+ln_enable_clang_tidy()
+
 add_subdirectory(algo)
 add_subdirectory(core)
 add_subdirectory(logger)

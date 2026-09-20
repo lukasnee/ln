@@ -1,3 +1,5 @@
+ln_enable_clang_tidy()
+
 add_subdirectory(stdcpp)
 if(LN_FREERTOS)
   add_subdirectory(FreeRTOS)
