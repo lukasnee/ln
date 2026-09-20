@@ -98,9 +98,8 @@ function(ln_add_firmware target_name linker_script openocd_cfg)
 
   add_custom_target(
     flash_${target_name}
-    COMMAND
-      openocd -f ${openocd_cfg} -c
-      "program ${PROJECT_BINARY_DIR}/${target_name} preverify verify reset exit"
+    COMMAND openocd -f ${openocd_cfg} -c
+            "program ${PROJECT_BINARY_DIR}/${target_name} verify reset exit"
     DEPENDS ${target_name}
     VERBATIM USES_TERMINAL # to get live output from openocd
     COMMENT "Flashing ${target_name} firmware...")
