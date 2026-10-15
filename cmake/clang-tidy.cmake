@@ -1,4 +1,4 @@
-macro(ln_enable_clang_tidy)
+function(ln_enable_clang_tidy)
 
   find_program(CLANG_TIDY_EXE "clang-tidy")
   if(CLANG_TIDY_EXE)
@@ -8,6 +8,11 @@ macro(ln_enable_clang_tidy)
       FATAL_ERROR
         "clang-tidy is required for static analysis. Please install clang-tidy and try again."
     )
+  endif()
+
+  if(LN_PROF)
+    message(WARNING "clang-tidy cannot run while LN_PROF is in use.")
+    return()
   endif()
 
   set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY_EXE} -p ${CMAKE_BINARY_DIR}
@@ -37,4 +42,8 @@ macro(ln_enable_clang_tidy)
     )
   endif()
 
-endmacro()
+  set(CMAKE_CXX_CLANG_TIDY
+      "${CMAKE_CXX_CLANG_TIDY}"
+      PARENT_SCOPE)
+
+endfunction()

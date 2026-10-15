@@ -28,9 +28,7 @@ macro(ln_configure)
   add_compile_options(-ffile-prefix-map=${CMAKE_SOURCE_DIR}=.
                       -ffile-prefix-map=${CMAKE_BINARY_DIR}=.)
 
-  if(NOT LN_PROF)
-    ln_enable_clang_tidy()
-  endif()
+  ln_enable_clang_tidy()
 
 endmacro()
 
