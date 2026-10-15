@@ -211,7 +211,7 @@ Err CLI::execute(std::string_view input) {
         return Err::ok;
     }
     for (auto cmd_range : input | std::views::split(std::string_view{"\\n"})) {
-        std::string_view cmd{cmd_range.begin(), cmd_range.end()};
+        const std::string_view cmd{cmd_range.begin(), cmd_range.end()};
         std::array<std::string_view, ArgParser::Cfg::args_buf_size_default>
             args_buf;
         auto opt_args = ArgParser::tokenize(cmd, args_buf);
@@ -480,7 +480,7 @@ bool CLI::step_cursor_right() {
 }
 
 bool CLI::step_cursor_right_word() {
-    char c = this->input.get_char_at_cursor();
+    const char c = this->input.get_char_at_cursor();
     bool isspace_to_skip = std::isspace(c);
     bool isalnum_to_skip = std::isalnum(c);
     while (this->step_cursor_right()) {
