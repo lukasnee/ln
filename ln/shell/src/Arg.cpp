@@ -8,8 +8,9 @@
 #include <cstddef>
 
 namespace ln::shell {
+
 template <typename T>
-std::optional<T> from_chars_auto_base(std::string_view str) {
+static std::optional<T> from_chars_auto_base(std::string_view str) {
     T value = 0;
     enum Base : size_t {
         dec = 10,
