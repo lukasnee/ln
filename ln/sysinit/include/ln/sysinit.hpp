@@ -35,4 +35,23 @@ template <typename T> static void init(T &ordered_initializers) {
     }
 }
 
+#define LN_SYSINIT_ID_ENUMS_OP(id, fn) id,
+#define LN_SYSINIT_ARRAY_ELEMENT_OP(id, fn) ln::sysinit::Unit{ID::id, #id, fn},
+#define LN_SYSINIT_DEPS_OP(id_from, id_to)                                     \
+    ln::sysinit::Dep{ID::id_from, ID::id_to},
+
+#define LN_SYSINIT_DECLARE(_name, LN_SYSINIT_UNITS, LN_SYSINIT_DEPS)           \
+    namespace _name {                                                          \
+    enum class ID {                                                            \
+        LN_SYSINIT_UNITS(LN_SYSINIT_ID_ENUMS_OP)                               \
+    };                                                                         \
+    constexpr std::array items_unsorted = {                                    \
+        LN_SYSINIT_UNITS(LN_SYSINIT_ARRAY_ELEMENT_OP)};                        \
+    constexpr std::array deps = {LN_SYSINIT_DEPS(LN_SYSINIT_DEPS_OP)};         \
+    static constexpr auto items_sorted =                                       \
+        ln::algo::CompileTimeDAG::Graph(items_unsorted, deps).topo_sort();     \
+    }
+
+#define LN_SYSINIT_INIT(_name) ln::sysinit::init(_name::items_sorted);
+
 } // namespace ln::sysinit
