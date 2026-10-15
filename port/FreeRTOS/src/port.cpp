@@ -9,6 +9,9 @@
 #include "FreeRTOS/Kernel.hpp"
 #include "FreeRTOS/Task.hpp"
 
+#include "FreeRTOS.h"
+#include "task.h"
+
 namespace ln {
 
 /**
@@ -60,6 +63,76 @@ bool interrupt_context() { return xPortIsInsideInterrupt(); }
 std::string_view get_task_name() {
     return pcTaskGetName(xTaskGetCurrentTaskHandle());
 }
+
+static BaseType_t taskPrioToFreeRTOSPrio(Task::Prio prio) {
+    switch (prio) {
+    case Task::Prio::lowest:
+        return 0;
+    case Task::Prio::low:
+        return 1;
+    case Task::Prio::low2:
+        return 2;
+    case Task::Prio::medium:
+        return 3;
+    case Task::Prio::medium2:
+        return 4;
+    case Task::Prio::high:
+        return 5;
+    case Task::Prio::high2:
+        return 6;
+    case Task::Prio::highest:
+        return 7;
+    default:
+        return 0;
+    }
+}
+
+Task::Task(const Cfg &cfg) : cfg(cfg) {
+
+    if (cfg.start_on_creation) {
+        this->start();
+    }
+}
+
+bool Task::start() {
+    auto taskCode = [](void *param) {
+        while (true) {
+            static_cast<Task *>(param)->routine();
+        }
+    };
+    if (!this->cfg.static_stack.empty()) {
+        if (this->cfg.static_stack.size() <= sizeof(StaticTask_t)) {
+            return false;
+        }
+        auto stackDepth = this->cfg.static_stack.size() - sizeof(StaticTask_t);
+        StaticTask_t *taskBuffer = reinterpret_cast<StaticTask_t *>(
+            this->cfg.static_stack.data() + this->cfg.static_stack.size() -
+            sizeof(StaticTask_t));
+        const auto task_handle = xTaskCreateStatic(
+            taskCode, this->cfg.name, stackDepth / sizeof(StackType_t), this,
+            taskPrioToFreeRTOSPrio(this->cfg.prio),
+            reinterpret_cast<StackType_t *>(this->cfg.static_stack.data()),
+            taskBuffer);
+        if (!task_handle) {
+            return false;
+        }
+        return true;
+    }
+    if (this->cfg.dynamic_stack_size > 0) {
+        if (pdPASS !=
+            xTaskCreate(taskCode, this->cfg.name,
+                        this->cfg.dynamic_stack_size / sizeof(StackType_t),
+                        this, taskPrioToFreeRTOSPrio(this->cfg.prio),
+                        nullptr)) {
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+static_assert(Task::Prio::_enum_size <= configMAX_PRIORITIES,
+              "invalid priority configration!");
 
 } // namespace ln
 

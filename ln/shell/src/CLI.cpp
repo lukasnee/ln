@@ -146,63 +146,61 @@ void CLI::reset() {
 }
 
 void CLI::routine() {
-    while (true) {
-        const char c = this->getc_or_handle_escape_sequences();
-        if (c == '\x7F') {
-            this->backspace_char();
-            continue;
-        }
-        if (' ' <= c && c <= '~') {
-            this->insert(c);
-            continue;
-        }
-        if (this->pasting_mode && c == '\r') {
-            this->insert('\n');
-            continue;
-        }
-        if (c == '\r') {
-            this->print("\r\n");
-            this->add_entry_to_history(this->input.get());
-            if (this->mode == Mode::command) {
-                this->last_err = this->execute(this->input.get());
-                if (this->last_err == Err::unknownCmd) {
-                    if (this->config.colored_output) {
-                        this->print(ANSI_COLOR_RED);
-                    }
-                    this->print("command not found\n");
-                    if (this->config.colored_output) {
-                        this->print(ANSI_COLOR_RESET);
-                    }
+    const char c = this->getc_or_handle_escape_sequences();
+    if (c == '\x7F') {
+        this->backspace_char();
+        return;
+    }
+    if (' ' <= c && c <= '~') {
+        this->insert(c);
+        return;
+    }
+    if (this->pasting_mode && c == '\r') {
+        this->insert('\n');
+        return;
+    }
+    if (c == '\r') {
+        this->print("\r\n");
+        this->add_entry_to_history(this->input.get());
+        if (this->mode == Mode::command) {
+            this->last_err = this->execute(this->input.get());
+            if (this->last_err == Err::unknownCmd) {
+                if (this->config.colored_output) {
+                    this->print(ANSI_COLOR_RED);
+                }
+                this->print("command not found\n");
+                if (this->config.colored_output) {
+                    this->print(ANSI_COLOR_RESET);
                 }
             }
-            else if (this->mode == Mode::interpreter) {
-                if (!this->config.interpreter) {
-                    this->print("No interpreter configured.\n");
-                }
-                const auto err =
-                    this->config.interpreter->interpret(this->input.get());
-                if (err == Interpreter::Err::incomplete) {
-                    this->last_err = Err::incomplete;
-                    this->input.insert('\n');
-                    this->print_prompt_multiline();
-                    continue;
-                }
-                if (err == Interpreter::Err::ok) {
-                    this->last_err = Err::ok;
-                }
-                else if (err == Interpreter::Err::compileError ||
-                         err == Interpreter::Err::runtimeError) {
-                    this->last_err = Err::fail;
-                }
-                else {
-                    this->last_err = Err::unexpected;
-                }
-            }
-            this->input.clear();
-            // TODO: it can be that visual cursor is not at end of line here.
-            // We should move it to the end at this point.
-            this->print_prompt();
         }
+        else if (this->mode == Mode::interpreter) {
+            if (!this->config.interpreter) {
+                this->print("No interpreter configured.\n");
+            }
+            const auto err =
+                this->config.interpreter->interpret(this->input.get());
+            if (err == Interpreter::Err::incomplete) {
+                this->last_err = Err::incomplete;
+                this->input.insert('\n');
+                this->print_prompt_multiline();
+                return;
+            }
+            if (err == Interpreter::Err::ok) {
+                this->last_err = Err::ok;
+            }
+            else if (err == Interpreter::Err::compileError ||
+                     err == Interpreter::Err::runtimeError) {
+                this->last_err = Err::fail;
+            }
+            else {
+                this->last_err = Err::unexpected;
+            }
+        }
+        this->input.clear();
+        // TODO: it can be that visual cursor is not at end of line here.
+        // We should move it to the end at this point.
+        this->print_prompt();
     }
 }
 
