@@ -46,6 +46,12 @@ Here are some important conventions:
 
 ## TODO List
 
+- remove any direct use of FreeRTOS under `ln/` dir. There needs to be an
+  interface layer and FreeRTOS integration should happen under `port/`.
+- CMake: generalize `ln/<component>/CMakeLists.txt` definitions - there is
+  repetition. Make the libraries ALIAS oriented using some CMake macros.
+- Make LOGGER MACRO API always present from ln/core, and it should become
+  funtional if logging is enabled.
 - Rename all command objects from `<name>_cmd` to `cmd_<name>` - makes more
   sense when naming nested commands.
 - Add GPL license preambles to all files.
