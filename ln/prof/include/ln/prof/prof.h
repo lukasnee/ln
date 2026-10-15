@@ -45,8 +45,10 @@ namespace ln::prof {
 
 class Scope {
 public:
-    Scope(int id) : m_id{id} { LN_PROF_ENTER(m_id); }
-    ~Scope() { LN_PROF_EXIT(m_id); }
+    __attribute__((no_instrument_function)) Scope(int id) : m_id{id} {
+        LN_PROF_ENTER(m_id);
+    }
+    __attribute__((no_instrument_function)) ~Scope() { LN_PROF_EXIT(m_id); }
 
 private:
     int m_id;
