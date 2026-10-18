@@ -12,19 +12,22 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include <bitset>
 #include <cstdint>
-#include <stdint.h>
 
-// Wire format reference. Built manually in the hot path below (see
-// __cyg_profile_func_enter/exit) to avoid the stack round-trips gcc emits
-// when lowering this bitfield struct.
 struct Packet {
-    enum class Type : uint32_t {
-        enter = 0,
-        exit = 1,
+
+    enum class Id : uint32_t {
+        profile = 0xA5,
+        context_name = 0xA6,
     };
 
-    static constexpr std::uint8_t SYNC_BYTE = 0xA5;
+    struct Profile {
+        enum class Type : uint32_t {
+            enter = 0,
+            exit = 1,
+        };
+    };
 
 #pragma pack(push, 1)
     union {
@@ -32,7 +35,7 @@ struct Packet {
             uint32_t sync_byte : 8;
             uint32_t cycle_cnt_delta : 24;
             uint32_t type : 1;
-            uint32_t context : 7;
+            uint32_t context_id : 7;
             uint32_t fn : 24; // MSB shall be provided by the other packet
         };
         uint32_t as_u32[2];
@@ -42,6 +45,52 @@ struct Packet {
 
 volatile bool started = false;
 static uint32_t last_cycle_count = 0;
+static uint32_t next_context_id = 1;
+static std::bitset<128> announced_contexts;
+static uint32_t last_announce_reset = 0;
+
+static void send_task_name(uint32_t context_id, const char *name) {
+    LN_ITM_SEND_WORD(
+        LN_PROF_ITM_PORT,
+        static_cast<uint32_t>(Packet::Id::context_name) | (context_id << 8) |
+            (static_cast<uint32_t>(static_cast<uint8_t>(name[0])) << 16) |
+            (static_cast<uint32_t>(static_cast<uint8_t>(name[1])) << 24));
+    bool terminated = name[0] == '\0' || name[1] == '\0';
+    for (uint32_t offset = 2; !terminated; offset += 4) {
+        uint32_t word = 0;
+        for (uint32_t i = 0; i < 4 && !terminated; i++) {
+            const char c = name[offset + i];
+            word |= static_cast<uint32_t>(static_cast<uint8_t>(c)) << (8 * i);
+            terminated = (c == '\0');
+        }
+        LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word);
+    }
+}
+
+static inline uint32_t current_context_id() {
+    TaskHandle_t task = xTaskGetCurrentTaskHandle();
+    if (task == nullptr) {
+        return 0;
+    }
+    UBaseType_t id = uxTaskGetTaskNumber(task);
+    if (id == 0) {
+        id = next_context_id;
+        next_context_id = (next_context_id % 0x7F) + 1;
+        vTaskSetTaskNumber(task, id);
+    }
+    id &= 0x7F;
+    // Re-announce about once per second so late-attaching recorders get names.
+    const uint32_t now = DWT->CYCCNT;
+    if (now - last_announce_reset > SystemCoreClock) {
+        last_announce_reset = now;
+        announced_contexts.reset();
+    }
+    if (!announced_contexts.test(id)) {
+        announced_contexts.set(id);
+        send_task_name(id, pcTaskGetName(task));
+    }
+    return id;
+}
 
 bool ln_prof_start() {
 
@@ -50,6 +99,8 @@ bool ln_prof_start() {
     // Reset and enable cycle counter (used by ln/prof for timestamps)
     DWT->CYCCNT = 0;
     last_cycle_count = 0;
+    last_announce_reset = 0;
+    announced_contexts.reset();
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
     // Unlock ITM
     ITM->LAR = 0xC5ACCE55;
@@ -105,14 +156,15 @@ extern "C" LN_PROF_ATTR void __cyg_profile_func_enter(void *this_fn,
     }
     uint32_t old_primask = __get_PRIMASK();
     __disable_irq();
+    const uint32_t context_id = current_context_id();
     const uint32_t cycle_count = DWT->CYCCNT;
-    const uint32_t word0 =
-        Packet::SYNC_BYTE | ((cycle_count - last_cycle_count) << 8);
+    const uint32_t word0 = static_cast<uint32_t>(Packet::Id::profile) |
+                           ((cycle_count - last_cycle_count) << 8);
     last_cycle_count = cycle_count;
     LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word0);
     const uint32_t word1 =
-        (static_cast<uint32_t>(Packet::Type::enter)) |
-        ((uxTaskGetTaskNumber(xTaskGetCurrentTaskHandle()) & 0x7F) << 1) |
+        (static_cast<uint32_t>(Packet::Profile::Type::enter)) |
+        (context_id << 1) |
         ((reinterpret_cast<uint32_t>(this_fn) & 0x00FFFFFF) << 8);
     LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word1);
     __set_PRIMASK(old_primask);
@@ -128,14 +180,15 @@ extern "C" LN_PROF_ATTR void __cyg_profile_func_exit(
     }
     uint32_t old_primask = __get_PRIMASK();
     __disable_irq();
+    const uint32_t context_id = current_context_id();
     const uint32_t cycle_count = DWT->CYCCNT;
-    const uint32_t word0 =
-        Packet::SYNC_BYTE | ((cycle_count - last_cycle_count) << 8);
+    const uint32_t word0 = static_cast<uint32_t>(Packet::Id::profile) |
+                           ((cycle_count - last_cycle_count) << 8);
     last_cycle_count = cycle_count;
     LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word0);
     const uint32_t word1 =
-        (static_cast<uint32_t>(Packet::Type::exit)) |
-        ((uxTaskGetTaskNumber(xTaskGetCurrentTaskHandle()) & 0x7F) << 1) |
+        (static_cast<uint32_t>(Packet::Profile::Type::exit)) |
+        (context_id << 1) |
         ((reinterpret_cast<uint32_t>(this_fn) & 0x00FFFFFF) << 8);
     LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word1);
     __set_PRIMASK(old_primask);

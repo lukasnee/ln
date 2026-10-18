@@ -8,6 +8,7 @@ import os
 import time
 import json
 from collections import namedtuple
+from enum import IntEnum
 import argparse
 import re
 import logging
@@ -19,8 +20,16 @@ Symbol = namedtuple("Symbol", ["address", "typ", "fn_name", "file", "line"])
 NM_SYMBOLS_REGEX_PATTERN = r"(?P<address>[0-9a-f]+)\s(?P<typ>\w)\s(?P<fn_name>[^\t\n]*)(\t(?P<file>.*):(?P<line>\d+))?"
 
 
-def context_is_interrupt(context):
-    return context == 0
+def context_is_interrupt(context_id):
+    return context_id == 0
+
+
+class PacketId(IntEnum):
+    PROFILE = 0xA5
+    CONTEXT_NAME = 0xA6
+
+
+NAME_MAX_LEN = 64  # sanity cap for corrupted streams
 
 
 class ProfPacket:
@@ -36,12 +45,12 @@ class ProfPacket:
         self.sync_byte = raw0 & 0xFF
         self.cycle_cnt = last_packet_cycle_cnt + ((raw0 >> 8) & 0xFFFFFF)
         self.typ = "C" if raw1 & 0x1 else "O"
-        self.context = (raw1 >> 1) & 0x7F
+        self.context_id = (raw1 >> 1) & 0x7F
         self.fn = (fn_msb << 24) | ((raw1 >> 8) & 0xFFFFFF)
 
     def __str__(self):
         return (
-            f"ProfPacket(typ={self.typ}, context=0x{self.context:02x}, "
+            f"ProfPacket(typ={self.typ}, context_id=0x{self.context_id:02x}, "
             f"fn=0x{self.fn:08x}, cycle_cnt={self.cycle_cnt})"
         )
 
@@ -53,6 +62,7 @@ class UcProf:
         # TODO the following variables should not be class variables
         self._begin_cycle_cnt_offset = None
         self._last_cycle_cnt = 0
+        self._task_names = {}
         logging.basicConfig(level=args.log_level, format="%(levelname)s| %(message)s")
 
     def __parse_nm_symbols(self):
@@ -82,87 +92,103 @@ class UcProf:
     def __read_packets_from_file(self):
         packets = []
         with open(args.frame_data_path, "rb") as file:
-            # ignore_cycle_validation = True
             while True:
+                record_start = file.tell()
                 try:
-                    it_bytes_read = 0
-                    itm_header = file.read(1)
-                    it_bytes_read += 1
-                    if not itm_header:
-                        break  # End of file
-                    if itm_header[0] != 0x03:
-                        logger.log(
-                            logging.WARNING, f"Unexpected data: {itm_header[0]:02x}"
-                        )
-                        file.seek(-(it_bytes_read - 1), 1)
+                    first_word = self.__read_itm_word(file)
+                    if first_word is None:
+                        logger.log(logging.WARNING, "Unexpected ITM header")
+                        file.seek(record_start + 1)
                         continue
 
-                    data = file.read(4)
-                    it_bytes_read += 4
-                    itm_header = file.read(1)
-                    it_bytes_read += 1
-                    if not itm_header:
-                        break  # End of file
-                    if itm_header[0] != 0x03:
-                        logger.log(
-                            logging.WARNING, f"Unexpected data: {itm_header[0]:02x}"
-                        )
-                        file.seek(-(it_bytes_read - 1), 1)
-                        continue
-
-                    data += file.read(4)
-                    it_bytes_read += 4
-                    last_packet_cycle_cnt = packets[-1].cycle_cnt if packets else 0
-                    packet = ProfPacket(
-                        data,
-                        fn_msb=(self.args.fw_base >> 24) & 0xFF,
-                        last_packet_cycle_cnt=last_packet_cycle_cnt,
-                    )
-
-                    if packet.sync_byte != 0xA5:
+                    try:
+                        packet_id = PacketId(first_word[0])
+                    except ValueError:
                         logger.log(
                             logging.WARNING,
-                            f"Unexpected sync byte: {packet.sync_byte:02x}",
+                            f"Unexpected packet id: {first_word[0]:02x}",
                         )
-                        file.seek(-(it_bytes_read - 1), 1)
+                        file.seek(record_start + 1)
                         continue
 
-                    if (packet.cycle_cnt > self.args.clk_freq / 10) and not (
-                        last_packet_cycle_cnt
-                        <= packet.cycle_cnt
-                        <= last_packet_cycle_cnt + self.args.clk_freq / 10
-                    ):
-                        logger.log(
-                            logging.WARNING,
-                            f"Packet cycle count {packet.cycle_cnt} is out of expected range ({last_packet_cycle_cnt}, {last_packet_cycle_cnt + self.args.clk_freq /10})",
+                    if packet_id == PacketId.CONTEXT_NAME:
+                        valid = self.__parse_context_name_packet(file, first_word)
+                    else:
+                        packet = self.__parse_profile_packet(
+                            file,
+                            first_word,
+                            packets[-1].cycle_cnt if packets else 0,
                         )
-                        file.seek(-(it_bytes_read - 1), 1)
-                        continue
+                        valid = packet is not None
+                        if valid:
+                            packets.append(packet)
 
-                    if not self.__within_fw_boundry(packet.fn):
-                        logger.log(
-                            logging.WARNING,
-                            f"Packet fn not within firmware memory region, {packet.fn:08x}",
-                        )
-                        file.seek(-(it_bytes_read - 1), 1)
-                        continue
-
-                    time_step_us = (
-                        (packet.cycle_cnt - last_packet_cycle_cnt)
-                        / self.args.clk_freq
-                        * 1e6
-                    )
-                    logger.log(
-                        logging.DEBUG, f"Parsed {packet} after {time_step_us:.3f} us"
-                    )
-                    packets.append(packet)
-                    # if len(packets) > 10:
-                    #     sys.exit(1)
-                except ValueError:
+                    if not valid:
+                        file.seek(record_start + 1)
+                except EOFError:
                     logger.info("Reached end of file")
                     break
         logger.info(f"Packets parsed: {len(packets)}")
+        logger.info(f"Task names parsed: {len(self._task_names)}")
         return packets
+
+    @staticmethod
+    def __read_itm_word(file):
+        """Return the next 4-byte ITM payload, or None if its ITM header is bad."""
+        header = file.read(1)
+        payload = file.read(4)
+        if not header or len(payload) != 4:
+            raise EOFError
+        return payload if header[0] == 0x03 else None
+
+    def __parse_context_name_packet(self, file, first_word):
+        # The header carries the first two name bytes, further words follow up to the NUL.
+        raw0 = struct.unpack("<I", first_word)[0]
+        context_id = (raw0 >> 8) & 0x7F
+        name_bytes = bytearray((raw0 >> 16).to_bytes(2, "little"))
+        while b"\0" not in name_bytes and len(name_bytes) < NAME_MAX_LEN:
+            word = self.__read_itm_word(file)
+            if word is None:
+                return False
+            name_bytes.extend(word)
+        if b"\0" not in name_bytes:
+            return False
+        self._task_names[context_id] = name_bytes
+        return True
+
+    def __parse_profile_packet(self, file, first_word, last_packet_cycle_cnt):
+        second_word = self.__read_itm_word(file)
+        if second_word is None:
+            return None
+        packet = ProfPacket(
+            first_word + second_word,
+            fn_msb=(self.args.fw_base >> 24) & 0xFF,
+            last_packet_cycle_cnt=last_packet_cycle_cnt,
+        )
+
+        if (packet.cycle_cnt > self.args.clk_freq / 10) and not (
+            last_packet_cycle_cnt
+            <= packet.cycle_cnt
+            <= last_packet_cycle_cnt + self.args.clk_freq / 10
+        ):
+            logger.log(
+                logging.WARNING,
+                f"Packet cycle count {packet.cycle_cnt} is out of expected range ({last_packet_cycle_cnt}, {last_packet_cycle_cnt + self.args.clk_freq /10})",
+            )
+            return None
+
+        if not self.__within_fw_boundry(packet.fn):
+            logger.log(
+                logging.WARNING,
+                f"Packet fn not within firmware memory region, {packet.fn:08x}",
+            )
+            return None
+
+        time_step_us = (
+            (packet.cycle_cnt - last_packet_cycle_cnt) / self.args.clk_freq * 1e6
+        )
+        logger.log(logging.DEBUG, f"Parsed {packet} after {time_step_us:.3f} us")
+        return packet
 
     def __within_begin_boundry(self, timestamp):
         return self.args.begin is None or timestamp >= self.args.begin
@@ -186,14 +212,20 @@ class UcProf:
 
         return (cycle_cnt - self._begin_cycle_cnt_offset) / self.args.clk_freq
 
+    def __context_name(self, context_id):
+        raw = self._task_names.get(context_id)
+        name = bytes(raw).split(b"\0")[0].decode("ascii", "replace") if raw else ""
+        return name or f"id={context_id}"
+
     def __parse_packets_into_speedscope_dict(self, symbols, packets):
         # profile is a list of events of a particular thread
         profiles = []
+        profiles_by_context_id = {}
         shared_frames_registry = {}
         shared_frames = []
         for idx, packet in enumerate(packets):
 
-            # if context_is_interrupt(packet.context):
+            # if context_is_interrupt(packet.context_id):
             #     logger.log(
             #         logging.DEBUG-2, f'__parse_packets_into_speedscope_dict: {idx} packet skipped - interrupt')
             #     continue
@@ -233,27 +265,18 @@ class UcProf:
                 )
             frame_index = shared_frames_registry[shared_frame_key]
 
-            if not any(
-                profile["name"] == "0x{:08x}".format(packet.context)
-                for profile in profiles
-            ):
-                profiles.append(
-                    {
-                        "type": "evented",
-                        "name": "0x{:08x}".format(packet.context),
-                        "unit": "seconds",
-                        "startValue": 0.0,
-                        "endValue": 0.0,
-                        "events": [],
-                    }
-                )
-            profile = next(
-                (p for p in profiles if p["name"] == "0x{:08x}".format(packet.context)),
-                None,
-            )
-            if not profile:
-                logger.error(f'Profile not found: {"0x{:08x}".format(packet.context)}')
-                continue
+            profile = profiles_by_context_id.get(packet.context_id)
+            if profile is None:
+                profile = {
+                    "type": "evented",
+                    "name": self.__context_name(packet.context_id),
+                    "unit": "seconds",
+                    "startValue": 0.0,
+                    "endValue": 0.0,
+                    "events": [],
+                }
+                profiles_by_context_id[packet.context_id] = profile
+                profiles.append(profile)
             profile["events"].append(
                 {"type": packet.typ, "at": timestamp, "frame": frame_index}
             )

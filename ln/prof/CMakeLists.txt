@@ -60,16 +60,8 @@ else()
     PRIVATE LN_PROF_ITM_PORT=${LN_PROF_ITM_PORT})
   target_include_directories(ln_prof PUBLIC include)
   target_sources(ln_prof PRIVATE src/prof.cpp)
-  ln_prof(
-    TARGET
-    ln_prof
-    EXCLUDE_FUNCTIONS
-    "ln::prof::Scope"
-    "xPortIsInsideInterrupt"
-    EXCLUDE_FILES
-    "std::"
-    "CMSIS"
-    "src/prof.cpp")
+  set_source_files_properties(src/prof.cpp PROPERTIES COMPILE_OPTIONS
+                                                      -fno-instrument-functions)
 endif()
 
 add_library(ln::prof ALIAS ln_prof)
