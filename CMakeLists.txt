@@ -21,6 +21,8 @@ project(
   LANGUAGES C CXX)
 
 if(PROJECT_IS_TOP_LEVEL)
+  include(cmake/ccache.cmake)
+  ln_ccache_enable()
   if(CMAKE_CROSSCOMPILING)
     message(STATUS "Cross-compile configuration")
     set(LN_PORT "FreeRTOS")

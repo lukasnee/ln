@@ -1,20 +1,14 @@
 include_guard()
 
 include(${CMAKE_CURRENT_LIST_DIR}/bloaty.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/ccache.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/clang-tidy.cmake)
 
 set(macro_ln_configure_dir ${CMAKE_CURRENT_LIST_DIR})
 
 macro(ln_configure)
 
-  find_program(CCACHE_PROGRAM ccache)
-  if(CCACHE_PROGRAM)
-    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
-    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
-    message(STATUS "ccache found: ${CCACHE_PROGRAM}")
-  else()
-    message(STATUS "ccache not found, building without it")
-  endif()
+  ln_ccache_enable()
 
   execute_process(
     COMMAND git describe --always --dirty --match "NOT A TAG"
