@@ -3,10 +3,9 @@
 
 #include "ln/shell/CLI.hpp"
 
-// #include "system.hpp"
+#include "ln/Clock.hpp"
 
-#include "FreeRTOS/Task.hpp"
-#include "FreeRTOS/Addons/Clock.hpp"
+// #include "system.hpp"
 
 #include <array>
 #include <cstdint>
@@ -15,9 +14,9 @@ namespace ln::shell {
 
 // TODO: consider basing on Timer instead of Task
 
-class RepeatCommandThread : public FreeRTOS::Task {
+class RepeatCommandThread : public ln::Task {
 public:
-    using Clock = FreeRTOS::Addons::Clock;
+    using Clock = ln::Clock;
     RepeatCommandThread(CLI &cli, Clock::duration period,
                         const std::string_view line)
         : Task{tskIDLE_PRIORITY + 1, 1000, "repeat"}, cli{cli}, period{period} {
@@ -31,12 +30,11 @@ public:
     }
 
 private:
-    void taskFunction() override {
-        while (true) {
-            // TODO: could be optimized, prasing args only once
-            this->cli.execute_line(this->line);
-            this->delayUntil(this->period);
-        }
+    void routine() final {
+        const auto start_time = Clock::now();
+        // TODO: could be optimized, prasing args only once
+        this->cli.execute_line(this->line);
+        ln::sleep_until(start_time + this->period);
     }
 
     CLI &cli;

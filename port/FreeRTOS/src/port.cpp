@@ -142,6 +142,33 @@ bool Task::start() {
 static_assert(Task::Prio::_enum_size <= configMAX_PRIORITIES,
               "invalid priority configration!");
 
+/** @brief FreeRTOS memory allocation lua_Alloc type function for Lua VM. Usage
+ * example, `lua_newstate(l_alloc_freertos, nullptr, 0)`.
+ */
+void *l_alloc_freertos(void *ud, void *ptr, size_t osize, size_t nsize) {
+    (void)ud;    /* Not used in this simple example */
+    (void)osize; /* Not used in FreeRTOS heap_4/5 */
+
+    if (nsize == 0) {
+        vPortFree(ptr);
+        return NULL;
+    }
+    /* FreeRTOS pvPortMalloc does not have a native 'realloc'.
+       We must handle the re-allocation manually. */
+    if (!ptr) {
+        return pvPortMalloc(nsize);
+    }
+    // Check if we are shrinking or growing
+    void *newptr = pvPortMalloc(nsize);
+    if (newptr) {
+        // Only copy the minimum of old and new size
+        size_t copy_size = (osize < nsize) ? osize : nsize;
+        memcpy(newptr, ptr, copy_size);
+        vPortFree(ptr);
+    }
+    return newptr;
+}
+
 } // namespace ln
 
 extern "C" void vApplicationMallocFailedHook(void) { LN_PANIC(); }

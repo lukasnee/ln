@@ -5,8 +5,6 @@
 
 #include "ln/shell/CLI.hpp"
 
-#include "FreeRTOS/Task.hpp"
-
 namespace ln::shell {
 
 class CLId : public ln::Task {

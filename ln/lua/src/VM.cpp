@@ -38,46 +38,10 @@ bool l_is_incomplete(lua_State *L, int status) {
     return false;
 };
 
-#if 0
-extern "C" {
-#include <lstate.h>
-}
-#include "FreeRTOS.h"
-#include "task.h"
-
-void *l_alloc_freertos(void *ud, void *ptr, size_t osize, size_t nsize) {
-    (void)ud;    /* Not used in this simple example */
-    (void)osize; /* Not used in FreeRTOS heap_4/5 */
-
-    if (nsize == 0) {
-        vPortFree(ptr);
-        return NULL;
-    }
-    /* FreeRTOS pvPortMalloc does not have a native 'realloc'.
-       We must handle the re-allocation manually. */
-    if (!ptr) {
-        return pvPortMalloc(nsize);
-    }
-    // Check if we are shrinking or growing
-    void *newptr = pvPortMalloc(nsize);
-    if (newptr) {
-        // Only copy the minimum of old and new size
-        size_t copy_size = (osize < nsize) ? osize : nsize;
-        memcpy(newptr, ptr, copy_size);
-        vPortFree(ptr);
-    }
-    return newptr;
-}
-#endif
-
 namespace ln::lua {
 
 VM::VM() {
-#if 0
-    this->L = lua_newstate(l_alloc_freertos, nullptr, 0);
-#else
     this->L = luaL_newstate();
-#endif
     if (!this->L) {
         LN_PANIC();
         return;
