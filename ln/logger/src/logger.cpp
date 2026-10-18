@@ -75,19 +75,19 @@ int Logger::print_header(const Module &module, const Level &level) {
                                                    {"CRT", ANSI_COLOR_RED}};
     const auto level_clamped = std::min(level, Level::_max);
     const auto level_descr_idx = level_clamped == 0 ? 0 : ((level - 1) / 10);
-    std::string_view task_name = "?";
+    std::string_view thread_name = "?";
     if (ln::interrupt_context()) {
-        task_name = "ISR!";
+        thread_name = "ISR!";
     }
     else {
-        const auto _task_name = ln::get_task_name();
-        if (!_task_name.empty()) {
-            task_name = _task_name;
+        const auto _thread_name = ln::get_thread_name();
+        if (!_thread_name.empty()) {
+            thread_name = _thread_name;
         }
     }
     using namespace std::string_view_literals;
     return this->print_buf(
-        "{}|{}|{}|{}{}{}|", Clock::now(), task_name, module.name,
+        "{}|{}|{}|{}{}{}|", Clock::now(), thread_name, module.name,
         (this->config.color ? level_descrs[level_descr_idx].color : ""sv),
         level_descrs[level_descr_idx].tag_name,
         (this->config.color ? ANSI_COLOR_DEFAULT : ""sv));

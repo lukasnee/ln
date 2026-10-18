@@ -68,44 +68,44 @@ void sleep_until(ln::Clock::time_point time_point) {
 
 bool interrupt_context() { return xPortIsInsideInterrupt(); }
 
-std::string_view get_task_name() {
+std::string_view get_thread_name() {
     return pcTaskGetName(xTaskGetCurrentTaskHandle());
 }
 
-static BaseType_t taskPrioToFreeRTOSPrio(Task::Prio prio) {
+static BaseType_t threadPrioToFreeRTOSPrio(Thread::Prio prio) {
     switch (prio) {
-    case Task::Prio::lowest:
+    case Thread::Prio::lowest:
         return 0;
-    case Task::Prio::low:
+    case Thread::Prio::low:
         return 1;
-    case Task::Prio::low2:
+    case Thread::Prio::low2:
         return 2;
-    case Task::Prio::medium:
+    case Thread::Prio::medium:
         return 3;
-    case Task::Prio::medium2:
+    case Thread::Prio::medium2:
         return 4;
-    case Task::Prio::high:
+    case Thread::Prio::high:
         return 5;
-    case Task::Prio::high2:
+    case Thread::Prio::high2:
         return 6;
-    case Task::Prio::highest:
+    case Thread::Prio::highest:
         return 7;
     default:
         return 0;
     }
 }
 
-Task::Task(const Cfg &cfg) : cfg(cfg) {
+Thread::Thread(const Cfg &cfg) : cfg(cfg) {
 
     if (cfg.start_on_creation) {
         this->start();
     }
 }
 
-bool Task::start() {
+bool Thread::start() {
     auto taskCode = [](void *param) {
         while (true) {
-            static_cast<Task *>(param)->routine();
+            static_cast<Thread *>(param)->routine();
         }
     };
     if (!this->cfg.static_stack.empty()) {
@@ -118,7 +118,7 @@ bool Task::start() {
             sizeof(StaticTask_t));
         const auto task_handle = xTaskCreateStatic(
             taskCode, this->cfg.name, stackDepth / sizeof(StackType_t), this,
-            taskPrioToFreeRTOSPrio(this->cfg.prio),
+            threadPrioToFreeRTOSPrio(this->cfg.prio),
             reinterpret_cast<StackType_t *>(this->cfg.static_stack.data()),
             taskBuffer);
         if (!task_handle) {
@@ -130,7 +130,7 @@ bool Task::start() {
         if (pdPASS !=
             xTaskCreate(taskCode, this->cfg.name,
                         this->cfg.dynamic_stack_size / sizeof(StackType_t),
-                        this, taskPrioToFreeRTOSPrio(this->cfg.prio),
+                        this, threadPrioToFreeRTOSPrio(this->cfg.prio),
                         nullptr)) {
             return false;
         }
@@ -139,7 +139,7 @@ bool Task::start() {
     return false;
 }
 
-static_assert(Task::Prio::_enum_size <= configMAX_PRIORITIES,
+static_assert(Thread::Prio::_enum_size <= configMAX_PRIORITIES,
               "invalid priority configration!");
 
 /** @brief FreeRTOS memory allocation lua_Alloc type function for Lua VM. Usage

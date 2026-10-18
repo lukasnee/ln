@@ -43,6 +43,6 @@ void sleep(std::chrono::milliseconds duration) {
 
 bool interrupt_context() { return false; }
 
-std::string_view get_task_name() { return {}; }
+std::string_view get_thread_name() { return {}; }
 
 } // namespace ln

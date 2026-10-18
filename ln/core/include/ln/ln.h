@@ -49,7 +49,7 @@ extern "C"
 
 namespace ln {
 
-class Task {
+class Thread {
 public:
     enum Prio {
         lowest,
@@ -72,8 +72,8 @@ public:
         bool start_on_creation = false;
     };
 
-    Task(const Cfg &cfg);
-    virtual ~Task() = default;
+    Thread(const Cfg &cfg);
+    virtual ~Thread() = default;
 
     bool start();
 
@@ -130,12 +130,12 @@ void disable_irq();
 void enable_irq();
 
 /**
- * @brief Get the name of the current task. Invalid if interrupt_context() is
+ * @brief Get the name of the current thread. Invalid if interrupt_context() is
  * true.
  *
  * @note Port-specific implementation.
  */
-std::string_view get_task_name();
+std::string_view get_thread_name();
 
 } // namespace ln
 

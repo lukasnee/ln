@@ -12,14 +12,15 @@
 
 namespace ln::shell {
 
-// TODO: consider basing on Timer instead of Task
+// TODO: consider basing on Timer instead of Thread
 
-class RepeatCommandThread : public ln::Task {
+class RepeatCommandThread : public ln::Thread {
 public:
     using Clock = ln::Clock;
     RepeatCommandThread(CLI &cli, Clock::duration period,
                         const std::string_view line)
-        : Task{tskIDLE_PRIORITY + 1, 1000, "repeat"}, cli{cli}, period{period} {
+        : Thread{tskIDLE_PRIORITY + 1, 1000, "repeat"}, cli{cli},
+          period{period} {
         if (line.size() >= line_buf.size()) {
             this->cli.print("error: arguments too long for repeat command\n");
             return;
