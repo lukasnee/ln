@@ -22,7 +22,7 @@ extern "C"
 
 #define LN_PROF_ATTR __attribute__((optimize("O3"), hot))
 
-    extern "C" LN_PROF_ATTR void ln_prof_start();
+    extern "C" LN_PROF_ATTR bool ln_prof_start();
 #define LN_PROF_START() ln_prof_start()
     extern "C" LN_PROF_ATTR void ln_prof_stop();
 #define LN_PROF_STOP() ln_prof_stop()

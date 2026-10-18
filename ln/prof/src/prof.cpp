@@ -43,7 +43,7 @@ struct Packet {
 volatile bool started = false;
 static uint32_t last_cycle_count = 0;
 
-void ln_prof_start() {
+bool ln_prof_start() {
 
     // Enable trace (required for ITM and DWT)
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
@@ -58,11 +58,22 @@ void ln_prof_start() {
     // Enable stimulus port 0 (LN_PROF_ITM_PORT)
     ITM->TER |= (1UL << LN_PROF_ITM_PORT);
 
-    if (!LN_ITM_IS_PORT_READY(LN_PROF_ITM_PORT)) {
+    const uint32_t timeout = SystemCoreClock / 1000U;
+    const uint32_t start_time = DWT->CYCCNT;
+    bool ready = false;
+    while ((DWT->CYCCNT - start_time) < timeout) {
+        if (LN_ITM_IS_PORT_READY(LN_PROF_ITM_PORT) &&
+            LN_ITM_IS_FIFO_READY(LN_PROF_ITM_PORT)) {
+            ready = true;
+            break;
+        }
+    }
+    if (!ready) {
         ITM->TER &= ~(1UL << LN_PROF_ITM_PORT); // undo
-        return;
+        return false;
     }
     started = true;
+    return true;
 }
 
 void ln_prof_stop() {
