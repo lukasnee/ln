@@ -106,6 +106,8 @@ void sleep(std::chrono::duration<Rep, Period> duration) {
     sleep(std::chrono::duration_cast<std::chrono::milliseconds>(duration));
 }
 
+void sleep_until(std::chrono::time_point<std::chrono::steady_clock> time_point);
+
 /**
  * @brief Check if the current context is an interrupt context.
  *

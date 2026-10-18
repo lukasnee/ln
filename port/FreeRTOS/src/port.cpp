@@ -58,6 +58,14 @@ void sleep(std::chrono::milliseconds duration) {
     }
 }
 
+void sleep_until(ln::Clock::time_point time_point) {
+    const auto now = Clock::now();
+    if (time_point > now) {
+        sleep(std::chrono::duration_cast<std::chrono::milliseconds>(time_point -
+                                                                    now));
+    }
+}
+
 bool interrupt_context() { return xPortIsInsideInterrupt(); }
 
 std::string_view get_task_name() {
