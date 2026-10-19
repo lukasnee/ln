@@ -25,14 +25,14 @@ def context_is_interrupt(context_id):
 
 
 class PacketId(IntEnum):
-    PROFILE = 0xA5
-    CONTEXT_NAME = 0xA6
+    SEND_PROFILE_EVENT = 0xA5
+    DISCLOSE_CONTEXT_NAME = 0xA6
 
 
 NAME_MAX_LEN = 64  # sanity cap for corrupted streams
 
 
-class ProfPacket:
+class ProfilePacket:
 
     def __init__(self, data, fn_msb, last_packet_cycle_cnt):
         if len(data) != 8:
@@ -50,7 +50,7 @@ class ProfPacket:
 
     def __str__(self):
         return (
-            f"ProfPacket(typ={self.typ}, context_id=0x{self.context_id:02x}, "
+            f"ProfilePacket(typ={self.typ}, context_id=0x{self.context_id:02x}, "
             f"fn=0x{self.fn:08x}, cycle_cnt={self.cycle_cnt})"
         )
 
@@ -59,15 +59,22 @@ class UcProf:
 
     def __init__(self, args):
         self.args = args
+        self._profile_packets = []
         # TODO the following variables should not be class variables
         self._begin_cycle_cnt_offset = None
         self._last_cycle_cnt = 0
-        self._task_names = {}
+        self._context_names = {}
         logging.basicConfig(level=args.log_level, format="%(levelname)s| %(message)s")
 
-    def __parse_nm_symbols(self):
-        symbols = []
-        with open(args.nm_symbols_path, "r") as file:
+    def __reload_nm_symbols(self):
+        if not self.args.nm_symbols_path:
+            logger.error(f"Symbol file path not provided")
+            return False
+        if not os.path.isfile(self.args.nm_symbols_path):
+            logger.error(f"Symbol file does not exist: {self.args.nm_symbols_path}")
+            return False
+        self._symbols = []
+        with open(self.args.nm_symbols_path, "r") as file:
             for line in file:
                 match = re.match(NM_SYMBOLS_REGEX_PATTERN, line)
                 if match:
@@ -82,16 +89,28 @@ class UcProf:
                         continue  # skip symbols that are not functions
                     index = 0
                     while (
-                        index < len(symbols) and symbol.address > symbols[index].address
+                        index < len(self._symbols)
+                        and symbol.address > self._symbols[index].address
                     ):
                         index += 1
-                    symbols.insert(index, symbol)
-        logger.info(f"Symbols parsed: {len(symbols)}")
-        return symbols
+                    self._symbols.insert(index, symbol)
+        logger.info(f"Symbols parsed: {len(self._symbols)}")
+        if len(self._symbols) == 0:
+            logger.info(
+                f"No valid symbols found in the file {self.args.nm_symbols_path}"
+            )
+            return False
+        return True
 
-    def __read_packets_from_file(self):
-        packets = []
-        with open(args.frame_data_path, "rb") as file:
+    def __reload_packets_from_file(self):
+        if not self.args.frame_data_path:
+            logger.error(f"Frame data file path not provided")
+            return False
+        if not os.path.isfile(self.args.frame_data_path):
+            logger.error(f"Frame data file does not exist: {self.args.frame_data_path}")
+            return False
+        self._profile_packets = []
+        with open(self.args.frame_data_path, "rb") as file:
             while True:
                 record_start = file.tell()
                 try:
@@ -106,31 +125,29 @@ class UcProf:
                     except ValueError:
                         logger.log(
                             logging.WARNING,
-                            f"Unexpected packet id: {first_word[0]:02x}",
+                            f"Unexpected packet ID: {first_word[0]:02x}",
                         )
                         file.seek(record_start + 1)
                         continue
 
-                    if packet_id == PacketId.CONTEXT_NAME:
-                        valid = self.__parse_context_name_packet(file, first_word)
-                    else:
-                        packet = self.__parse_profile_packet(
-                            file,
-                            first_word,
-                            packets[-1].cycle_cnt if packets else 0,
-                        )
-                        valid = packet is not None
-                        if valid:
-                            packets.append(packet)
-
-                    if not valid:
-                        file.seek(record_start + 1)
+                    if packet_id == PacketId.DISCLOSE_CONTEXT_NAME:
+                        if self.__parse_packet_DISCLOSE_CONTEXT_NAME(file, first_word):
+                            continue
+                    elif packet_id == PacketId.SEND_PROFILE_EVENT:
+                        if self.__parse_packet_SEND_PROFILE_EVENT(file, first_word):
+                            continue
+                    file.seek(record_start + 1)
                 except EOFError:
                     logger.info("Reached end of file")
                     break
-        logger.info(f"Packets parsed: {len(packets)}")
-        logger.info(f"Task names parsed: {len(self._task_names)}")
-        return packets
+        if len(self._profile_packets) == 0:
+            logger.info(
+                f"No valid packets found in the file {self.args.frame_data_path}"
+            )
+            return False
+        logger.info(f"Profile packets parsed: {len(self._profile_packets)}")
+        logger.info(f"Context names disclosed: {len(self._context_names)}")
+        return True
 
     @staticmethod
     def __read_itm_word(file):
@@ -141,7 +158,7 @@ class UcProf:
             raise EOFError
         return payload if header[0] == 0x03 else None
 
-    def __parse_context_name_packet(self, file, first_word):
+    def __parse_packet_DISCLOSE_CONTEXT_NAME(self, file, first_word):
         # The header carries the first two name bytes, further words follow up to the NUL.
         raw0 = struct.unpack("<I", first_word)[0]
         context_id = (raw0 >> 8) & 0x7F
@@ -153,14 +170,17 @@ class UcProf:
             name_bytes.extend(word)
         if b"\0" not in name_bytes:
             return False
-        self._task_names[context_id] = name_bytes
+        self._context_names[context_id] = name_bytes
         return True
 
-    def __parse_profile_packet(self, file, first_word, last_packet_cycle_cnt):
+    def __parse_packet_SEND_PROFILE_EVENT(self, file, first_word):
+        last_packet_cycle_cnt = (
+            self._profile_packets[-1].cycle_cnt if self._profile_packets else 0
+        )
         second_word = self.__read_itm_word(file)
         if second_word is None:
-            return None
-        packet = ProfPacket(
+            return False
+        packet = ProfilePacket(
             first_word + second_word,
             fn_msb=(self.args.fw_base >> 24) & 0xFF,
             last_packet_cycle_cnt=last_packet_cycle_cnt,
@@ -175,20 +195,21 @@ class UcProf:
                 logging.WARNING,
                 f"Packet cycle count {packet.cycle_cnt} is out of expected range ({last_packet_cycle_cnt}, {last_packet_cycle_cnt + self.args.clk_freq /10})",
             )
-            return None
+            return False
 
         if not self.__within_fw_boundry(packet.fn):
             logger.log(
                 logging.WARNING,
                 f"Packet fn not within firmware memory region, {packet.fn:08x}",
             )
-            return None
+            return False
 
         time_step_us = (
             (packet.cycle_cnt - last_packet_cycle_cnt) / self.args.clk_freq * 1e6
         )
         logger.log(logging.DEBUG, f"Parsed {packet} after {time_step_us:.3f} us")
-        return packet
+        self._profile_packets.append(packet)
+        return True
 
     def __within_begin_boundry(self, timestamp):
         return self.args.begin is None or timestamp >= self.args.begin
@@ -213,17 +234,17 @@ class UcProf:
         return (cycle_cnt - self._begin_cycle_cnt_offset) / self.args.clk_freq
 
     def __context_name(self, context_id):
-        raw = self._task_names.get(context_id)
+        raw = self._context_names.get(context_id)
         name = bytes(raw).split(b"\0")[0].decode("ascii", "replace") if raw else ""
         return name or f"id={context_id}"
 
-    def __parse_packets_into_speedscope_dict(self, symbols, packets):
+    def __parse_packets_into_speedscope_dict(self):
         # profile is a list of events of a particular thread
         profiles = []
         profiles_by_context_id = {}
         shared_frames_registry = {}
         shared_frames = []
-        for idx, packet in enumerate(packets):
+        for idx, packet in enumerate(self._profile_packets):
 
             # if context_is_interrupt(packet.context_id):
             #     logger.log(
@@ -246,7 +267,7 @@ class UcProf:
                 break
 
             symbol = next(
-                (s for s in reversed(symbols) if packet.fn >= s.address), None
+                (s for s in reversed(self._symbols) if packet.fn >= s.address), None
             )
 
             if not symbol:
@@ -463,31 +484,12 @@ class UcProf:
             json.dump(speedscope_dict, f, indent=2)
 
     def fold_all_stacks(self):
-        if not self.args.nm_symbols_path:
-            logger.error(f"Symbol file path not provided")
-            return
-        if not os.path.isfile(self.args.nm_symbols_path):
-            logger.error(f"Symbol file does not exist: {self.args.nm_symbols_path}")
-            return
-        symbols = self.__parse_nm_symbols()
-        if len(symbols) == 0:
-            logger.info(
-                f"No valid symbols found in the file {self.args.nm_symbols_path}"
-            )
-            return
-        if not self.args.frame_data_path:
-            logger.error(f"Frame data file path not provided")
-            return
-        if not os.path.isfile(self.args.frame_data_path):
-            logger.error(f"Frame data file does not exist: {self.args.frame_data_path}")
-            return
-        packets = self.__read_packets_from_file()
-        if len(packets) == 0:
-            logger.info(
-                f"No valid packets found in the file {self.args.frame_data_path}"
-            )
-            return
-        speedscope_dict = self.__parse_packets_into_speedscope_dict(symbols, packets)
+        if not self.__reload_nm_symbols():
+            return False
+        if not self.__reload_packets_from_file():
+            return False
+
+        speedscope_dict = self.__parse_packets_into_speedscope_dict()
         filename = f"{self.args.frame_data_path.split('/')[-1].split('.')[0]}.{self.args.out_ext}"
         self.__export_to_json(speedscope_dict, filename)
         logger.info(f"Exported {filename}")
