@@ -3,8 +3,7 @@
 
 #include "ln/drivers/EventDrivenSpi.hpp"
 
-#include <FreeRTOS/Addons/LockGuard.hpp>
-#include <FreeRTOS/Addons/Kernel.hpp>
+#include <algorithm>
 
 namespace ln::drivers {
 
@@ -17,8 +16,7 @@ bool EventDrivenSpi::ll_ensure_write_readiness(const Timeout &timeout) {
         if (!this->ll_busy_writing()) {
             return true;
         }
-        if (this->write_semaphore.take(std::min(timeout.left(), {10ms})) ==
-                pdTRUE &&
+        if (this->write_semaphore.take(std::min(timeout.left(), {10ms})) &&
             !this->ll_busy_writing()) {
             return true;
         }
@@ -31,8 +29,7 @@ bool EventDrivenSpi::ll_ensure_read_readiness(const Timeout &timeout) {
         if (!this->ll_busy_reading()) {
             return true;
         }
-        if (this->read_semaphore.take(std::min(timeout.left(), {10ms})) ==
-                pdTRUE &&
+        if (this->read_semaphore.take(std::min(timeout.left(), {10ms})) &&
             !this->ll_busy_reading()) {
             return true;
         }
@@ -48,14 +45,14 @@ bool EventDrivenSpi::read(std::uint8_t *data, std::size_t size,
     if (!data) {
         return false;
     }
-    FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
+    LockGuard lock_guard(this->mutex);
     if (!this->ll_ensure_read_readiness(timeout)) {
         return false;
     }
     if (!this->ll_read_async(data, size)) {
         return false;
     }
-    if (this->read_semaphore.take(timeout.left()) != pdTRUE) {
+    if (!this->read_semaphore.take(timeout.left())) {
         return false;
     }
     return true;
@@ -69,14 +66,14 @@ bool EventDrivenSpi::write(const std::uint8_t *data, std::size_t size,
     if (!data) {
         return false;
     }
-    FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
+    LockGuard lock_guard(this->mutex);
     if (!this->ll_ensure_write_readiness(timeout)) {
         return false;
     }
     if (!this->ll_write_async(data, size)) {
         return false;
     }
-    if (this->write_semaphore.take(timeout.left()) != pdTRUE) {
+    if (!this->write_semaphore.take(timeout.left())) {
         return false;
     }
     return true;
@@ -90,7 +87,7 @@ bool EventDrivenSpi::write_async(const std::uint8_t *data, std::size_t size,
     if (!data) {
         return false;
     }
-    FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
+    LockGuard lock_guard(this->mutex);
     if (!this->ll_ensure_write_readiness(timeout)) {
         return false;
     }
@@ -101,11 +98,11 @@ bool EventDrivenSpi::write_async(const std::uint8_t *data, std::size_t size,
 }
 
 bool EventDrivenSpi::write_await(const Timeout &timeout) {
-    FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
+    LockGuard lock_guard(this->mutex);
     if (!this->ll_busy_writing()) {
         return true;
     }
-    if (this->write_semaphore.take(timeout.left()) != pdTRUE) {
+    if (!this->write_semaphore.take(timeout.left())) {
         return false;
     }
     return true;
@@ -123,7 +120,7 @@ bool EventDrivenSpi::read_write(std::uint8_t *rd_data,
     if (!wr_data) {
         return false;
     }
-    FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
+    LockGuard lock_guard(this->mutex);
     if (!this->ll_ensure_read_readiness(timeout)) {
         return false;
     }
@@ -133,10 +130,10 @@ bool EventDrivenSpi::read_write(std::uint8_t *rd_data,
     if (!this->ll_read_write_async(rd_data, wr_data, size)) {
         return false;
     }
-    if (this->read_semaphore.take(timeout.left()) != pdTRUE) {
+    if (!this->read_semaphore.take(timeout.left())) {
         return false;
     }
-    if (this->write_semaphore.take(timeout.left()) != pdTRUE) {
+    if (!this->write_semaphore.take(timeout.left())) {
         return false;
     }
     return true;
@@ -145,19 +142,7 @@ bool EventDrivenSpi::read_write(std::uint8_t *rd_data,
 bool EventDrivenSpi::deinit() { return this->ll_deinit(); }
 
 void EventDrivenSpi::ll_async_complete_common_signal() {
-    bool higherPriorityTaskWoken = pdFALSE;
-    const auto is_inside_interrupt =
-        FreeRTOS::Addons::Kernel::isInsideInterrupt();
-    if (is_inside_interrupt) {
-        this->write_semaphore.giveFromISR(higherPriorityTaskWoken);
-    }
-    else {
-        this->write_semaphore.give();
-    }
-    if (is_inside_interrupt) {
-        FreeRTOS::Kernel::yieldFromISR(higherPriorityTaskWoken);
-    }
-    /// @attention FreeRTOS::Kernel::yieldFromISR() must be called last!
+    this->write_semaphore.give();
 }
 
 void EventDrivenSpi::ll_async_read_completed_cb() {

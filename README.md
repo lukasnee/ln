@@ -32,6 +32,13 @@ cmake --workflow tests
 cmake --workflow arm-none-eabi-gcc-dbg
 ```
 
+## Structure
+
+- Features are organized into modular folders under the `ln/` directory.
+  Ideally, these should only contain portable code where platform-specific
+  implementations are abstracted away under `port/`. There may be exceptions if
+  the feature is inherently platform-specific.
+
 ## Format
 
 ### Casing
@@ -46,8 +53,6 @@ Here are some important conventions:
 
 ## TODO List
 
-- remove any direct use of FreeRTOS under `ln/` dir. There needs to be an
-  interface layer and FreeRTOS integration should happen under `port/`.
 - CMake: generalize `ln/<component>/CMakeLists.txt` definitions - there is
   repetition. Make the libraries ALIAS oriented using some CMake macros.
 - Make LOGGER MACRO API always present from ln/core, and it should become

@@ -3,13 +3,11 @@
 
 #pragma once
 
-#include "ln/ln.hpp"
+#include "ln/ln.h"
+#include "ln/Mutex.hpp"
+#include "ln/Semaphore.hpp"
+#include "ln/Timeout.hpp"
 #include "ln/drivers/Initializable.hpp"
-
-#include "FreeRTOS/Semaphore.hpp"
-#include "FreeRTOS/Addons/LockGuard.hpp"
-#include "FreeRTOS/Addons/Timeout.hpp"
-#include "FreeRTOS/Addons/Kernel.hpp"
 
 #include <cstdint>
 #include <type_traits>
@@ -29,19 +27,18 @@ public:
      *
      * @param data
      * @param size
-     * @param timeout_ticks
+     * @param timeout
      * @return true success.
      * @return false failure.
      */
-    bool read(std::uint8_t *data, std::size_t size,
-              FreeRTOS::Addons::Timeout timeout = {}) {
+    bool read(std::uint8_t *data, std::size_t size, Timeout timeout = {}) {
         if (size == 0) {
             return true;
         }
         if (!data) {
             return false;
         }
-        FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
+        LockGuard lock_guard(this->mutex);
         if (!this->initialized) {
             return false;
         }
@@ -54,7 +51,7 @@ public:
         if (!this->ll_read_async(data, size)) {
             return false;
         }
-        if (this->semaphore.take(timeout.left().count()) != pdTRUE) {
+        if (!this->semaphore.take(timeout.left())) {
             return false;
         }
         return true;
@@ -64,22 +61,7 @@ public:
      * @brief Low-level callback signaling read completion (either ISR or thread
      * context).
      */
-    void ll_async_read_completed_cb() {
-        bool higherPriorityTaskWoken = false;
-        const auto is_inside_interrupt =
-            FreeRTOS::Addons::Kernel::isInsideInterrupt();
-        if (is_inside_interrupt) {
-            this->semaphore.giveFromISR(higherPriorityTaskWoken);
-        }
-        else {
-            this->semaphore.give();
-        }
-
-        if (is_inside_interrupt) {
-            // must be called last in this function scope.
-            FreeRTOS::Kernel::yieldFromISR(higherPriorityTaskWoken);
-        }
-    }
+    void ll_async_read_completed_cb() { this->semaphore.give(); }
 
 protected:
     /**
@@ -93,8 +75,8 @@ protected:
     virtual bool ll_read_async(std::uint8_t *data, std::size_t size) = 0;
 
 public:
-    FreeRTOS::StaticMutex mutex;
-    FreeRTOS::BinarySemaphore semaphore;
+    Mutex mutex;
+    BinarySemaphore semaphore;
 };
 
 class WriteStream : public virtual Initializable {
@@ -105,19 +87,19 @@ public:
      *
      * @param data
      * @param size
-     * @param timeout_ticks
+     * @param timeout
      * @return true success.
      * @return false failure.
      */
     bool write(const std::uint8_t *data, std::size_t size,
-               FreeRTOS::Addons::Timeout timeout = {}) {
+               Timeout timeout = {}) {
         if (size == 0) {
             return true;
         }
         if (!data) {
             return false;
         }
-        FreeRTOS::Addons::LockGuard lock_guard(this->mutex);
+        LockGuard lock_guard(this->mutex);
         if (!this->initialized) {
             return false;
         }
@@ -130,7 +112,7 @@ public:
         if (!this->ll_write_async(data, size)) {
             return false;
         }
-        if (this->semaphore.take(timeout.left().count()) != pdTRUE) {
+        if (!this->semaphore.take(timeout.left())) {
             return false;
         }
         return true;
@@ -140,22 +122,7 @@ public:
      * @brief Low-level callback signaling write completion (either ISR or
      * thread context).
      */
-    void ll_async_write_completed_cb() {
-        bool higherPriorityTaskWoken = false;
-        const auto is_inside_interrupt =
-            FreeRTOS::Addons::Kernel::isInsideInterrupt();
-        if (is_inside_interrupt) {
-            this->semaphore.giveFromISR(higherPriorityTaskWoken);
-        }
-        else {
-            this->semaphore.give();
-        }
-
-        if (is_inside_interrupt) {
-            // must be called last in this function scope.
-            FreeRTOS::Kernel::yieldFromISR(higherPriorityTaskWoken);
-        }
-    }
+    void ll_async_write_completed_cb() { this->semaphore.give(); }
 
 protected:
     /**
@@ -169,8 +136,8 @@ protected:
     virtual bool ll_write_async(const std::uint8_t *data, std::size_t size) = 0;
 
 private:
-    FreeRTOS::StaticMutex mutex;
-    FreeRTOS::BinarySemaphore semaphore;
+    Mutex mutex;
+    BinarySemaphore semaphore;
 };
 
 template <StreamType stream_type> struct Stream {};

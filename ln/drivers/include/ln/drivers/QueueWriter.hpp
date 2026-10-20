@@ -3,37 +3,32 @@
 
 #pragma once
 
-#include "FreeRTOS/Task.hpp"
-#include "FreeRTOS/Queue.hpp"
+#include "ln/Thread.hpp"
+#include "ln/Queue.hpp"
 
+#include <cstddef>
 #include <cstdint>
 
 namespace ln::drivers {
 
-class QueueWriter : public FreeRTOS::Task {
+template <std::size_t N> class QueueWriter : public ln::Thread {
 public:
-    QueueWriter(UBaseType_t size, const char *name,
-                configSTACK_DEPTH_TYPE stack_depth, UBaseType_t priority)
-        : FreeRTOS::Task(priority, stack_depth, name), queue(size) {}
+    explicit QueueWriter(const ln::Thread::Cfg &cfg) : ln::Thread(cfg) {}
 
-    bool write_in(const uint8_t &byte) {
-        return this->queue.sendToBack(byte, portMAX_DELAY);
-    }
+    bool write_in(const std::uint8_t &byte) { return this->queue.send(byte); }
 
 protected:
-    virtual void write_out(const uint8_t &byte) = 0;
+    virtual void write_out(const std::uint8_t &byte) = 0;
 
 private:
-    void taskFunction() final {
-        while (true) {
-            auto opt_byte = this->queue.receive(portMAX_DELAY);
-            if (opt_byte) {
-                this->write_out(*opt_byte);
-            }
+    void routine() final {
+        const auto opt_byte = this->queue.receive();
+        if (opt_byte) {
+            this->write_out(*opt_byte);
         }
     }
 
-    FreeRTOS::Queue<uint8_t> queue;
+    Queue<std::uint8_t, N> queue;
 };
 
 } // namespace ln::drivers

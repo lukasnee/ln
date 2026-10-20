@@ -4,11 +4,9 @@
 #pragma once
 
 #include "ln/ln.h"
-
-// TODO: platform abstraction for these components
-#include "FreeRTOS/Mutex.hpp"
-#include "FreeRTOS/Semaphore.hpp"
-#include "FreeRTOS/Addons/Timeout.hpp"
+#include "ln/Mutex.hpp"
+#include "ln/Semaphore.hpp"
+#include "ln/Timeout.hpp"
 
 #include <cstdint>
 
@@ -16,8 +14,6 @@ namespace ln::drivers {
 
 class EventDrivenSpi {
 public:
-    using Timeout = FreeRTOS::Addons::Timeout;
-
     /**
      * @brief Initialize.
      *
@@ -189,9 +185,9 @@ private:
 
     void ll_async_complete_common_signal();
 
-    FreeRTOS::StaticMutex mutex;
-    FreeRTOS::StaticBinarySemaphore write_semaphore;
-    FreeRTOS::StaticBinarySemaphore read_semaphore;
+    Mutex mutex;
+    BinarySemaphore write_semaphore;
+    BinarySemaphore read_semaphore;
 };
 
 } // namespace ln::drivers
