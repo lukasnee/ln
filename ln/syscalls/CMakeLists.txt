@@ -1,6 +1,5 @@
 if(LN_LITTLEFS)
-  add_library(ln_syscalls_littlefs)
-  add_library(ln::syscalls::littlefs ALIAS ln_syscalls_littlefs)
+  ln_add_library(ln_syscalls_littlefs ALIAS ln::syscalls::littlefs)
   target_link_libraries(ln_syscalls_littlefs PUBLIC littlefs)
   target_include_directories(ln_syscalls_littlefs PUBLIC include)
   target_sources(ln_syscalls_littlefs PRIVATE src/syscalls/littlefs.cpp)

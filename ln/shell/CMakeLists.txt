@@ -1,7 +1,4 @@
-add_library(ln_shell)
-target_link_libraries(ln INTERFACE ln::shell)
-
-add_library(ln::shell ALIAS ln_shell)
+ln_add_library(ln_shell ALIAS ln::shell)
 target_link_libraries(ln_shell PUBLIC ln::core ln::logger)
 target_sources(
   ln_shell

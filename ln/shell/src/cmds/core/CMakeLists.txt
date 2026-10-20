@@ -1,7 +1,6 @@
 set(CACHE{LN_SHELL_CMD_EXCLUDE} STRING "List of commands to exclude" VALUE "")
 
-add_library(ln_shell_cmds_general INTERFACE)
-add_library(ln::shell::cmds::general ALIAS ln_shell_cmds_general)
+ln_add_library(ln_shell_cmds_general ALIAS ln::shell::cmds::general INTERFACE)
 target_link_libraries(ln_shell_cmds_general INTERFACE ln::shell)
 
 set(LN_SHELL_CMD_GENERAL_SOURCES clear.cpp echo.cpp hexdump.cpp repeat.cpp

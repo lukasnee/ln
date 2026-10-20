@@ -46,10 +46,10 @@ function(ln_prof)
 endfunction()
 
 if(NOT LN_PROF)
-  add_library(ln_prof INTERFACE)
+  ln_add_library(ln_prof ALIAS ln::prof INTERFACE)
   target_include_directories(ln_prof INTERFACE include)
 else()
-  add_library(ln_prof)
+  ln_add_library(ln_prof ALIAS ln::prof)
   target_link_libraries(ln_prof PRIVATE ln::core FreeRTOS-Cpp)
   target_compile_options(ln_prof PRIVATE -O3)
   target_compile_definitions(
@@ -61,6 +61,3 @@ else()
   set_source_files_properties(src/prof.cpp PROPERTIES COMPILE_OPTIONS
                                                       -fno-instrument-functions)
 endif()
-
-add_library(ln::prof ALIAS ln_prof)
-target_link_libraries(ln INTERFACE ln::prof)

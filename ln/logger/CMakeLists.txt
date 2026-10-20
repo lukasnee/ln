@@ -1,14 +1,10 @@
-add_library(ln_logger)
+ln_add_library(ln_logger ALIAS ln::logger)
 target_sources(ln_logger PRIVATE src/logger.cpp)
 target_compile_definitions(ln_logger PUBLIC LN_LOGGER)
 target_include_directories(ln_logger PUBLIC include)
 target_link_libraries(ln_logger PUBLIC ln::core)
 
-add_library(ln::logger ALIAS ln_logger)
-target_link_libraries(ln INTERFACE ln::logger)
-
-add_library(ln_logger_cmds INTERFACE)
-add_library(ln::logger::cmds ALIAS ln_logger_cmds)
+ln_add_library(ln_logger_cmds ALIAS ln::logger::cmds INTERFACE)
 target_sources(ln_logger_cmds INTERFACE src/cmds.cpp)
 target_link_libraries(ln_logger_cmds INTERFACE ln::logger ln::shell)
 

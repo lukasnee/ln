@@ -53,6 +53,7 @@ if(PROJECT_IS_TOP_LEVEL)
 endif()
 
 include(cmake/clang-tidy.cmake)
+include(cmake/ln.cmake)
 
 include(extern/fmt/fmt.cmake)
 if(LN_FREERTOS)

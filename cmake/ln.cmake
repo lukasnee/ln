@@ -26,6 +26,29 @@ macro(ln_configure)
 
 endmacro()
 
+# ln_add_library(<target> ALIAS <ln::alias> [INTERFACE])
+#
+# CMake's add_library wrapper for generalized ln libraries creation. It creates
+# <target> with the ALIAS <ln::alias> and links it into the `ln` umbrella
+# target.
+function(ln_add_library target)
+  cmake_parse_arguments(ARG "INTERFACE" "ALIAS" "" ${ARGN})
+
+  if(NOT ARG_ALIAS MATCHES "^ln::")
+    message(
+      FATAL_ERROR "ln_add_library: ALIAS '${ARG_ALIAS}' must start with 'ln::'")
+  endif()
+
+  if(ARG_INTERFACE)
+    add_library(${target} INTERFACE)
+  else()
+    add_library(${target})
+  endif()
+  add_library(${ARG_ALIAS} ALIAS ${target})
+
+  target_link_libraries(ln INTERFACE ${ARG_ALIAS})
+endfunction()
+
 function(ln_generate_firmware_output_files fw_target)
   target_link_options(
     ${fw_target} PUBLIC -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/${fw_target}.map
