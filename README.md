@@ -54,7 +54,6 @@ Here are some important conventions:
 ## TODO List
 
 - Add GPL license preambles to all files.
-- Shell backspace does not work.
 - `repeat 1000 repeat 1000 echo labas` should technically work.
 - Consider switching to
   [jonenz/FreeRTOS-Cpp](https://github.com/jonenz/FreeRTOS-Cpp) instead of
