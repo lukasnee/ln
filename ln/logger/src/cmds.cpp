@@ -28,23 +28,23 @@ static Cmd cmd_log{
                  return Err::ok;
              }}};
 
-Cmd cmd_log_info{Cmd::Cfg{.parent_cmd = &cmd_log,
-                          .name = "info",
-                          .usage = "<msg:str>",
-                          .short_description = "log info message",
-                          .fn = [](Cmd::Ctx ctx) {
-                              LN_LOG_INF("{}", ctx.args[0]);
-                              return Err::ok;
-                          }}};
+Cmd cmd_log_inf{Cmd::Cfg{.parent_cmd = &cmd_log,
+                         .name = "inf",
+                         .usage = "<msg:str>",
+                         .short_description = "log info message",
+                         .fn = [](Cmd::Ctx ctx) {
+                             LN_LOG_INF("{}", ctx.args[0]);
+                             return Err::ok;
+                         }}};
 
-Cmd cmd_log_warn{Cmd::Cfg{.parent_cmd = &cmd_log,
-                          .name = "warn",
-                          .usage = "<msg:str>",
-                          .short_description = "log warning message",
-                          .fn = [](Cmd::Ctx ctx) {
-                              LN_LOG_WRN("{}", ctx.args[0]);
-                              return Err::ok;
-                          }}};
+Cmd cmd_log_wrn{Cmd::Cfg{.parent_cmd = &cmd_log,
+                         .name = "wrn",
+                         .usage = "<msg:str>",
+                         .short_description = "log warning message",
+                         .fn = [](Cmd::Ctx ctx) {
+                             LN_LOG_WRN("{}", ctx.args[0]);
+                             return Err::ok;
+                         }}};
 
 Cmd cmd_log_err{Cmd::Cfg{.parent_cmd = &cmd_log,
                          .name = "err",
