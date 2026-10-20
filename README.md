@@ -53,8 +53,6 @@ Here are some important conventions:
 
 ## TODO List
 
-- Make LOGGER MACRO API always present from ln/core, and it should become
-  funtional if logging is enabled.
 - Rename all command objects from `<name>_cmd` to `cmd_<name>` - makes more
   sense when naming nested commands.
 - Add GPL license preambles to all files.

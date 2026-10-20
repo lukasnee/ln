@@ -10,6 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(LN_FREERTOS "Enable FreeRTOS and features depending on it" OFF)
 option(LN_LITTLEFS "Enable LittleFS support" OFF)
 option(LN_LUA "Enable Lua scripting support" OFF)
+option(LN_LOGGER "Enable ln::logger (LOG_* macros are no-ops when OFF)" ON)
 option(LN_PROF "Enable ln::prof" OFF)
 
 set(LN_PORT

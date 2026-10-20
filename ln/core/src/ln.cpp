@@ -3,9 +3,7 @@
 
 #include "ln/ln.h"
 
-#ifdef LN_LOGGER
-#include "ln/logger/logger.h"
-#endif
+#include "ln/log.h"
 
 #include <utility>
 
@@ -14,11 +12,9 @@ namespace ln {
 void panic_port(const char *file, int line, const char *message);
 
 [[noreturn]] void panic(const char *file, int line, const char *message) {
-#ifdef LN_LOGGER
     if (!ln::interrupt_context()) {
-        ln::logger::get_instance().flush_buffer();
+        LN_LOG_FLUSH();
     }
-#endif
     ln::panic_port(file, line, message);
     ln::sleep(std::chrono::seconds(5));
     ln::reset();

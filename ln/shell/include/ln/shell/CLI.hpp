@@ -9,7 +9,7 @@
 #include "ln/shell/Buffer.hpp"
 #include "ln/shell/Cmd.hpp"
 
-#include "ln/logger/logger.h"
+#include "ln/log.h"
 
 #include <array>
 #include <span>
@@ -117,7 +117,7 @@ private:
     /** @return true if actually inserted */
     bool insert(char c);
 
-    LOG_MODULE_CLASS_MEMBER(CLI, ln::logger::Level::notset);
+    LN_LOG_MODULE_CLASS_MEMBER(CLI, ln::logger::Level::notset);
 
     Buffer input;
     friend class History;

@@ -3,60 +3,45 @@
 
 #pragma once
 
-#ifdef LN_LOGGER
+// Prefer including "ln/log.h" for the macro API, it is a no-op when the logger
+// is not built in.
 
-// Can be used together with LOG_SCOPE() to use already defined module from
-// another source file. LOG_EXTERN() must be used in global scope, even though
-// while LOG_SCOPE() is scope-based. If external module is in a different
-// namespace, wrap the LOG_EXTERN(<name>) call in `namespace <some_namespace>
-// {}` and use qualified name in LOG_SCOPE(<some_namespace>::<name>).
-#define LOG_EXTERN(_name) extern ::ln::logger::Module _name##_logger_module
+// Can be used together with LN_LOG_SCOPE() to use already defined module from
+// another source file. LN_LOG_EXTERN() must be used in global scope, even
+// though while LN_LOG_SCOPE() is scope-based. If external module is in a
+// different namespace, wrap the LN_LOG_EXTERN(<name>) call in `namespace
+// <some_namespace>
+// {}` and use qualified name in LN_LOG_SCOPE(<some_namespace>::<name>).
+#define LN_LOG_EXTERN(_name) extern ::ln::logger::Module _name##_logger_module
 
-#define LOG_SCOPE(_name) _LOG_SCOPE(::_name)
+#define LN_LOG_SCOPE(_name) _LN_LOG_SCOPE(::_name)
 
-#define _LOG_SCOPE(_name)                                                      \
+#define _LN_LOG_SCOPE(_name)                                                   \
     ::ln::logger::Module *__logger_module_curr_scope [[maybe_unused]] =        \
         &_name##_logger_module
 
-#define LOG_MODULE_DEFINITION(_name, _level)                                   \
+#define LN_LOG_MODULE_DEFINITION(_name, _level)                                \
     ::ln::logger::Module _name##_logger_module {                               \
         #_name, _level, ::ln::logger::get_instance()                           \
     }
 
-#define LOG_MODULE(_name, _level)                                              \
-    LOG_MODULE_DEFINITION(_name, _level);                                      \
-    static _LOG_SCOPE(_name)
+#define LN_LOG_MODULE(_name, _level)                                           \
+    LN_LOG_MODULE_DEFINITION(_name, _level);                                   \
+    static _LN_LOG_SCOPE(_name)
 
-#define LOG_MODULE_CLASS_MEMBER(_name, _level)                                 \
-    LOG_MODULE_DEFINITION(_name, _level);                                      \
-    _LOG_SCOPE(_name)
+#define LN_LOG_MODULE_CLASS_MEMBER(_name, _level)                              \
+    LN_LOG_MODULE_DEFINITION(_name, _level);                                   \
+    _LN_LOG_SCOPE(_name)
 
-#define LOG(_level, ...) __logger_module_curr_scope->log(_level, __VA_ARGS__);
-#define LOG_DEBUG(...) LOG(::ln::logger::Level::debug, __VA_ARGS__)
-#define LOG_INFO(...) LOG(::ln::logger::Level::info, __VA_ARGS__)
-#define LOG_WARNING(...) LOG(::ln::logger::Level::warning, __VA_ARGS__)
-#define LOG_ERROR(...) LOG(::ln::logger::Level::error, __VA_ARGS__)
-#define LOG_CRITICAL(...) LOG(::ln::logger::Level::critical, __VA_ARGS__)
+#define LN_LOG(_level, ...)                                                    \
+    __logger_module_curr_scope->log(_level, __VA_ARGS__);
+#define LN_LOG_DBG(...) LN_LOG(::ln::logger::Level::debug, __VA_ARGS__)
+#define LN_LOG_INF(...) LN_LOG(::ln::logger::Level::info, __VA_ARGS__)
+#define LN_LOG_WRN(...) LN_LOG(::ln::logger::Level::warning, __VA_ARGS__)
+#define LN_LOG_ERR(...) LN_LOG(::ln::logger::Level::error, __VA_ARGS__)
+#define LN_LOG_CRT(...) LN_LOG(::ln::logger::Level::critical, __VA_ARGS__)
 
-#define LOG_FLUSH() ::ln::logger::get_instance().flush_buffer()
-
-#else
-
-#define LOG_SCOPE(_logger_module)
-#define LOG_MODULE_DEFINITION(_obj_name, _name, _level)
-#define LOG_MODULE(_name, _level)
-#define LOG_MODULE_CLASS_MEMBER(_name, _level)
-
-#define LOG(_level, ...)
-#define LOG_DEBUG(...)
-#define LOG_INFO(...)
-#define LOG_WARNING(...)
-#define LOG_ERROR(...)
-#define LOG_CRITICAL(...)
-
-#define LOG_FLUSH()
-
-#endif // LN_LOGGER
+#define LN_LOG_FLUSH() ::ln::logger::get_instance().flush_buffer()
 
 #include "ln/File.hpp"
 #include "ln/Mutex.hpp"

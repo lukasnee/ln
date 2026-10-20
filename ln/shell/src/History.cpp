@@ -4,12 +4,12 @@
 #include "ln/shell/History.hpp"
 #include "ln/shell/CLI.hpp"
 
-#include "ln/logger/logger.h"
+#include "ln/log.h"
 #include <string_view>
 #include <ranges>
 #include <algorithm>
 
-LOG_MODULE(cli_history, ln::logger::Level::info);
+LN_LOG_MODULE(cli_history, ln::logger::Level::info);
 
 namespace ln::shell {
 

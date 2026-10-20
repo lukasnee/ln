@@ -1,5 +1,8 @@
 ln_add_library(ln_core ALIAS ln::core)
-target_link_libraries(ln_core PUBLIC ln::port::${LN_PORT} fmt::fmt ln::logger)
+target_link_libraries(ln_core PUBLIC ln::port::${LN_PORT} fmt::fmt)
+if(LN_LOGGER)
+  target_link_libraries(ln_core PUBLIC ln::logger)
+endif()
 target_sources(ln_core PRIVATE src/ln.cpp)
 target_include_directories(ln_core PUBLIC include)
 

@@ -3,13 +3,11 @@
 
 #include "ln/algo/CompileTimeDAG.hpp"
 
-#ifdef LN_LOGGER
-#include "ln/logger/logger.h"
-#endif
+#include "ln/log.h"
 
 namespace ln::sysinit {
 
-LOG_MODULE(sysinit, ln::logger::Level::notset);
+LN_LOG_MODULE(sysinit, ln::logger::Level::notset);
 
 template <typename ID> using Dep = ln::algo::CompileTimeDAG::Edge<ID>;
 
@@ -23,11 +21,9 @@ template <typename T> static void init(T &ordered_initializers) {
     size_t index = 0;
     for (auto &initializer : ordered_initializers) {
         const auto result = initializer.init_fn ? initializer.init_fn() : true;
-#ifdef LN_LOGGER
-        LOG(result ? ln::logger::Level::info : ln::logger::Level::critical,
-            "{:>2}/{} {}: {}", index + 1, ordered_initializers.size(),
-            (result ? "OK" : "FAIL"), initializer.name);
-#endif
+        LN_LOG(result ? ln::logger::Level::info : ln::logger::Level::critical,
+               "{:>2}/{} {}: {}", index + 1, ordered_initializers.size(),
+               (result ? "OK" : "FAIL"), initializer.name);
         if (!result) {
             LN_PANIC();
         }

@@ -1,5 +1,5 @@
 ln_add_library(ln_shell ALIAS ln::shell)
-target_link_libraries(ln_shell PUBLIC ln::core ln::logger)
+target_link_libraries(ln_shell PUBLIC ln::core)
 target_sources(
   ln_shell
   PRIVATE src/Arg.cpp

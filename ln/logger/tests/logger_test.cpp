@@ -29,15 +29,15 @@ TEST_CASE("Logger: Log levels", "[logger]") {
     logger_config.log_level = ln::logger::Level::debug;
     ln::logger::get_instance().set_config(logger_config);
 
-    LOG_MODULE(test, ln::logger::Level::notset);
+    LN_LOG_MODULE(test, ln::logger::Level::notset);
 
-    LOG_DEBUG("This is a debug message {}, {}", 42.37, "hello");
-    LOG_INFO("Info with swapped args: {} then {}", "zero", "one");
-    LOG_WARNING("Named: user={}, tries={}", "alice", 3);
+    LN_LOG_DBG("This is a debug message {}, {}", 42.37, "hello");
+    LN_LOG_INF("Info with swapped args: {} then {}", "zero", "one");
+    LN_LOG_WRN("Named: user={}, tries={}", "alice", 3);
     using namespace std::chrono_literals;
-    LOG_ERROR("Error after duration: {}", 1234ms);
-    LOG_CRITICAL("Aligned: |{:>10}|{:5}|{:<5}|", "mid", 42, "x");
-    LOG_FLUSH();
+    LN_LOG_ERR("Error after duration: {}", 1234ms);
+    LN_LOG_CRT("Aligned: |{:>10}|{:5}|{:<5}|", "mid", 42, "x");
+    LN_LOG_FLUSH();
     std::fflush(capture_file.c_file());
     const std::string output(capture_buf.data());
     const std::string expected = "This is a debug message 42.37, hello\n"

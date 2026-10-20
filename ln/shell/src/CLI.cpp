@@ -254,8 +254,8 @@ char CLI::getc_or_handle_escape_sequences() {
         return c;
     };
     auto handle_unknown = [&]() {
-        LOG_WARNING("Unknown escape sequence: {}",
-                    std::string_view(warn_buf.data(), buf_size));
+        LN_LOG_WRN("Unknown escape sequence: {}",
+                   std::string_view(warn_buf.data(), buf_size));
     };
     while (true) {
         char c = getc();
