@@ -30,6 +30,17 @@ class PacketId(IntEnum):
 
 
 NAME_MAX_LEN = 64  # sanity cap for corrupted streams
+SWITCHED_OUT_FRAME_NAME = "[switched out]"
+
+
+class State(IntEnum):
+    ENTER = 0
+    EXIT = 1
+
+
+class Type(IntEnum):
+    TASK = 0
+    FN = 1
 
 
 class ProfilePacket:
@@ -44,14 +55,21 @@ class ProfilePacket:
         # Decode the bitfields from the first 32-bit integer
         self.sync_byte = raw0 & 0xFF
         self.cycle_cnt = last_packet_cycle_cnt + ((raw0 >> 8) & 0xFFFFFF)
-        self.typ = "C" if raw1 & 0x1 else "O"
-        self.context_id = (raw1 >> 1) & 0x7F
-        self.fn = (fn_msb << 24) | ((raw1 >> 8) & 0xFFFFFF)
+        self.context_id = raw1 & 0x7F
+        self.state = State((raw1 >> 7) & 0x1)
+        self.type = Type((raw1 >> 8) & 0x1)
+        self.fn = (fn_msb << 24) | (((raw1 >> 9) & 0x7FFFFF) << 1)
+
+    @property
+    def speedscope_event_type(self):
+        return "C" if self.state == State.EXIT else "O"
 
     def __str__(self):
+        fn = f"0x{self.fn:08x}" if self.type == Type.FN else "-"
         return (
-            f"ProfilePacket(typ={self.typ}, context_id=0x{self.context_id:02x}, "
-            f"fn=0x{self.fn:08x}, cycle_cnt={self.cycle_cnt})"
+            f"ProfilePacket(type={self.type.name}, state={self.state.name}, "
+            f"context_id=0x{self.context_id:02x}, fn={fn}, "
+            f"cycle_cnt={self.cycle_cnt})"
         )
 
 
@@ -197,7 +215,7 @@ class UcProf:
             )
             return False
 
-        if not self.__within_fw_boundry(packet.fn):
+        if packet.type == Type.FN and not self.__within_fw_boundry(packet.fn):
             logger.log(
                 logging.WARNING,
                 f"Packet fn not within firmware memory region, {packet.fn:08x}",
@@ -266,9 +284,13 @@ class UcProf:
                 )
                 break
 
-            symbol = next(
-                (s for s in reversed(self._symbols) if packet.fn >= s.address), None
-            )
+            if packet.type == Type.TASK:
+                symbol = Symbol(0, "U", SWITCHED_OUT_FRAME_NAME, "", 0)
+            else:
+                symbol = next(
+                    (s for s in reversed(self._symbols) if packet.fn >= s.address),
+                    None,
+                )
 
             if not symbol:
                 symbol = Symbol(0, "U", "fn @ 0x{:08x}".format(packet.fn), "", 0)
@@ -299,11 +321,15 @@ class UcProf:
                 profiles_by_context_id[packet.context_id] = profile
                 profiles.append(profile)
             profile["events"].append(
-                {"type": packet.typ, "at": timestamp, "frame": frame_index}
+                {
+                    "type": packet.speedscope_event_type,
+                    "at": timestamp,
+                    "frame": frame_index,
+                }
             )
             logger.log(
                 logging.DEBUG - 5,
-                f"{profile['name']}: {packet.typ} {timestamp:.9f} {frame_index}",
+                f"{profile['name']}: {packet.speedscope_event_type} {timestamp:.9f} {frame_index}",
             )
 
         for profile in profiles:

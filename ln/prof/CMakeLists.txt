@@ -4,8 +4,6 @@ if(NOT LN_FREERTOS)
   message(FATAL_ERROR "ln_prof requires FreeRTOS")
 endif()
 
-option(LN_PROF "Enable ln::prof" OFF)
-
 set(LN_PROF_ITM_PORT
     0
     CACHE STRING "ITM port number for ln::prof")

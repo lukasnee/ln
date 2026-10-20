@@ -19,6 +19,18 @@
 
 struct Packet {
 
+    struct ProfileEvent {
+        enum class State : uint32_t {
+            enter = 0,
+            exit = 1,
+        };
+
+        enum class Type : uint32_t {
+            task = 0,
+            fn = 1,
+        };
+    };
+
     enum class Id : uint32_t {
         /**
          * @brief Packet ID for sending profile events.
@@ -26,11 +38,13 @@ struct Packet {
          *  Packet structure:
          *    - word0[7:0]: Packet ID (PROFILE_EVENT const value)
          *    - word0[31:8]: Cycle count delta since last event
-         *    - word1[0]: Profile event type (enter/exit)
-         *    - word1[7:1]: Context ID
-         *    - word1[31:8]: Lower 24 bits of the function pointer (since MSB of
-         *      a 32-bit address is typically never changing, it is omitted and
-         *      parametrized on client side.
+         *    - word1[6:0]: Context ID
+         *    - word1[7]: ProfileEvent::State
+         *    - word1[8]: ProfileEvent::Type
+         *    - word1[31:9]: Bits [23:1] of the function pointer for function
+         *      events, unused for task events (bit 0 is the Thumb bit and the
+         *      most significant byte of a 32-bit address is typically never
+         *      changing, so they are omitted and parametrized on client side).
          */
         PROFILE_EVENT = 0xA5,
 
@@ -45,13 +59,6 @@ struct Packet {
          */
         DISCLOSE_CONTEXT_NAME = 0xA6,
     };
-
-    struct Profile {
-        enum class Type : uint32_t {
-            enter = 0,
-            exit = 1,
-        };
-    };
 };
 
 volatile bool started = false;
@@ -60,7 +67,8 @@ static uint32_t next_context_id = 1;
 static std::bitset<128> disclosed_name_contexts;
 static uint32_t last_announce_reset = 0;
 
-static void ln_prof_send_context_name(uint32_t context_id, const char *name) {
+static LN_PROF_ATTR void ln_prof_send_context_name(uint32_t context_id,
+                                                   const char *name) {
     LN_ITM_SEND_WORD(
         LN_PROF_ITM_PORT,
         static_cast<uint32_t>(Packet::Id::DISCLOSE_CONTEXT_NAME) |
@@ -79,7 +87,7 @@ static void ln_prof_send_context_name(uint32_t context_id, const char *name) {
     }
 }
 
-static FORCE_INLINE uint32_t ln_prof_get_current_context_id() {
+static LN_PROF_ATTR FORCE_INLINE uint32_t ln_prof_get_current_context_id() {
     TaskHandle_t task = xTaskGetCurrentTaskHandle();
     if (task == nullptr) {
         return 0;
@@ -104,7 +112,7 @@ static FORCE_INLINE uint32_t ln_prof_get_current_context_id() {
     return id;
 }
 
-bool ln_prof_start() {
+bool LN_PROF_ATTR ln_prof_start() {
 
     // Enable trace (required for ITM and DWT)
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
@@ -139,7 +147,7 @@ bool ln_prof_start() {
     return true;
 }
 
-void ln_prof_stop() {
+void LN_PROF_ATTR ln_prof_stop() {
     ITM->TER &= ~(1UL << LN_PROF_ITM_PORT);
 
     started = false;
@@ -157,13 +165,9 @@ void ln_prof_stop() {
  *   safely, but that's a broad build-system change with its own risk/build-time
  *   tradeoffs, not scoped to this file.
  */
-static FORCE_INLINE void ln_prof_send_profile_enter_event(void *this_fn) {
-    if (!started) {
-        return;
-    }
-    if (xPortIsInsideInterrupt()) {
-        return;
-    }
+static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_event(
+    Packet::ProfileEvent::Type type, Packet::ProfileEvent::State state,
+    void *fn = nullptr) {
     uint32_t old_primask = __get_PRIMASK();
     __disable_irq();
     const uint32_t context_id = ln_prof_get_current_context_id();
@@ -173,34 +177,49 @@ static FORCE_INLINE void ln_prof_send_profile_enter_event(void *this_fn) {
     last_cycle_count = cycle_count;
     LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word0);
     const uint32_t word1 =
-        (static_cast<uint32_t>(Packet::Profile::Type::enter)) |
-        (context_id << 1) |
-        ((reinterpret_cast<uint32_t>(this_fn) & 0x00FFFFFF) << 8);
+        context_id | (static_cast<uint32_t>(state) << 7) |
+        (static_cast<uint32_t>(type) << 8) |
+        (((reinterpret_cast<uint32_t>(fn) >> 1) & 0x7FFFFF) << 9);
     LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word1);
     __set_PRIMASK(old_primask);
 }
 
-static FORCE_INLINE void ln_prof_send_profile_exit_event(void *this_fn) {
+static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_enter_event(
+    void *this_fn) {
     if (!started) {
         return;
     }
     if (xPortIsInsideInterrupt()) {
         return;
     }
-    uint32_t old_primask = __get_PRIMASK();
-    __disable_irq();
-    const uint32_t context_id = ln_prof_get_current_context_id();
-    const uint32_t cycle_count = DWT->CYCCNT;
-    const uint32_t word0 = static_cast<uint32_t>(Packet::Id::PROFILE_EVENT) |
-                           ((cycle_count - last_cycle_count) << 8);
-    last_cycle_count = cycle_count;
-    LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word0);
-    const uint32_t word1 =
-        (static_cast<uint32_t>(Packet::Profile::Type::exit)) |
-        (context_id << 1) |
-        ((reinterpret_cast<uint32_t>(this_fn) & 0x00FFFFFF) << 8);
-    LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word1);
-    __set_PRIMASK(old_primask);
+    ln_prof_send_profile_event(Packet::ProfileEvent::Type::fn,
+                               Packet::ProfileEvent::State::enter, this_fn);
+}
+
+static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_exit_event(
+    void *this_fn) {
+    if (!started) {
+        return;
+    }
+    if (xPortIsInsideInterrupt()) {
+        return;
+    }
+    ln_prof_send_profile_event(Packet::ProfileEvent::Type::fn,
+                               Packet::ProfileEvent::State::exit, this_fn);
+}
+
+extern "C" LN_PROF_ATTR void ln_prof_task_switched_out() {
+    if (started) {
+        ln_prof_send_profile_event(Packet::ProfileEvent::Type::task,
+                                   Packet::ProfileEvent::State::enter);
+    }
+}
+
+extern "C" LN_PROF_ATTR void ln_prof_task_switched_in() {
+    if (started) {
+        ln_prof_send_profile_event(Packet::ProfileEvent::Type::task,
+                                   Packet::ProfileEvent::State::exit);
+    }
 }
 
 extern "C" LN_PROF_ATTR void __cyg_profile_func_enter(
