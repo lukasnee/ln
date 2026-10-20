@@ -45,43 +45,8 @@ extern "C"
 
 #include <chrono>
 #include <string_view>
-#include <span>
 
 namespace ln {
-
-class Thread {
-public:
-    enum Prio {
-        lowest,
-        low,
-        low2,
-        medium,
-        medium2,
-        high,
-        high2,
-        highest,
-
-        _enum_size
-    };
-
-    struct Cfg {
-        Prio prio;
-        const char *name;
-        std::span<uint8_t> static_stack = {};
-        size_t dynamic_stack_size = 0;
-        bool start_on_creation = false;
-    };
-
-    Thread(const Cfg &cfg);
-    virtual ~Thread() = default;
-
-    bool start();
-
-    virtual void routine() = 0;
-
-private:
-    const Cfg &cfg;
-};
 
 [[noreturn]] void panic(const char *file, int line, const char *message);
 

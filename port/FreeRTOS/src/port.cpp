@@ -4,7 +4,8 @@
 #include "ln/ln.h"
 
 #include "ln/Clock.hpp"
-#include "ln/MutexI.hpp"
+#include "ln/Thread.hpp"
+#include "ln/interfaces/Mutex.hpp"
 
 #include "FreeRTOS/Kernel.hpp"
 #include "FreeRTOS/Task.hpp"
@@ -38,7 +39,7 @@ static_assert(Clock::duration::max().count() == portMAX_DELAY,
               "Clock::duration::max() must be equivalent "
               "to portMAX_DELAY");
 
-std::chrono::milliseconds MutexI::max_timeout() {
+std::chrono::milliseconds interfaces::Mutex::max_timeout() {
     return Clock::duration::max();
 }
 
@@ -95,13 +96,6 @@ static BaseType_t threadPrioToFreeRTOSPrio(Thread::Prio prio) {
     }
 }
 
-Thread::Thread(const Cfg &cfg) : cfg(cfg) {
-
-    if (cfg.start_on_creation) {
-        this->start();
-    }
-}
-
 bool Thread::start() {
     auto taskCode = [](void *param) {
         while (true) {
@@ -116,22 +110,19 @@ bool Thread::start() {
         StaticTask_t *taskBuffer = reinterpret_cast<StaticTask_t *>(
             this->cfg.static_stack.data() + this->cfg.static_stack.size() -
             sizeof(StaticTask_t));
-        const auto task_handle = xTaskCreateStatic(
+        this->task_handle = xTaskCreateStatic(
             taskCode, this->cfg.name, stackDepth / sizeof(StackType_t), this,
             threadPrioToFreeRTOSPrio(this->cfg.prio),
             reinterpret_cast<StackType_t *>(this->cfg.static_stack.data()),
             taskBuffer);
-        if (!task_handle) {
-            return false;
-        }
-        return true;
+        return this->task_handle != nullptr;
     }
     if (this->cfg.dynamic_stack_size > 0) {
         if (pdPASS !=
             xTaskCreate(taskCode, this->cfg.name,
                         this->cfg.dynamic_stack_size / sizeof(StackType_t),
                         this, threadPrioToFreeRTOSPrio(this->cfg.prio),
-                        nullptr)) {
+                        &this->task_handle)) {
             return false;
         }
         return true;

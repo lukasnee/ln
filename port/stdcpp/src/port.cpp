@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 #include "ln/ln.h"
-#include "ln/MutexI.hpp"
+#include "ln/interfaces/Mutex.hpp"
 #include "ln/Clock.hpp"
 
 #include <fmt/core.h>
@@ -21,7 +21,7 @@ Clock::time_point Clock::now() noexcept {
         std::chrono::steady_clock::now() - g_start_time)};
 }
 
-std::chrono::milliseconds MutexI::max_timeout() {
+std::chrono::milliseconds interfaces::Mutex::max_timeout() {
     return std::chrono::milliseconds::max();
 }
 

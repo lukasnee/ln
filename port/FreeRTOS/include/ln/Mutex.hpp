@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "ln/MutexI.hpp"
+#include "ln/interfaces/Mutex.hpp"
 #include "projdefs.h"
 
 #include <FreeRTOS/Mutex.hpp>
@@ -11,7 +11,7 @@
 
 namespace ln {
 
-class Mutex : public MutexI {
+class Mutex : public interfaces::Mutex {
 protected:
     bool ll_lock(const std::chrono::milliseconds &timeout) final {
         return this->mutex.lock(pdMS_TO_TICKS(timeout.count()));
@@ -22,7 +22,7 @@ protected:
     FreeRTOS::StaticMutex mutex;
 };
 
-class RecursiveMutex : public MutexI {
+class RecursiveMutex : public interfaces::Mutex {
 protected:
     bool ll_lock(const std::chrono::milliseconds &timeout) final {
         return this->recursive_mutex.lock(pdMS_TO_TICKS(timeout.count()));

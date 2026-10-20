@@ -7,9 +7,11 @@
 
 namespace ln {
 
-class MutexI {
+namespace interfaces {
+
+class Mutex {
 public:
-    virtual ~MutexI() = default;
+    virtual ~Mutex() = default;
 
     /**
      * @brief Returns the maximum timeout that can be used in the lock()
@@ -36,18 +38,22 @@ protected:
     virtual bool ll_unlock() = 0;
 };
 
-class Mutex; // Port specific implementation of MutexI
+} // namespace interfaces
 
-class RecursiveMutex; // Port specific implementation of MutexI
+class Mutex; // Port specific implementation of interfaces::Mutex
+
+class RecursiveMutex; // Port specific implementation of interfaces::Mutex
 
 class LockGuard {
 public:
-    explicit LockGuard(MutexI &mutex) : mutex(mutex) { this->mutex.lock(); }
+    explicit LockGuard(interfaces::Mutex &mutex) : mutex(mutex) {
+        this->mutex.lock();
+    }
 
     ~LockGuard() { this->mutex.unlock(); }
 
 private:
-    MutexI &mutex;
+    interfaces::Mutex &mutex;
 };
 
 } // namespace ln
