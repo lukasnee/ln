@@ -24,6 +24,21 @@ static std::string_view task_state_to_str(eTaskState state) {
     }
 };
 
+/**
+ * @brief Print per-task run time and stack usage statistics. The time is
+ * calculated based on the difference in run time counters since the last call.
+ * For example, calling this function every second will show the CPU usage of
+ * each task over the last second.
+ *
+ * @note Requires the following FreeRTOSConfig.h settings:
+ * @code
+ * #define configUSE_TRACE_FACILITY 1 #define configGENERATE_RUN_TIME_STATS 1
+ * #define configRECORD_STACK_HIGH_ADDRESS 1 // stack grows down // minimum, may
+ * be higher if more TLS pointers are used #define
+ * configNUM_THREAD_LOCAL_STORAGE_POINTERS 1 #define
+ * configTHREAD_LOCAL_STORAGE_LAST_RUN_TIME_COUNTER_INDEX 0
+ * @endcode
+ */
 void print_run_time_stats(ln::shell::CLI &cli) {
     auto num_of_tasks = uxTaskGetNumberOfTasks();
     UBaseType_t array_size = num_of_tasks;
@@ -39,9 +54,12 @@ void print_run_time_stats(ln::shell::CLI &cli) {
     float ulDeltaTotalTime =
         static_cast<float>(total_time - last_total_time) / 100.0F;
 
-    std::string_view header_fmt = "{:<16} {:<9} {:<4} {:<5} {:<5}\n";
-    std::string_view line_fmt = "{:<16} {:<9} {:<4} {:05.2f} {:<5}\n";
-    cli.print(header_fmt, "name", "state", "prio", "time%", "hiWtm");
+    std::string_view header_fmt =
+        "{:<16} {:<9} {:<4} {:<6} {:<5} {:<5} {:<6}\n";
+    std::string_view line_fmt =
+        "{:<16} {:<9} {:<4} {:>6.2f} {:<5} {:<5} {:>6.2f}\n";
+    cli.print(header_fmt, "name", "state", "prio", "time,%", "sFr,B", "sSz,B",
+              "sUsg,%");
     for (UBaseType_t x = 0; x < array_size; x++) {
         const auto last_run_time_cnt =
             reinterpret_cast<uint32_t>(pvTaskGetThreadLocalStoragePointer(
@@ -51,11 +69,19 @@ void print_run_time_stats(ln::shell::CLI &cli) {
             tasks_status_arr[x].ulRunTimeCounter - last_run_time_cnt);
         const auto delta_run_time_percentage =
             delta_run_time_cnt / ulDeltaTotalTime;
+        const size_t stack_size_bytes = (tasks_status_arr[x].pxEndOfStack -
+                                         tasks_status_arr[x].pxStackBase + 1) *
+                                        sizeof(StackType_t);
+        const size_t stack_free_bytes =
+            tasks_status_arr[x].usStackHighWaterMark * sizeof(StackType_t);
+        const float stack_usage_percentage =
+            static_cast<float>(stack_size_bytes - stack_free_bytes) * 100.0F /
+            static_cast<float>(stack_size_bytes);
         cli.print(line_fmt, tasks_status_arr[x].pcTaskName,
                   task_state_to_str(tasks_status_arr[x].eCurrentState),
                   tasks_status_arr[x].uxCurrentPriority,
-                  delta_run_time_percentage,
-                  tasks_status_arr[x].usStackHighWaterMark);
+                  delta_run_time_percentage, stack_free_bytes, stack_size_bytes,
+                  stack_usage_percentage);
         vTaskSetThreadLocalStoragePointer(
             tasks_status_arr[x].xHandle,
             configTHREAD_LOCAL_STORAGE_LAST_RUN_TIME_COUNTER_INDEX,
