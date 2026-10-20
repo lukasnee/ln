@@ -6,7 +6,7 @@
 
 namespace ln::shell {
 
-Cmd reset_cmd{Cmd::Cfg{.name = "reset",
+Cmd cmd_reset{Cmd::Cfg{.name = "reset",
                        .short_description = "soft system reset",
                        .fn = []([[maybe_unused]]
                                 Cmd::Ctx ctx) {
@@ -14,7 +14,7 @@ Cmd reset_cmd{Cmd::Cfg{.name = "reset",
                            return Err::unexpected;
                        }}};
 
-Cmd panic_cmd{Cmd::Cfg{.name = "test_fault",
+Cmd cmd_panic{Cmd::Cfg{.name = "test_fault",
                        .short_description = "test fault behavior (handling)",
                        .long_description = R"(Usage:
   test_fault panic
@@ -42,7 +42,7 @@ Commands:
                            return Err::badArg;
                        }}};
 
-Cmd uptime_cmd{Cmd::Cfg{.name = "uptime",
+Cmd cmd_uptime{Cmd::Cfg{.name = "uptime",
                         .short_description = "show system uptime",
                         .fn = [](Cmd::Ctx ctx) {
                             ctx.cli.print("{}\n", ln::get_uptime_ms());

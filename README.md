@@ -53,8 +53,6 @@ Here are some important conventions:
 
 ## TODO List
 
-- Rename all command objects from `<name>_cmd` to `cmd_<name>` - makes more
-  sense when naming nested commands.
 - Add GPL license preambles to all files.
 - Shell backspace does not work.
 - `repeat 1000 repeat 1000 echo labas` should technically work.

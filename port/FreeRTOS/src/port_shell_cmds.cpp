@@ -93,7 +93,7 @@ void print_run_time_stats(ln::shell::CLI &cli) {
 
 namespace ln::shell {
 
-Cmd status_cmd{Cmd::Cfg{.name = "status,s",
+Cmd cmd_status{Cmd::Cfg{.name = "status,s",
                         .short_description = "show system status",
                         .fn = [](Cmd::Ctx ctx) {
                             ctx.cli.print("uptime: {}\n", ln::get_uptime_ms());

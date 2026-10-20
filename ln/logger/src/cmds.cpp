@@ -57,7 +57,7 @@ Cmd cmd_log_err{Cmd::Cfg{.parent_cmd = &cmd_log,
 
 // TODO: this is ROM inefficient and weird - improve
 #define LOG_CONFIG_BOOL_CMD(cmd_name, config_field, description)               \
-    Cmd log_##cmd_name##_cmd {                                                 \
+    Cmd cmd_log_##cmd_name {                                                   \
         Cmd::Cfg {                                                             \
             .parent_cmd = &cmd_log, .name = #cmd_name,                         \
             .usage = generic::cmds::on_off_command_usage,                      \

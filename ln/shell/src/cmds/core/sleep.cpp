@@ -11,7 +11,7 @@ static constexpr std::array<Arg, 1> cmd_sleep_args{
          .type = Arg::Type::num,
          .description = "Milliseconds to sleep"}}};
 
-Cmd sleep_cmd{Cmd::Cfg{.cmd_list = Cmd::get_general_cmd_list(),
+Cmd cmd_sleep{Cmd::Cfg{.cmd_list = Cmd::get_general_cmd_list(),
                        .name = "sleep",
                        .usage = "<ms>",
                        .args = cmd_sleep_args,
