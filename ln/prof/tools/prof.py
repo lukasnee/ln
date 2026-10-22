@@ -12,7 +12,10 @@ from enum import IntEnum
 import argparse
 import re
 import logging
+import ntpath
+import shutil
 import struct
+import subprocess
 
 logger = logging.getLogger(__name__)
 
@@ -509,6 +512,46 @@ class UcProf:
         with open(filename, "w") as f:
             json.dump(speedscope_dict, f, indent=2)
 
+    @staticmethod
+    def __speedscope_to_chrome_trace(speedscope_dict, src_root):
+        """Chrome trace-event JSON, importable by Tracy's tracy-import-chrome."""
+        frames = speedscope_dict["shared"]["frames"]
+        # Windows/UNC roots (for a Windows-side GUI) must not be treated as POSIX paths
+        if re.match(r"^(\\\\|//|[A-Za-z]:)", src_root):
+            path_mod = ntpath
+        else:
+            path_mod = os.path
+            src_root = os.path.abspath(src_root)
+        trace_events = []
+        for tid, profile in enumerate(speedscope_dict["profiles"]):
+            trace_events.append(
+                {
+                    "ph": "M",
+                    "name": "thread_name",
+                    "pid": 0,
+                    "tid": tid,
+                    "args": {"name": profile["name"]},
+                }
+            )
+            for event in profile["events"]:
+                frame = frames[event["frame"]]
+                trace_event = {
+                    "ph": "B" if event["type"] == "O" else "E",
+                    "name": frame["name"],
+                    "pid": 0,
+                    "tid": tid,
+                    "ts": event["at"] * 1e6,
+                }
+                # undocumented key read by tracy-import-chrome as the zone source location
+                if trace_event["ph"] == "B" and frame["file"]:
+                    # Tracy needs an absolute path to open the source
+                    path = path_mod.normpath(path_mod.join(src_root, frame["file"]))
+                    trace_event["loc"] = f"{path}:{frame['line']}"
+                trace_events.append(trace_event)
+        # stable sort keeps per-thread order for equal timestamps
+        trace_events.sort(key=lambda e: e.get("ts", float("-inf")))
+        return {"traceEvents": trace_events, "displayTimeUnit": "ns"}
+
     def fold_all_stacks(self):
         if not self.__reload_nm_symbols():
             return False
@@ -516,7 +559,38 @@ class UcProf:
             return False
 
         speedscope_dict = self.__parse_packets_into_speedscope_dict()
-        filename = f"{self.args.frame_data_path.split('/')[-1].split('.')[0]}.{self.args.out_ext}"
+        base = self.args.frame_data_path.split("/")[-1].split(".")[0]
+        if self.args.format == "tracy":
+            filename = f"{base}.trace.json"
+            tracy_filename = f"{base}.tracy"
+            self.__export_to_json(
+                self.__speedscope_to_chrome_trace(speedscope_dict, self.args.src_root),
+                filename,
+            )
+            importer = shutil.which(self.args.tracy_import)
+            if importer is None:
+                logger.error(
+                    f"'{self.args.tracy_import}' not found; exported {filename} only. "
+                    f"Convert with: tracy-import-chrome {filename} {tracy_filename}"
+                )
+                return False
+            # the importer has no overwrite option
+            if os.path.exists(tracy_filename):
+                os.remove(tracy_filename)
+            result = subprocess.run(
+                [importer, filename, tracy_filename],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                logger.error(
+                    f"{importer} failed ({result.returncode}); kept {filename}\n{result.stdout}{result.stderr}"
+                )
+                return False
+            os.remove(filename)
+            logger.info(f"Exported {tracy_filename}")
+            return
+        filename = f"{base}.{self.args.out_ext}"
         self.__export_to_json(speedscope_dict, filename)
         logger.info(f"Exported {filename}")
 
@@ -532,6 +606,25 @@ if __name__ == "__main__":
         default="spsc",
         choices=["spsc", "json"],
         help="Output file extension",
+    )
+    parser.add_argument(
+        "--format",
+        default="speedscope",
+        choices=["speedscope", "tracy"],
+        help="Output format; 'tracy' writes a .tracy file via "
+        "tracy-import-chrome (expected to be installed and available in PATH, ""see --tracy_import option)",
+    )
+    parser.add_argument(
+        "--tracy_import",
+        default="tracy-import-chrome",
+        help="Path or name of the tracy-import-chrome executable",
+    )
+    parser.add_argument(
+        "--src_root",
+        default=".",
+        help="Directory that relative source paths in the symbols are relative "
+        "to (tracy format). Can be used to make source file paths in Tracy "
+        "Profiler clickable",
     )
     parser.add_argument("--begin", type=float, help="Timestamp from in seconds")
     parser.add_argument("--end", type=float, help="Timestamp to in seconds")
