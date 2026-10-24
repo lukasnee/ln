@@ -527,12 +527,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("nm_symbols_path", help="Symbol file path")
     parser.add_argument("frame_data_path", help="Frame data file path")
-    parser.add_argument(
-        "--out_ext",
-        default="spsc",
-        choices=["spsc", "json"],
-        help="Output file extension",
-    )
     parser.add_argument("--begin", type=float, help="Timestamp from in seconds")
     parser.add_argument("--end", type=float, help="Timestamp to in seconds")
     parser.add_argument(
@@ -547,6 +541,12 @@ if __name__ == "__main__":
     parser.add_argument("--no_color", action="store_true")
     parser.add_argument(
         "--top", type=int, default=10, help="Process only the top most eventful threads"
+    )  # TODO: consider removing this option
+    parser.add_argument(
+        "--out_ext",
+        default="spsc",
+        choices=["spsc", "json"],
+        help="Output file extension",
     )
     args = parser.parse_args()
     uc_prof = UcProf(args)
