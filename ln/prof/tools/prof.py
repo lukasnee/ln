@@ -12,7 +12,10 @@ from enum import IntEnum
 import argparse
 import re
 import logging
+import ntpath
+import shutil
 import struct
+import subprocess
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +31,7 @@ class PacketId(IntEnum):
 NAME_MAX_LEN = 64  # sanity cap for corrupted streams
 
 
-# matches ln/prof/src/prof.cpp
+# should match ln/prof/src/prof.cpp
 class ContextId(IntEnum):
     SCHEDULER = 1
     INTERRUPT = 2
@@ -36,9 +39,15 @@ class ContextId(IntEnum):
     # subsequent tasks
 
 
+# outside the 7-bit context id range
+TRACY_UNKNOWN_CONTEXT_TID = 0x80
+
+
 INTERRUPT_CONTEXT_NAME = "Interrupts"
 NOT_RUNNING_FRAME_NAME = "[not running]"
 LOST_EVENTS_FRAME_NAME = "[events lost]"
+TRACY_SCHEDULER_ZONE_NAME = "[scheduler]"
+TRACY_UNKNOWN_ZONE_NAME = "[unknown]"
 
 
 class State(IntEnum):
@@ -90,6 +99,8 @@ class UcProf:
         self._begin_cycle_cnt_offset = None
         self._last_cycle_cnt = 0
         self._context_names = {}
+        # profile index -> [(time, is_running)]
+        self._profiles_run_state_trans = {}
         # profile index -> context id
         self._profile_context_ids = []
         logging.basicConfig(level=args.log_level, format="%(levelname)s| %(message)s")
@@ -369,7 +380,14 @@ class UcProf:
         logger.info(f"end: {latest_end:.9f}")
 
         for profile_idx, profile in enumerate(profiles):
-            profile["events"] = self.__slice_last_chronological_event_sequence(profile["events"])
+            profile["events"] = self.__slice_last_chronological_event_sequence(
+                profile["events"]
+            )
+            self._profiles_run_state_trans[profile_idx] = (
+                self.__extract_profile_run_state_transitions(
+                    profile, profile_idx, shared_frames
+                )
+            )
             profile["events"] = self.__repair_lost_profile_events(
                 profile, shared_frames
             )
@@ -415,6 +433,23 @@ class UcProf:
             if event["at"] < events[idx - 1]["at"]:
                 last_break_idx = idx
         return events[last_break_idx:]
+
+    def __extract_profile_run_state_transitions(self, profile, profile_idx, frames):
+        transitions = []
+        for event in profile["events"]:
+            is_not_running_marker = (
+                frames[event["frame"]]["name"] == NOT_RUNNING_FRAME_NAME
+                and self._profile_context_ids[profile_idx] != ContextId.INTERRUPT
+            )
+            if not is_not_running_marker:
+                continue
+
+            is_running = event["type"] == "C"
+            if not transitions and not is_running:
+                transitions.append((event["at"], True))
+            if not transitions or transitions[-1][1] != is_running:
+                transitions.append((event["at"], is_running))
+        return transitions
 
     def __repair_lost_profile_events(self, profile, frames):
         call_stack = []
@@ -529,7 +564,9 @@ class UcProf:
         return fixed_events
 
     def __cross_section_not_running_segments(self, profile, profile_idx, frames):
-        logger.info(f"Cross-sectioning not running segments for profile {profile['name']}...")
+        logger.info(
+            f"Cross-sectioning not running segments for profile {profile['name']}..."
+        )
         call_stack = []
         suspended_stack = None
         fixed_events = []
@@ -575,6 +612,122 @@ class UcProf:
         with open(filename, "w") as f:
             json.dump(dictionary, f, indent=2)
 
+    def __chrome_trace_generate_scheduler_context_events(self, profiles, tid, start):
+        """Zones named after whichever thread is running, from the tasks' switch times."""
+
+        def trace_event(ph, at, name):
+            return {"ph": ph, "name": name, "pid": 0, "tid": tid, "ts": at * 1e6}
+
+        transitions = sorted(
+            (
+                (at, profile_idx, running)
+                for profile_idx, profile_run_state_trans in self._profiles_run_state_trans.items()
+                for at, running in profile_run_state_trans
+            ),
+            key=lambda t: t[0],
+        )
+        events = []
+        running_idx = None
+        zone = None
+
+        def switch_zone(at, name):
+            nonlocal zone
+            if zone is not None:
+                events.append(trace_event("E", at, zone))
+            if name is not None:
+                events.append(trace_event("B", at, name))
+            zone = name
+
+        at = 0.0
+        if transitions and transitions[0][0] > start:
+            switch_zone(start, TRACY_UNKNOWN_ZONE_NAME)
+        for at, profile_idx, running in transitions:
+            if running:
+                if running_idx == profile_idx:
+                    continue
+                running_idx = profile_idx
+                switch_zone(at, profiles[profile_idx]["name"])
+            elif running_idx == profile_idx:
+                # between a switch-out and the next switch-in the scheduler is running
+                running_idx = None
+                switch_zone(at, TRACY_SCHEDULER_ZONE_NAME)
+        switch_zone(at, None)
+        return events
+
+    def __speedscope_dict_to_chrome_trace_dict(
+        self, speedscope_dict, target_prj_src_path
+    ):
+        """Chrome trace-event JSON, importable by Tracy's tracy-import-chrome."""
+        frames = speedscope_dict["shared"]["frames"]
+        # Windows/UNC roots (for a Windows-side GUI) must not be treated as POSIX paths
+        if re.match(r"^(\\\\|//|[A-Za-z]:)", target_prj_src_path):
+            path_mod = ntpath
+        else:
+            path_mod = os.path
+            target_prj_src_path = os.path.abspath(target_prj_src_path)
+        trace_events = []
+        scheduler_tid = ContextId.SCHEDULER
+        trace_events.append(
+            {
+                "ph": "M",
+                "name": "thread_name",
+                "pid": 0,
+                "tid": scheduler_tid,
+                "args": {"name": "Scheduler"},
+            }
+        )
+
+        def zone_event(event, tid):
+            frame = frames[event["frame"]]
+            # the Scheduler row already shows when a thread is not running
+            if frame["name"] == NOT_RUNNING_FRAME_NAME:
+                return None
+            trace_event = {
+                "ph": "B" if event["type"] == "O" else "E",
+                "name": frame["name"],
+                "pid": 0,
+                "tid": tid,
+                "ts": event["at"] * 1e6,
+            }
+            # undocumented key read by tracy-import-chrome as the zone source location
+            if trace_event["ph"] == "B" and frame["file"]:
+                # Tracy needs an absolute path to open the source
+                path = path_mod.normpath(
+                    path_mod.join(target_prj_src_path, frame["file"])
+                )
+                trace_event["loc"] = f"{path}:{frame['line']}"
+            return trace_event
+
+        profiles = speedscope_dict["profiles"]
+        trace_events.extend(
+            self.__chrome_trace_generate_scheduler_context_events(
+                profiles,
+                scheduler_tid,
+                # Tracy lists threads by first event time, so this keeps Scheduler on top
+                min(p["events"][0]["at"] for p in profiles if p["events"]),
+            )
+        )
+        for profile_idx, profile in enumerate(profiles):
+            # tid 0 would collide with Tracy's unset crash event and draw a bogus "crash" marker
+            tid = self._profile_context_ids[profile_idx] or TRACY_UNKNOWN_CONTEXT_TID
+            trace_events.append(
+                {
+                    "ph": "M",
+                    "name": "thread_name",
+                    "pid": 0,
+                    "tid": tid,
+                    "args": {"name": profile["name"]},
+                }
+            )
+            trace_events.extend(
+                trace_event
+                for event in profile["events"]
+                if (trace_event := zone_event(event, tid))
+            )
+        # stable sort keeps per-thread order for equal timestamps
+        trace_events.sort(key=lambda e: e.get("ts", float("-inf")))
+        return {"traceEvents": trace_events, "displayTimeUnit": "ns"}
+
     def fold_all_stacks(self):
         if not self.__reload_nm_symbols():
             return False
@@ -582,7 +735,40 @@ class UcProf:
             return False
 
         speedscope_dict = self.__parse_packets_into_speedscope_dict()
-        filename = f"{self.args.frame_data_path.split('/')[-1].split('.')[0]}.{self.args.out_ext}"
+        base = self.args.frame_data_path.split("/")[-1].split(".")[0]
+        if self.args.format == "tracy":
+            filename = f"{base}.trace.json"
+            tracy_filename = f"{base}.tracy"
+            self.__export_dict_to_json(
+                self.__speedscope_dict_to_chrome_trace_dict(
+                    speedscope_dict, self.args.target_prj_src_path
+                ),
+                filename,
+            )
+            importer = shutil.which(self.args.tracy_import_chrome_path)
+            if importer is None:
+                logger.error(
+                    f"'{self.args.tracy_import_chrome_path}' not found; exported {filename} only. "
+                    f"Convert with: tracy-import-chrome {filename} {tracy_filename}"
+                )
+                return False
+            if os.path.exists(tracy_filename):
+                os.remove(tracy_filename)
+            result = subprocess.run(
+                [importer, filename, tracy_filename],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                logger.error(
+                    f"{importer} failed ({result.returncode}); kept {filename}\n{result.stdout}{result.stderr}"
+                )
+                return False
+            if not self.args.tracy_keep_chrome_trace:
+                os.remove(filename)
+            logger.info(f"Exported {tracy_filename}")
+            return
+        filename = f"{base}.{self.args.out_ext}"
         self.__export_dict_to_json(speedscope_dict, filename)
         logger.info(f"Exported {filename}")
 
@@ -593,6 +779,31 @@ if __name__ == "__main__":
     )
     parser.add_argument("nm_symbols_path", help="Symbol file path")
     parser.add_argument("frame_data_path", help="Frame data file path")
+    parser.add_argument(
+        "--format",
+        default="speedscope",
+        choices=["speedscope", "tracy"],
+        help="Output format; 'tracy' writes a .tracy file via "
+        "tracy-import-chrome (expected to be installed and available in PATH, "
+        "see --tracy_import_chrome_path option)",
+    )
+    parser.add_argument(
+        "--tracy_keep_chrome_trace",
+        action="store_true",
+        help="Keep the intermediate Chrome trace JSON file when exporting to Tracy",
+    )
+    parser.add_argument(
+        "--tracy_import_chrome_path",
+        default="tracy-import-chrome",
+        help="Path or name of the tracy-import-chrome executable",
+    )
+    parser.add_argument(
+        "--target_prj_src_path",
+        default=".",
+        help="Directory that relative source paths in the symbols are relative "
+        "to (tracy format). Can be used to make source file paths in Tracy "
+        "Profiler clickable",
+    )
     parser.add_argument("--begin", type=float, help="Timestamp from in seconds")
     parser.add_argument("--end", type=float, help="Timestamp to in seconds")
     parser.add_argument(
