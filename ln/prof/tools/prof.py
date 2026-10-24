@@ -103,7 +103,8 @@ class UcProf:
         self._profiles_run_state_trans = {}
         # profile index -> context id
         self._profile_context_ids = []
-        logging.basicConfig(level=args.log_level, format="%(levelname)s| %(message)s")
+        self._symbols = []
+        self.lost_events_frame_index = None
 
     def __reload_nm_symbols(self):
         if not self.args.nm_symbols_path:
@@ -362,7 +363,7 @@ class UcProf:
                 profile["events"].pop(0)
 
             # remove all events that have zero start time
-            while profile and profile["events"][0]["at"] == 0.0:
+            while profile["events"] and profile["events"][0]["at"] == 0.0:
                 profile["events"].pop(0)
 
         logger.info(f"Profiles parsed: {len(profiles)}")
@@ -374,8 +375,12 @@ class UcProf:
         )
         self.lost_events_frame_index = len(shared_frames) - 1
 
-        earliest_start = min([profile["events"][0]["at"] for profile in profiles])
-        latest_end = max([profile["events"][-1]["at"] for profile in profiles])
+        non_empty_profiles = [profile for profile in profiles if profile["events"]]
+        if not non_empty_profiles:
+            logger.error("No profile events left to export")
+            return None
+        earliest_start = min(p["events"][0]["at"] for p in non_empty_profiles)
+        latest_end = max(p["events"][-1]["at"] for p in non_empty_profiles)
         logger.info(f"start: {earliest_start:.9f}")
         logger.info(f"end: {latest_end:.9f}")
 
@@ -559,7 +564,9 @@ class UcProf:
 
         # "C" all remaining frames
         for frame in reversed(call_stack):
-            fixed_events.append({"type": "C", "at": event["at"], "frame": frame})
+            fixed_events.append(
+                {"type": "C", "at": profile["events"][-1]["at"], "frame": frame}
+            )
 
         return fixed_events
 
@@ -735,6 +742,8 @@ class UcProf:
             return False
 
         speedscope_dict = self.__parse_packets_into_speedscope_dict()
+        if speedscope_dict is None:
+            return False
         base = self.args.frame_data_path.split("/")[-1].split(".")[0]
         if self.args.format == "tracy":
             filename = f"{base}.trace.json"
@@ -767,10 +776,11 @@ class UcProf:
             if not self.args.tracy_keep_chrome_trace:
                 os.remove(filename)
             logger.info(f"Exported {tracy_filename}")
-            return
+            return True
         filename = f"{base}.{self.args.out_ext}"
         self.__export_dict_to_json(speedscope_dict, filename)
         logger.info(f"Exported {filename}")
+        return True
 
 
 if __name__ == "__main__":
@@ -830,5 +840,6 @@ if __name__ == "__main__":
         help="Output file extension",
     )
     args = parser.parse_args()
+    logging.basicConfig(level=args.log_level, format="%(levelname)s| %(message)s")
     uc_prof = UcProf(args)
     uc_prof.fold_all_stacks()
