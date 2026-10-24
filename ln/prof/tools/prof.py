@@ -554,9 +554,6 @@ if __name__ == "__main__":
     parser.add_argument("--fw_size", type=int, default=0x80000)
     parser.add_argument("--no_color", action="store_true")
     parser.add_argument(
-        "--top", type=int, default=10, help="Process only the top most eventful threads"
-    )  # TODO: consider removing this option
-    parser.add_argument(
         "--out_ext",
         default="spsc",
         choices=["spsc", "json"],
