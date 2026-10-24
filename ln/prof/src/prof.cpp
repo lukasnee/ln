@@ -26,7 +26,7 @@ struct Packet {
         };
 
         enum class Type : uint32_t {
-            task = 0,
+            thread = 0,
             fn = 1,
         };
     };
@@ -36,14 +36,14 @@ struct Packet {
          * @brief Packet ID for sending profile events.
          *
          *  Packet structure:
-         *    - word0[7:0]: Packet ID (PROFILE_EVENT const value)
-         *    - word0[31:8]: Cycle count delta since last event
-         *    - word1[6:0]: Context ID
-         *    - word1[7]: ProfileEvent::State
-         *    - word1[8]: ProfileEvent::Type
-         *    - word1[31:9]: Bits [23:1] of the function pointer for function
-         *      events, unused for task events (bit 0 is the Thumb bit and the
-         *      most significant byte of a 32-bit address is typically never
+         *    - pkt_word0[7:0]: Packet ID (PROFILE_EVENT const value)
+         *    - pkt_word0[31:8]: Cycle count delta since last event
+         *    - pkt_word1[6:0]: Context ID
+         *    - pkt_word1[7]: ProfileEvent::State
+         *    - pkt_word1[8]: ProfileEvent::Type
+         *    - pkt_word1[31:9]: Bits [23:1] of the function pointer for
+         * function events, unused for task events (bit 0 is the Thumb bit and
+         * the most significant byte of a 32-bit address is typically never
          *      changing, so they are omitted and parametrized on client side).
          */
         PROFILE_EVENT = 0xA5,
@@ -52,9 +52,9 @@ struct Packet {
          * @brief Packet ID for disclosing context names.
          *
          *  Packet structure:
-         *    - word0[7:0]: Packet ID (DISCLOSE_CONTEXT_NAME const value)
-         *    - word0[31:8]: Context ID
-         *    - word1[7:0]: First two characters of the context name
+         *    - pkt_word0[7:0]: Packet ID (DISCLOSE_CONTEXT_NAME const value)
+         *    - pkt_word0[31:8]: Context ID
+         *    - pkt_word1[7:0]: First two characters of the context name
          *    - word2[31:0]: Subsequent characters of the context name (if any)
          */
         DISCLOSE_CONTEXT_NAME = 0xA6,
@@ -189,19 +189,20 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_event(
     // Task switch hooks may run in PendSV but belong to the task being
     // switched.
     const uint32_t context_id =
-        inside_interrupt && type != Packet::ProfileEvent::Type::task
+        inside_interrupt && type != Packet::ProfileEvent::Type::thread
             ? ContextId::INTERRUPT
             : ln_prof_get_current_task_context_id();
     const uint32_t cycle_count = DWT->CYCCNT;
-    const uint32_t word0 = static_cast<uint32_t>(Packet::Id::PROFILE_EVENT) |
-                           ((cycle_count - last_cycle_count) << 8);
+    const uint32_t pkt_word0 =
+        static_cast<uint32_t>(Packet::Id::PROFILE_EVENT) |
+        ((cycle_count - last_cycle_count) << 8);
     last_cycle_count = cycle_count;
-    LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word0);
-    const uint32_t word1 =
+    LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, pkt_word0);
+    const uint32_t pkt_word1 =
         context_id | (static_cast<uint32_t>(state) << 7) |
         (static_cast<uint32_t>(type) << 8) |
         (((reinterpret_cast<uint32_t>(fn) >> 1) & 0x7FFFFF) << 9);
-    LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word1);
+    LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, pkt_word1);
     __set_PRIMASK(old_primask);
 }
 
@@ -225,14 +226,14 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_exit_event(
 
 extern "C" LN_PROF_ATTR void ln_prof_task_switched_out() {
     if (started) {
-        ln_prof_send_profile_event(Packet::ProfileEvent::Type::task,
+        ln_prof_send_profile_event(Packet::ProfileEvent::Type::thread,
                                    Packet::ProfileEvent::State::enter);
     }
 }
 
 extern "C" LN_PROF_ATTR void ln_prof_task_switched_in() {
     if (started) {
-        ln_prof_send_profile_event(Packet::ProfileEvent::Type::task,
+        ln_prof_send_profile_event(Packet::ProfileEvent::Type::thread,
                                    Packet::ProfileEvent::State::exit);
     }
 }

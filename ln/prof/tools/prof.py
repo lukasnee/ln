@@ -37,7 +37,7 @@ class ContextId(IntEnum):
 
 
 INTERRUPT_CONTEXT_NAME = "Interrupts"
-SWITCHED_OUT_FRAME_NAME = "[switched out]"
+NOT_RUNNING_FRAME_NAME = "[not running]"
 LOST_EVENTS_FRAME_NAME = "[events lost]"
 
 
@@ -47,7 +47,7 @@ class State(IntEnum):
 
 
 class Type(IntEnum):
-    TASK = 0
+    THREAD = 0
     FN = 1
 
 
@@ -294,8 +294,8 @@ class UcProf:
                 )
                 break
 
-            if packet.type == Type.TASK:
-                symbol = Symbol(0, "U", SWITCHED_OUT_FRAME_NAME, "", 0)
+            if packet.type == Type.THREAD:
+                symbol = Symbol(0, "U", NOT_RUNNING_FRAME_NAME, "", 0)
             else:
                 symbol = next(
                     (s for s in reversed(self._symbols) if packet.fn >= s.address),
