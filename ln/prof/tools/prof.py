@@ -31,6 +31,7 @@ class PacketId(IntEnum):
 
 NAME_MAX_LEN = 64  # sanity cap for corrupted streams
 SWITCHED_OUT_FRAME_NAME = "[switched out]"
+LOST_EVENTS_FRAME_NAME = "[events lost]"
 
 
 class State(IntEnum):
@@ -345,8 +346,10 @@ class UcProf:
         for profile in profiles:
             logger.info(f"  {profile['name']}: {len(profile['events'])} events")
 
-        shared_frames.append({"name": "OVERFLOW!", "file": "", "line": 0, "col": 1})
-        self.overflow_frame_index = len(shared_frames) - 1
+        shared_frames.append(
+            {"name": LOST_EVENTS_FRAME_NAME, "file": "", "line": 0, "col": 1}
+        )
+        self.lost_events_frame_index = len(shared_frames) - 1
 
         earliest_start = min([profile["events"][0]["at"] for profile in profiles])
         latest_end = max([profile["events"][-1]["at"] for profile in profiles])
@@ -395,7 +398,7 @@ class UcProf:
 
         call_stack = []
         fixed_events = []
-        overflow = False
+        events_lost = False
         for idx, event in enumerate(profile["events"]):
 
             if event["type"] == "C":
@@ -443,7 +446,7 @@ class UcProf:
                         {
                             "type": "O",
                             "at": profile["events"][idx - 1]["at"],
-                            "frame": self.overflow_frame_index,
+                            "frame": self.lost_events_frame_index,
                         }
                     )
                     self.__log_opening_event(
@@ -451,11 +454,11 @@ class UcProf:
                         profile["name"],
                         idx,
                         event["at"],
-                        frames[self.overflow_frame_index],
+                        frames[self.lost_events_frame_index],
                         call_stack,
                         frames,
                     )
-                    overflow = True
+                    events_lost = True
                     continue
                 fixed_events.append(event)
                 call_stack.pop()
@@ -469,12 +472,12 @@ class UcProf:
                     frames,
                 )
             else:
-                if overflow:
+                if events_lost:
                     fixed_events.append(
                         {
                             "type": "C",
                             "at": event["at"],
-                            "frame": self.overflow_frame_index,
+                            "frame": self.lost_events_frame_index,
                         }
                     )
                     self.__log_closing_event(
@@ -482,11 +485,11 @@ class UcProf:
                         profile["name"],
                         idx,
                         event["at"],
-                        frames[self.overflow_frame_index],
+                        frames[self.lost_events_frame_index],
                         call_stack,
                         frames,
                     )
-                    overflow = False
+                    events_lost = False
                 self.__log_opening_event(
                     logging.INFO - 1,
                     profile["name"],
