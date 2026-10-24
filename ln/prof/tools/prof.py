@@ -362,6 +362,8 @@ class UcProf:
 
         earliest_start = min([profile["events"][0]["at"] for profile in profiles])
         latest_end = max([profile["events"][-1]["at"] for profile in profiles])
+        logger.info(f"start: {earliest_start:.9f}")
+        logger.info(f"end: {latest_end:.9f}")
 
         for profile in profiles:
             profile["events"] = self.__slice_last_chronological_event_sequence(profile["events"])
