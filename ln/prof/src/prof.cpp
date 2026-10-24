@@ -62,8 +62,16 @@ struct Packet {
 };
 
 volatile bool started = false;
+volatile bool profile_interrupts = true;
 static uint32_t last_cycle_count = 0;
-static uint32_t next_context_id = 1;
+// Context ids double as Tracy thread ids; 0 is also "task number unassigned".
+enum ContextId : uint32_t {
+    SCHEDULER = 1,
+    INTERRUPT = 2,
+    FIRST_TASK = 3,
+    /* subsequent tasks */
+};
+static uint32_t next_context_id = ContextId::FIRST_TASK;
 static std::bitset<128> disclosed_name_contexts;
 static uint32_t last_announce_reset = 0;
 
@@ -87,15 +95,17 @@ static LN_PROF_ATTR void ln_prof_send_context_name(uint32_t context_id,
     }
 }
 
-static LN_PROF_ATTR FORCE_INLINE uint32_t ln_prof_get_current_context_id() {
+static LN_PROF_ATTR FORCE_INLINE uint32_t
+ln_prof_get_current_task_context_id() {
     TaskHandle_t task = xTaskGetCurrentTaskHandle();
-    if (task == nullptr) {
+    if (!task) {
         return 0;
     }
     UBaseType_t id = uxTaskGetTaskNumber(task);
     if (id == 0) {
         id = next_context_id;
-        next_context_id = (next_context_id % 0x7F) + 1;
+        next_context_id = next_context_id < 0x7E ? next_context_id + 1
+                                                 : ContextId::FIRST_TASK;
         vTaskSetTaskNumber(task, id);
     }
     id &= 0x7F;
@@ -112,7 +122,9 @@ static LN_PROF_ATTR FORCE_INLINE uint32_t ln_prof_get_current_context_id() {
     return id;
 }
 
-bool LN_PROF_ATTR ln_prof_start() {
+bool LN_PROF_ATTR ln_prof_start(ln_prof_config_t config) {
+
+    profile_interrupts = config.profile_interrupts == 1;
 
     // Enable trace (required for ITM and DWT)
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
@@ -168,9 +180,18 @@ void LN_PROF_ATTR ln_prof_stop() {
 static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_event(
     Packet::ProfileEvent::Type type, Packet::ProfileEvent::State state,
     void *fn = nullptr) {
+    const auto inside_interrupt = xPortIsInsideInterrupt();
+    if (!profile_interrupts && inside_interrupt) {
+        return;
+    }
     uint32_t old_primask = __get_PRIMASK();
     __disable_irq();
-    const uint32_t context_id = ln_prof_get_current_context_id();
+    // Task switch hooks may run in PendSV but belong to the task being
+    // switched.
+    const uint32_t context_id =
+        inside_interrupt && type != Packet::ProfileEvent::Type::task
+            ? ContextId::INTERRUPT
+            : ln_prof_get_current_task_context_id();
     const uint32_t cycle_count = DWT->CYCCNT;
     const uint32_t word0 = static_cast<uint32_t>(Packet::Id::PROFILE_EVENT) |
                            ((cycle_count - last_cycle_count) << 8);
@@ -189,9 +210,6 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_enter_event(
     if (!started) {
         return;
     }
-    if (xPortIsInsideInterrupt()) {
-        return;
-    }
     ln_prof_send_profile_event(Packet::ProfileEvent::Type::fn,
                                Packet::ProfileEvent::State::enter, this_fn);
 }
@@ -199,9 +217,6 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_enter_event(
 static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_exit_event(
     void *this_fn) {
     if (!started) {
-        return;
-    }
-    if (xPortIsInsideInterrupt()) {
         return;
     }
     ln_prof_send_profile_event(Packet::ProfileEvent::Type::fn,

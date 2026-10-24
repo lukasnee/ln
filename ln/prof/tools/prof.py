@@ -20,16 +20,23 @@ Symbol = namedtuple("Symbol", ["address", "typ", "fn_name", "file", "line"])
 NM_SYMBOLS_REGEX_PATTERN = r"(?P<address>[0-9a-f]+)\s(?P<typ>\w)\s(?P<fn_name>[^\t\n]*)(\t(?P<file>.*):(?P<line>\d+))?"
 
 
-def context_is_interrupt(context_id):
-    return context_id == 0
-
-
 class PacketId(IntEnum):
     SEND_PROFILE_EVENT = 0xA5
     DISCLOSE_CONTEXT_NAME = 0xA6
 
 
 NAME_MAX_LEN = 64  # sanity cap for corrupted streams
+
+
+# matches ln/prof/src/prof.cpp
+class ContextId(IntEnum):
+    SCHEDULER = 1
+    INTERRUPT = 2
+    FIRST_TASK = 3
+    # subsequent tasks
+
+
+INTERRUPT_CONTEXT_NAME = "Interrupts"
 SWITCHED_OUT_FRAME_NAME = "[switched out]"
 LOST_EVENTS_FRAME_NAME = "[events lost]"
 
@@ -253,6 +260,8 @@ class UcProf:
         return (cycle_cnt - self._begin_cycle_cnt_offset) / self.args.clk_freq
 
     def __context_name(self, context_id):
+        if context_id == ContextId.INTERRUPT:
+            return INTERRUPT_CONTEXT_NAME
         raw = self._context_names.get(context_id)
         name = bytes(raw).split(b"\0")[0].decode("ascii", "replace") if raw else ""
         return name or f"id={context_id}"
@@ -265,7 +274,7 @@ class UcProf:
         shared_frames = []
         for idx, packet in enumerate(self._profile_packets):
 
-            # if context_is_interrupt(packet.context_id):
+            # if packet.context_id == ContextId.INTERRUPT:
             #     logger.log(
             #         logging.DEBUG-2, f'__parse_packets_into_speedscope_dict: {idx} packet skipped - interrupt')
             #     continue

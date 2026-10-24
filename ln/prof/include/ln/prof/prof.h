@@ -3,9 +3,16 @@
 
 #pragma once
 
+#include <stdint.h>
+
+typedef struct {
+    uint8_t profile_interrupts : 1;
+    uint8_t reserved : 7;
+} ln_prof_config_t;
+
 #ifndef LN_PROF
 
-#define LN_PROF_START()
+#define LN_PROF_START(config)
 #define LN_PROF_STOP()
 #define LN_PROF_ENTER(id)
 #define LN_PROF_EXIT(id)
@@ -22,8 +29,8 @@ extern "C"
 
 #define LN_PROF_ATTR __attribute__((optimize("O3"), hot))
 
-    extern "C" LN_PROF_ATTR bool ln_prof_start();
-#define LN_PROF_START() ln_prof_start()
+    extern "C" LN_PROF_ATTR bool ln_prof_start(ln_prof_config_t config);
+#define LN_PROF_START(config) ln_prof_start(config)
     extern "C" LN_PROF_ATTR void ln_prof_stop();
 #define LN_PROF_STOP() ln_prof_stop()
 
