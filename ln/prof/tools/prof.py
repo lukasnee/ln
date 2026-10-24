@@ -364,7 +364,10 @@ class UcProf:
         latest_end = max([profile["events"][-1]["at"] for profile in profiles])
 
         for profile in profiles:
-            profile["events"] = self.__fix_events(profile, shared_frames)
+            profile["events"] = self.__slice_last_chronological_event_sequence(profile["events"])
+            profile["events"] = self.__repair_lost_profile_events(
+                profile, shared_frames
+            )
             # pick the same time range for all threads
             profile["startValue"] = earliest_start
             profile["endValue"] = latest_end
@@ -394,22 +397,21 @@ class UcProf:
             f"{context}|{idx:8d}|{timestamp:.9f}|{indent}~{frame['name']}{': ' if suffix else ''}{suffix}",
         )
 
-    def __fix_events(self, profile, frames):
-
-        # ensure events are in cronological order by finding last chronological sequence and trimming the rest
+    @staticmethod
+    def __slice_last_chronological_event_sequence(events):
         last_break_idx = 0
-        for idx, event in enumerate(profile["events"]):
+        for idx, event in enumerate(events):
             if idx == 0:
                 continue
-            if event["at"] < profile["events"][idx - 1]["at"]:
+            if event["at"] < events[idx - 1]["at"]:
                 last_break_idx = idx
-        profile["events"] = profile["events"][last_break_idx:]
+        return events[last_break_idx:]
 
+    def __repair_lost_profile_events(self, profile, frames):
         call_stack = []
         fixed_events = []
         events_lost = False
         for idx, event in enumerate(profile["events"]):
-
             if event["type"] == "C":
                 # TODO think of better ways to handle broken frames
                 # TODO make the breaks more visible in the speedscope GUI
@@ -517,9 +519,9 @@ class UcProf:
 
         return fixed_events
 
-    def __export_to_json(self, speedscope_dict, filename):
+    def __export_dict_to_json(self, dictionary, filename):
         with open(filename, "w") as f:
-            json.dump(speedscope_dict, f, indent=2)
+            json.dump(dictionary, f, indent=2)
 
     def fold_all_stacks(self):
         if not self.__reload_nm_symbols():
@@ -529,7 +531,7 @@ class UcProf:
 
         speedscope_dict = self.__parse_packets_into_speedscope_dict()
         filename = f"{self.args.frame_data_path.split('/')[-1].split('.')[0]}.{self.args.out_ext}"
-        self.__export_to_json(speedscope_dict, filename)
+        self.__export_dict_to_json(speedscope_dict, filename)
         logger.info(f"Exported {filename}")
 
 
