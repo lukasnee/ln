@@ -90,6 +90,8 @@ class UcProf:
         self._begin_cycle_cnt_offset = None
         self._last_cycle_cnt = 0
         self._context_names = {}
+        # profile index -> context id
+        self._profile_context_ids = []
         logging.basicConfig(level=args.log_level, format="%(levelname)s| %(message)s")
 
     def __reload_nm_symbols(self):
@@ -329,6 +331,7 @@ class UcProf:
                     "events": [],
                 }
                 profiles_by_context_id[packet.context_id] = profile
+                self._profile_context_ids.append(packet.context_id)
                 profiles.append(profile)
             profile["events"].append(
                 {
@@ -365,11 +368,15 @@ class UcProf:
         logger.info(f"start: {earliest_start:.9f}")
         logger.info(f"end: {latest_end:.9f}")
 
-        for profile in profiles:
+        for profile_idx, profile in enumerate(profiles):
             profile["events"] = self.__slice_last_chronological_event_sequence(profile["events"])
             profile["events"] = self.__repair_lost_profile_events(
                 profile, shared_frames
             )
+            if self.args.cross_section_not_running_segments:
+                self.__cross_section_not_running_segments(
+                    profile, profile_idx, shared_frames
+                )
             # pick the same time range for all threads
             profile["startValue"] = earliest_start
             profile["endValue"] = latest_end
@@ -521,6 +528,49 @@ class UcProf:
 
         return fixed_events
 
+    def __cross_section_not_running_segments(self, profile, profile_idx, frames):
+        logger.info(f"Cross-sectioning not running segments for profile {profile['name']}...")
+        call_stack = []
+        suspended_stack = None
+        fixed_events = []
+        for event in profile["events"]:
+            is_not_running_marker = (
+                frames[event["frame"]]["name"] == NOT_RUNNING_FRAME_NAME
+                and self._profile_context_ids[profile_idx] != ContextId.INTERRUPT
+            )
+            if is_not_running_marker:
+                if event["type"] == "O":
+                    if suspended_stack is None:
+                        suspended_stack = call_stack
+                        call_stack = []
+                        for frame in reversed(suspended_stack):
+                            fixed_events.append(
+                                {"type": "C", "at": event["at"], "frame": frame}
+                            )
+                elif suspended_stack is not None:
+                    for frame in suspended_stack:
+                        fixed_events.append(
+                            {"type": "O", "at": event["at"], "frame": frame}
+                        )
+                    call_stack = suspended_stack
+                    suspended_stack = None
+                continue
+
+            if suspended_stack is not None:
+                for frame in suspended_stack:
+                    fixed_events.append(
+                        {"type": "O", "at": event["at"], "frame": frame}
+                    )
+                call_stack = suspended_stack
+                suspended_stack = None
+
+            fixed_events.append(event)
+            if event["type"] == "O":
+                call_stack.append(event["frame"])
+            elif call_stack and call_stack[-1] == event["frame"]:
+                call_stack.pop()
+        profile["events"] = fixed_events
+
     def __export_dict_to_json(self, dictionary, filename):
         with open(filename, "w") as f:
             json.dump(dictionary, f, indent=2)
@@ -554,6 +604,13 @@ if __name__ == "__main__":
     parser.add_argument("--log-level", type=int, default=logging.INFO)
     parser.add_argument("--fw_base", type=int, default=0x08000000)
     parser.add_argument("--fw_size", type=int, default=0x80000)
+    parser.add_argument(
+        "--cross_section_not_running_segments",
+        action="store_true",
+        help="Close a thread's call stack while it is not running and reopen it "
+        "on switch in, instead of stacking a '[not running]' frame on top "
+        "(the frame is only added for the speedscope format)",
+    )
     parser.add_argument("--no_color", action="store_true")
     parser.add_argument(
         "--out_ext",
