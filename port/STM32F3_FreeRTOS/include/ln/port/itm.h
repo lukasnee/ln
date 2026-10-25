@@ -8,10 +8,13 @@
 #define LN_ITM_IS_PORT_READY(port)                                             \
     (LN_ITM_IS_ENABLED() && LN_ITM_IS_PORT_ENABLED((port)))
 
+#define LN_ITM_BLOCK_WAIT_FOR_FIFO(port)                                       \
+    while (!LN_ITM_IS_FIFO_READY((port))) {                                    \
+        __NOP();                                                               \
+    }
+#define LN_ITM_SEND_WORD_UNSAFE(port, value) ITM->PORT[(port)].u32 = (value)
 #define LN_ITM_IS_FIFO_READY(port) (ITM->PORT[(port)].u32 != 0UL)
 
 #define LN_ITM_SEND_WORD(port, value)                                          \
-    while (!LN_ITM_IS_FIFO_READY((port))) {                                    \
-        __NOP();                                                               \
-    }                                                                          \
-    ITM->PORT[(port)].u32 = (value)
+    LN_ITM_BLOCK_WAIT_FOR_FIFO((port));                                        \
+    LN_ITM_SEND_WORD_UNSAFE((port), (value))

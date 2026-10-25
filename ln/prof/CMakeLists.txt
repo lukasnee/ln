@@ -8,6 +8,8 @@ set(LN_PROF_ITM_PORT
     0
     CACHE STRING "ITM port number for ln::prof")
 
+option(LN_PROF_STATS "Collect ln::prof overhead statistics (adds overhead)" OFF)
+
 function(ln_prof)
 
   if(NOT LN_PROF)
@@ -56,6 +58,10 @@ else()
     ln_prof
     PUBLIC LN_PROF
     PRIVATE LN_PROF_ITM_PORT=${LN_PROF_ITM_PORT})
+  if(LN_PROF_STATS)
+    target_compile_definitions(ln_prof PRIVATE LN_PROF_STATS)
+    target_link_libraries(ln_prof PRIVATE ln::shell)
+  endif()
   target_include_directories(ln_prof PUBLIC include)
   target_sources(ln_prof PRIVATE src/prof.cpp)
   set_source_files_properties(src/prof.cpp PROPERTIES COMPILE_OPTIONS

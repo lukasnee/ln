@@ -17,6 +17,10 @@
 #include <bitset>
 #include <cstdint>
 
+#ifdef LN_PROF_STATS
+#include "ln/shell/CLI.hpp"
+#endif
+
 struct Packet {
 
     struct ProfileEvent {
@@ -75,14 +79,57 @@ static uint32_t next_context_id = ContextId::FIRST_TASK;
 static std::bitset<128> disclosed_name_contexts;
 static uint32_t last_announce_reset = 0;
 
+#ifdef LN_PROF_STATS
+static struct {
+    uint32_t events;                // profile events emitted
+    uint32_t event_cycles;          // total time emitting events, incl. stalls
+    uint32_t event_cycles_min;      // shortest single event
+    uint32_t event_cycles_max;      // longest single event
+    uint32_t fifo_stalls;           // ITM FIFO waits
+    uint32_t fifo_stall_cycles;     // total time waiting on the FIFO
+    uint32_t fifo_stall_cycles_min; // shortest single wait
+    uint32_t fifo_stall_cycles_max; // longest single wait
+} stats;
+static uint32_t stats_begin_cycles = 0;
+
+static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_word(uint32_t value) {
+    if (!LN_ITM_IS_FIFO_READY(LN_PROF_ITM_PORT)) {
+        const uint32_t stall_begin = DWT->CYCCNT;
+        LN_ITM_BLOCK_WAIT_FOR_FIFO(LN_PROF_ITM_PORT);
+        stats.fifo_stalls++;
+        const uint32_t stall_cycles = DWT->CYCCNT - stall_begin;
+        stats.fifo_stall_cycles += stall_cycles;
+        if (stall_cycles < stats.fifo_stall_cycles_min) {
+            stats.fifo_stall_cycles_min = stall_cycles;
+        }
+        if (stall_cycles > stats.fifo_stall_cycles_max) {
+            stats.fifo_stall_cycles_max = stall_cycles;
+        }
+    }
+    LN_ITM_SEND_WORD_UNSAFE(LN_PROF_ITM_PORT, value);
+}
+#define _LN_ITM_SEND_WORD(value) ln_prof_send_word(value)
+
+static void ln_prof_stats_reset() {
+    const uint32_t old_primask = __get_PRIMASK();
+    __disable_irq();
+    stats = {};
+    stats.event_cycles_min = UINT32_MAX;
+    stats.fifo_stall_cycles_min = UINT32_MAX;
+    stats_begin_cycles = DWT->CYCCNT;
+    __set_PRIMASK(old_primask);
+}
+#else
+#define _LN_ITM_SEND_WORD(value) LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, value)
+#endif
+
 static LN_PROF_ATTR void ln_prof_send_context_name(uint32_t context_id,
                                                    const char *name) {
-    LN_ITM_SEND_WORD(
-        LN_PROF_ITM_PORT,
+    _LN_ITM_SEND_WORD(
         static_cast<uint32_t>(Packet::Id::DISCLOSE_CONTEXT_NAME) |
-            (context_id << 8) |
-            (static_cast<uint32_t>(static_cast<uint8_t>(name[0])) << 16) |
-            (static_cast<uint32_t>(static_cast<uint8_t>(name[1])) << 24));
+        (context_id << 8) |
+        (static_cast<uint32_t>(static_cast<uint8_t>(name[0])) << 16) |
+        (static_cast<uint32_t>(static_cast<uint8_t>(name[1])) << 24));
     bool terminated = name[0] == '\0' || name[1] == '\0';
     for (uint32_t offset = 2; !terminated; offset += 4) {
         uint32_t word = 0;
@@ -91,7 +138,7 @@ static LN_PROF_ATTR void ln_prof_send_context_name(uint32_t context_id,
             word |= static_cast<uint32_t>(static_cast<uint8_t>(c)) << (8 * i);
             terminated = (c == '\0');
         }
-        LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, word);
+        _LN_ITM_SEND_WORD(word);
     }
 }
 
@@ -134,6 +181,9 @@ bool LN_PROF_ATTR ln_prof_start(ln_prof_config_t config) {
     last_announce_reset = 0;
     disclosed_name_contexts.reset();
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+#ifdef LN_PROF_STATS
+    ln_prof_stats_reset();
+#endif
     // Unlock ITM
     ITM->LAR = 0xC5ACCE55;
     // Enable ITM
@@ -180,6 +230,9 @@ void LN_PROF_ATTR ln_prof_stop() {
 static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_event(
     Packet::ProfileEvent::Type type, Packet::ProfileEvent::State state,
     void *fn = nullptr) {
+#ifdef LN_PROF_STATS
+    const uint32_t stats_entry_cycles = DWT->CYCCNT;
+#endif
     const auto inside_interrupt = xPortIsInsideInterrupt();
     if (!profile_interrupts && inside_interrupt) {
         return;
@@ -197,12 +250,23 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_event(
         static_cast<uint32_t>(Packet::Id::PROFILE_EVENT) |
         ((cycle_count - last_cycle_count) << 8);
     last_cycle_count = cycle_count;
-    LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, pkt_word0);
+    _LN_ITM_SEND_WORD(pkt_word0);
     const uint32_t pkt_word1 =
         context_id | (static_cast<uint32_t>(state) << 7) |
         (static_cast<uint32_t>(type) << 8) |
         (((reinterpret_cast<uint32_t>(fn) >> 1) & 0x7FFFFF) << 9);
-    LN_ITM_SEND_WORD(LN_PROF_ITM_PORT, pkt_word1);
+    _LN_ITM_SEND_WORD(pkt_word1);
+#ifdef LN_PROF_STATS
+    const uint32_t event_cycles = DWT->CYCCNT - stats_entry_cycles;
+    stats.events++;
+    stats.event_cycles += event_cycles;
+    if (event_cycles < stats.event_cycles_min) {
+        stats.event_cycles_min = event_cycles;
+    }
+    if (event_cycles > stats.event_cycles_max) {
+        stats.event_cycles_max = event_cycles;
+    }
+#endif
     __set_PRIMASK(old_primask);
 }
 
@@ -247,3 +311,72 @@ extern "C" LN_PROF_ATTR void __cyg_profile_func_exit(
     void *this_fn, [[maybe_unused]] void *call_site) {
     ln_prof_send_profile_exit_event(this_fn);
 }
+
+#ifdef LN_PROF_STATS
+namespace ln::shell {
+
+static float cycles_to_us(uint32_t cycles) {
+    return static_cast<float>(cycles) * 1e6f /
+           static_cast<float>(SystemCoreClock);
+}
+
+static float percent(uint32_t part, uint32_t whole) {
+    return whole ? 100.0f * static_cast<float>(part) / static_cast<float>(whole)
+                 : 0.0f;
+}
+
+Cmd cmd_prof{
+    Cmd::Cfg{.name = "prof", .short_description = "profiler commands"}};
+
+Cmd cmd_prof_stats{Cmd::Cfg{
+    .parent_cmd = &cmd_prof,
+    .name = "stats",
+    .short_description = "show profiler overhead statistics",
+    .long_description = R"(Usage:
+  prof stats          show statistics since profile start or last reset
+  prof stats reset    restart the measurement window
+
+The measurement itself adds some time per event.
+)",
+    .fn = [](Cmd::Ctx ctx) {
+        using namespace std::literals::string_view_literals;
+        if (ctx.args.size() == 1 && ctx.args[0] == "reset"sv) {
+            ln_prof_stats_reset();
+            return Err::ok;
+        }
+        if (!ctx.args.empty()) {
+            return Err::badArg;
+        }
+        const uint32_t old_primask = __get_PRIMASK();
+        __disable_irq();
+        const auto s = stats;
+        const uint32_t elapsed = DWT->CYCCNT - stats_begin_cycles;
+        __set_PRIMASK(old_primask);
+        ctx.cli.print("events:            {}\n", s.events);
+        ctx.cli.print("time/event min:    {:.2f} us\n",
+                      cycles_to_us(s.events ? s.event_cycles_min : 0));
+        ctx.cli.print("time/event avg:    {:.2f} us\n",
+                      cycles_to_us(s.events ? s.event_cycles / s.events : 0));
+        ctx.cli.print("time/event max:    {:.2f} us\n",
+                      cycles_to_us(s.event_cycles_max));
+        ctx.cli.print("fifo stalls:       {}\n", s.fifo_stalls);
+        ctx.cli.print(
+            "fifo stall min:    {:.2f} us\n",
+            cycles_to_us(s.fifo_stalls ? s.fifo_stall_cycles_min : 0));
+        ctx.cli.print("fifo stall avg:    {:.2f} us\n",
+                      cycles_to_us(s.fifo_stalls
+                                       ? s.fifo_stall_cycles / s.fifo_stalls
+                                       : 0));
+        ctx.cli.print("fifo stall max:    {:.2f} us\n",
+                      cycles_to_us(s.fifo_stall_cycles_max));
+        ctx.cli.print("fifo stall total:  {:.2f} us ({:.1f}% of event time)\n",
+                      cycles_to_us(s.fifo_stall_cycles),
+                      percent(s.fifo_stall_cycles, s.event_cycles));
+        ctx.cli.print("cpu in profiler:   {:.1f}% of {:.1f} ms\n",
+                      percent(s.event_cycles, elapsed),
+                      cycles_to_us(elapsed) / 1000.0f);
+        return Err::ok;
+    }}};
+
+} // namespace ln::shell
+#endif
