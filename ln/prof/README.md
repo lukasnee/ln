@@ -50,5 +50,11 @@ for parsing and folding the stack traces, and
 
 # TODO
 
+- Draw ideas from Tracy underlying mechanism to improve throughput.
+- Look for a better integration with Tracy utilizing it's possible features in
+  useful ways.
 - Research [Orbuculum](https://orbcode.org/orbuculum/swo-code-instrumentation)
   and the website in general - looks interesting.
+- Consider creating a custom GUI (ImGUI for example). Speedscope and Tracy are
+  useful tools, but a custom GUI could provide a more tailored and efficient
+  visualization for specific use cases.

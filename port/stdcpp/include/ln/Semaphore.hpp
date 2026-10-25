@@ -22,6 +22,10 @@ protected:
         return true;
     }
 
+    std::tuple<bool, bool> ll_give_from_isr() final {
+        return {false, false}; // Not supported in port/stdcpp
+    }
+
     bool ll_take(const std::chrono::milliseconds &timeout) final {
         std::unique_lock lock(this->mutex);
         const auto is_given = [this] { return this->given; };
@@ -33,6 +37,10 @@ protected:
         }
         this->given = false;
         return true;
+    }
+
+    std::tuple<bool, bool> ll_take_from_isr() final {
+        return {false, false}; // Not supported in port/stdcpp
     }
 
     std::mutex mutex;

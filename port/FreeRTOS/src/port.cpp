@@ -69,6 +69,10 @@ void sleep_until(ln::Clock::time_point time_point) {
 
 bool interrupt_context() { return xPortIsInsideInterrupt(); }
 
+void yield_from_isr(bool higher_priority_task_woken) {
+    FreeRTOS::Kernel::yieldFromISR(higher_priority_task_woken);
+}
+
 std::string_view get_thread_name() {
     return pcTaskGetName(xTaskGetCurrentTaskHandle());
 }

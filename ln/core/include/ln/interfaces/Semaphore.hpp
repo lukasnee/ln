@@ -6,6 +6,7 @@
 #include "ln/Clock.hpp"
 
 #include <chrono>
+#include <tuple>
 
 namespace ln {
 
@@ -22,6 +23,15 @@ public:
      */
     bool give() { return this->ll_give(); }
 
+    /**
+     * @brief Give the semaphore from interrupt context.
+     *
+     * @result Tuple of (result, higher_priority_thread_woken).
+     * ln::yield_from_isr(higher_priority_thread_woken) may be called at the
+     * very end of the ISR handling if result is true.
+     */
+    std::tuple<bool, bool> give_from_isr() { return this->ll_give_from_isr(); }
+
     bool take() { return this->ll_take(Clock::duration::max()); }
 
     /**
@@ -35,9 +45,20 @@ public:
             std::chrono::duration_cast<std::chrono::milliseconds>(timeout));
     }
 
+    /**
+     * @brief Take the semaphore from interrupt context.
+     *
+     * @result Tuple of (result, higher_priority_thread_woken).
+     * ln::yield_from_isr(higher_priority_thread_woken) may be called at the
+     * very end of the ISR handling if result is true.
+     */
+    std::tuple<bool, bool> take_from_isr() { return this->ll_take_from_isr(); }
+
 protected:
     virtual bool ll_give() = 0;
+    virtual std::tuple<bool, bool> ll_give_from_isr() = 0;
     virtual bool ll_take(const std::chrono::milliseconds &timeout) = 0;
+    virtual std::tuple<bool, bool> ll_take_from_isr() = 0;
 };
 
 } // namespace interfaces

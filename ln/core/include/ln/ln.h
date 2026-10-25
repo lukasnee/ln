@@ -81,6 +81,16 @@ void sleep_until(std::chrono::time_point<std::chrono::steady_clock> time_point);
 bool interrupt_context();
 
 /**
+ * @brief Yield from interrupt context.
+ *
+ * @param higher_priority_task_woken Condition indicating if a higher priority
+ * task was woken.
+ *
+ * @note Port-specific implementation.
+ */
+void yield_from_isr(bool higher_priority_task_woken);
+
+/**
  * @brief Disable interrupts.
  *
  * @note Port-specific implementation.

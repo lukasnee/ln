@@ -58,8 +58,18 @@ public:
     }
 
     /**
-     * @brief Low-level callback signaling read completion (either ISR or thread
-     * context).
+     * @brief Low-level callback signaling read completion from ISR context.
+     *
+     * @result Tuple of (result, higher_priority_thread_woken).
+     * ln::yield_from_isr(higher_priority_thread_woken) may be called at the
+     * very end of the ISR handling if result is true.
+     */
+    std::tuple<bool, bool> ll_async_read_completed_cb_from_isr() {
+        return this->semaphore.give_from_isr();
+    }
+
+    /**
+     * @brief Low-level callback signaling read completion from thread context.
      */
     void ll_async_read_completed_cb() { this->semaphore.give(); }
 
@@ -119,8 +129,19 @@ public:
     }
 
     /**
-     * @brief Low-level callback signaling write completion (either ISR or
-     * thread context).
+     * @brief Low-level callback signaling write completion from ISR context.
+     *
+     * @result Tuple of (result, higher_priority_thread_woken).
+     * ln::yield_from_isr(higher_priority_thread_woken) may be called at the
+     * very end of the ISR handling if result is true.
+     */
+    std::tuple<bool, bool> ll_async_write_completed_cb_from_isr() {
+        return this->semaphore.give_from_isr();
+    }
+
+    /**
+     * @brief Low-level callback signaling write completion from thread context.
+     *
      */
     void ll_async_write_completed_cb() { this->semaphore.give(); }
 
