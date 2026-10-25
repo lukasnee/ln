@@ -4,6 +4,7 @@
 #include "ln/prof/prof.h"
 
 #define FORCE_INLINE inline __attribute__((always_inline))
+#define NO_INLINE __attribute__((noinline))
 
 #ifndef LN_PROF_ITM_PORT
 #define LN_PROF_ITM_PORT 0
@@ -76,6 +77,7 @@ enum ContextId : uint32_t {
     /* subsequent tasks */
 };
 static uint32_t next_context_id = ContextId::FIRST_TASK;
+static volatile uint32_t current_task_context_id = 0;
 static std::bitset<128> disclosed_name_contexts;
 static uint32_t last_announce_reset = 0;
 
@@ -142,8 +144,10 @@ static LN_PROF_ATTR void ln_prof_send_context_name(uint32_t context_id,
     }
 }
 
-static LN_PROF_ATTR FORCE_INLINE uint32_t
-ln_prof_get_current_task_context_id() {
+/**
+ * @note Shall be called with interrupts masked, may send a context name.
+ */
+static LN_PROF_ATTR NO_INLINE uint32_t ln_prof_resolve_task_context_id() {
     TaskHandle_t task = xTaskGetCurrentTaskHandle();
     if (!task) {
         return 0;
@@ -205,7 +209,11 @@ bool LN_PROF_ATTR ln_prof_start(ln_prof_config_t config) {
         ITM->TER &= ~(1UL << LN_PROF_ITM_PORT); // undo
         return false;
     }
+    const uint32_t old_primask = __get_PRIMASK();
+    __disable_irq();
+    current_task_context_id = ln_prof_resolve_task_context_id();
     started = true;
+    __set_PRIMASK(old_primask);
     return true;
 }
 
@@ -220,9 +228,6 @@ void LN_PROF_ATTR ln_prof_stop() {
  *
  * @todo Research further optimizations for __cyg_profile_func_enter/exit if
  * there's motivation to squeeze more:
- * - xTaskGetCurrentTaskHandle()/uxTaskGetTaskNumber() are still real calls;
- *   avoiding them means reaching into FreeRTOS's private TCB_t layout (fragile,
- *   breaks on kernel/config changes) - not done so far.
  * - Project-wide LTO could let the compiler inline across these TU boundaries
  *   safely, but that's a broad build-system change with its own risk/build-time
  *   tradeoffs, not scoped to this file.
@@ -241,10 +246,15 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_event(
     __disable_irq();
     // Task switch hooks may run in PendSV but belong to the task being
     // switched.
+    const bool switched_in = type == Packet::ProfileEvent::Type::thread &&
+                             state == Packet::ProfileEvent::State::exit;
+    if (switched_in) {
+        current_task_context_id = ln_prof_resolve_task_context_id();
+    }
     const uint32_t context_id =
         inside_interrupt && type != Packet::ProfileEvent::Type::thread
             ? ContextId::INTERRUPT
-            : ln_prof_get_current_task_context_id();
+            : current_task_context_id;
     const uint32_t cycle_count = DWT->CYCCNT;
     const uint32_t pkt_word0 =
         static_cast<uint32_t>(Packet::Id::PROFILE_EVENT) |
