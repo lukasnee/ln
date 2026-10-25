@@ -6,6 +6,13 @@
 #define FORCE_INLINE inline __attribute__((always_inline))
 #define NO_INLINE __attribute__((noinline))
 
+// Section for the event hot path, e.g. ".ccmram" to run it with no flash waits.
+#ifdef LN_PROF_HOT_SECTION
+#define LN_PROF_HOT __attribute__((section(LN_PROF_HOT_SECTION)))
+#else
+#define LN_PROF_HOT
+#endif
+
 #ifndef LN_PROF_ITM_PORT
 #define LN_PROF_ITM_PORT 0
 #endif
@@ -298,26 +305,26 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_exit_event(
                                Packet::ProfileEvent::State::exit, this_fn);
 }
 
-extern "C" LN_PROF_ATTR void ln_prof_task_switched_out() {
+extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_task_switched_out() {
     if (started) {
         ln_prof_send_profile_event(Packet::ProfileEvent::Type::thread,
                                    Packet::ProfileEvent::State::enter);
     }
 }
 
-extern "C" LN_PROF_ATTR void ln_prof_task_switched_in() {
+extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_task_switched_in() {
     if (started) {
         ln_prof_send_profile_event(Packet::ProfileEvent::Type::thread,
                                    Packet::ProfileEvent::State::exit);
     }
 }
 
-extern "C" LN_PROF_ATTR void __cyg_profile_func_enter(
+extern "C" LN_PROF_ATTR LN_PROF_HOT void __cyg_profile_func_enter(
     void *this_fn, [[maybe_unused]] void *call_site) {
     ln_prof_send_profile_enter_event(this_fn);
 }
 
-extern "C" LN_PROF_ATTR void __cyg_profile_func_exit(
+extern "C" LN_PROF_ATTR LN_PROF_HOT void __cyg_profile_func_exit(
     void *this_fn, [[maybe_unused]] void *call_site) {
     ln_prof_send_profile_exit_event(this_fn);
 }

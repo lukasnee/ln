@@ -10,6 +10,10 @@ set(LN_PROF_ITM_PORT
 
 option(LN_PROF_STATS "Collect ln::prof overhead statistics (adds overhead)" OFF)
 
+set(LN_PROF_HOT_SECTION
+    ""
+    CACHE STRING "Linker section for the ln::prof hot path, e.g. .ccmram")
+
 function(ln_prof)
 
   if(NOT LN_PROF)
@@ -61,6 +65,10 @@ else()
   if(LN_PROF_STATS)
     target_compile_definitions(ln_prof PRIVATE LN_PROF_STATS)
     target_link_libraries(ln_prof PRIVATE ln::shell)
+  endif()
+  if(LN_PROF_HOT_SECTION)
+    target_compile_definitions(
+      ln_prof PRIVATE "LN_PROF_HOT_SECTION=\"${LN_PROF_HOT_SECTION}\"")
   endif()
   target_include_directories(ln_prof PUBLIC include)
   target_sources(ln_prof PRIVATE src/prof.cpp)
