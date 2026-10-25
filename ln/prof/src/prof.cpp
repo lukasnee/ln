@@ -238,7 +238,7 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_profile_event(
 #ifdef LN_PROF_STATS
     const uint32_t stats_entry_cycles = DWT->CYCCNT;
 #endif
-    const auto inside_interrupt = xPortIsInsideInterrupt();
+    const bool inside_interrupt = __get_IPSR() != 0;
     if (!profile_interrupts && inside_interrupt) {
         return;
     }
