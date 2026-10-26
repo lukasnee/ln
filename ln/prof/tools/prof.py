@@ -8,35 +8,19 @@ import os
 import time
 import json
 from collections import namedtuple
-from enum import IntEnum
 import argparse
 import re
 import logging
 import ntpath
 import shutil
-import struct
 import subprocess
+
+from prof_protocol import ContextId, Type, decode_stream
 
 logger = logging.getLogger(__name__)
 
 Symbol = namedtuple("Symbol", ["address", "typ", "fn_name", "file", "line"])
 NM_SYMBOLS_REGEX_PATTERN = r"(?P<address>[0-9a-f]+)\s(?P<typ>\w)\s(?P<fn_name>[^\t\n]*)(\t(?P<file>.*):(?P<line>\d+))?"
-
-
-class PacketId(IntEnum):
-    SEND_PROFILE_EVENT = 0xA5
-    DISCLOSE_CONTEXT_NAME = 0xA6
-
-
-NAME_MAX_LEN = 64  # sanity cap for corrupted streams
-
-
-# should match ln/prof/src/prof.cpp
-class ContextId(IntEnum):
-    SCHEDULER = 1
-    INTERRUPT = 2
-    FIRST_TASK = 3
-    # subsequent tasks
 
 
 # outside the 7-bit context id range
@@ -48,46 +32,6 @@ NOT_RUNNING_FRAME_NAME = "[not running]"
 LOST_EVENTS_FRAME_NAME = "[events lost]"
 TRACY_SCHEDULER_ZONE_NAME = "[scheduler]"
 TRACY_UNKNOWN_ZONE_NAME = "[unknown]"
-
-
-class State(IntEnum):
-    ENTER = 0
-    EXIT = 1
-
-
-class Type(IntEnum):
-    THREAD = 0
-    FN = 1
-
-
-class ProfilePacket:
-
-    def __init__(self, data, fn_msb, last_packet_cycle_cnt):
-        if len(data) != 8:
-            raise ValueError("Data must be exactly 8 bytes long")
-
-        # Unpack the two 32-bit integers
-        raw0, raw1 = struct.unpack("<II", data)  # Little-endian format
-
-        # Decode the bitfields from the first 32-bit integer
-        self.sync_byte = raw0 & 0xFF
-        self.cycle_cnt = last_packet_cycle_cnt + ((raw0 >> 8) & 0xFFFFFF)
-        self.context_id = raw1 & 0x7F
-        self.state = State((raw1 >> 7) & 0x1)
-        self.type = Type((raw1 >> 8) & 0x1)
-        self.fn = (fn_msb << 24) | (((raw1 >> 9) & 0x7FFFFF) << 1)
-
-    @property
-    def speedscope_event_type(self):
-        return "C" if self.state == State.EXIT else "O"
-
-    def __str__(self):
-        fn = f"0x{self.fn:08x}" if self.type == Type.FN else "-"
-        return (
-            f"ProfilePacket(type={self.type.name}, state={self.state.name}, "
-            f"context_id=0x{self.context_id:02x}, fn={fn}, "
-            f"cycle_cnt={self.cycle_cnt})"
-        )
 
 
 class UcProf:
@@ -105,6 +49,8 @@ class UcProf:
         self._profile_context_ids = []
         self._symbols = []
         self.lost_events_frame_index = None
+        # indices into _profile_packets before which events were lost
+        self._loss_points = set()
 
     def __reload_nm_symbols(self):
         if not self.args.nm_symbols_path:
@@ -149,37 +95,18 @@ class UcProf:
         if not os.path.isfile(self.args.frame_data_path):
             logger.error(f"Frame data file does not exist: {self.args.frame_data_path}")
             return False
-        self._profile_packets = []
         with open(self.args.frame_data_path, "rb") as file:
-            while True:
-                record_start = file.tell()
-                try:
-                    first_word = self.__read_itm_word(file)
-                    if first_word is None:
-                        logger.log(logging.WARNING, "Unexpected ITM header")
-                        file.seek(record_start + 1)
-                        continue
-
-                    try:
-                        packet_id = PacketId(first_word[0])
-                    except ValueError:
-                        logger.log(
-                            logging.WARNING,
-                            f"Unexpected packet ID: {first_word[0]:02x}",
-                        )
-                        file.seek(record_start + 1)
-                        continue
-
-                    if packet_id == PacketId.DISCLOSE_CONTEXT_NAME:
-                        if self.__parse_packet_DISCLOSE_CONTEXT_NAME(file, first_word):
-                            continue
-                    elif packet_id == PacketId.SEND_PROFILE_EVENT:
-                        if self.__parse_packet_SEND_PROFILE_EVENT(file, first_word):
-                            continue
-                    file.seek(record_start + 1)
-                except EOFError:
-                    logger.info("Reached end of file")
-                    break
+            data = file.read()
+        result = decode_stream(
+            data,
+            port=self.args.itm_port,
+            fw_base=self.args.fw_base,
+            fw_size=self.args.fw_size,
+            clk_freq=self.args.clk_freq,
+        )
+        self._profile_packets = result.packets
+        self._context_names = result.context_names
+        self._loss_points = result.loss_points
         if len(self._profile_packets) == 0:
             logger.info(
                 f"No valid packets found in the file {self.args.frame_data_path}"
@@ -189,76 +116,11 @@ class UcProf:
         logger.info(f"Context names disclosed: {len(self._context_names)}")
         return True
 
-    @staticmethod
-    def __read_itm_word(file):
-        """Return the next 4-byte ITM payload, or None if its ITM header is bad."""
-        header = file.read(1)
-        payload = file.read(4)
-        if not header or len(payload) != 4:
-            raise EOFError
-        return payload if header[0] == 0x03 else None
-
-    def __parse_packet_DISCLOSE_CONTEXT_NAME(self, file, first_word):
-        # The header carries the first two name bytes, further words follow up to the NUL.
-        raw0 = struct.unpack("<I", first_word)[0]
-        context_id = (raw0 >> 8) & 0x7F
-        name_bytes = bytearray((raw0 >> 16).to_bytes(2, "little"))
-        while b"\0" not in name_bytes and len(name_bytes) < NAME_MAX_LEN:
-            word = self.__read_itm_word(file)
-            if word is None:
-                return False
-            name_bytes.extend(word)
-        if b"\0" not in name_bytes:
-            return False
-        self._context_names[context_id] = name_bytes
-        return True
-
-    def __parse_packet_SEND_PROFILE_EVENT(self, file, first_word):
-        last_packet_cycle_cnt = (
-            self._profile_packets[-1].cycle_cnt if self._profile_packets else 0
-        )
-        second_word = self.__read_itm_word(file)
-        if second_word is None:
-            return False
-        packet = ProfilePacket(
-            first_word + second_word,
-            fn_msb=(self.args.fw_base >> 24) & 0xFF,
-            last_packet_cycle_cnt=last_packet_cycle_cnt,
-        )
-
-        if (packet.cycle_cnt > self.args.clk_freq / 10) and not (
-            last_packet_cycle_cnt
-            <= packet.cycle_cnt
-            <= last_packet_cycle_cnt + self.args.clk_freq / 10
-        ):
-            logger.log(
-                logging.WARNING,
-                f"Packet cycle count {packet.cycle_cnt} is out of expected range ({last_packet_cycle_cnt}, {last_packet_cycle_cnt + self.args.clk_freq /10})",
-            )
-            return False
-
-        if packet.type == Type.FN and not self.__within_fw_boundry(packet.fn):
-            logger.log(
-                logging.WARNING,
-                f"Packet fn not within firmware memory region, {packet.fn:08x}",
-            )
-            return False
-
-        time_step_us = (
-            (packet.cycle_cnt - last_packet_cycle_cnt) / self.args.clk_freq * 1e6
-        )
-        logger.log(logging.DEBUG, f"Parsed {packet} after {time_step_us:.3f} us")
-        self._profile_packets.append(packet)
-        return True
-
     def __within_begin_boundry(self, timestamp):
         return self.args.begin is None or timestamp >= self.args.begin
 
     def __within_end_boundry(self, timestamp):
         return self.args.end is None or timestamp <= self.args.end
-
-    def __within_fw_boundry(self, addr):
-        return self.args.fw_base <= addr < self.args.fw_base + self.args.fw_size
 
     def __calculate_timestamp(self, cycle_cnt):
 
@@ -286,6 +148,17 @@ class UcProf:
         profiles_by_context_id = {}
         shared_frames_registry = {}
         shared_frames = []
+        self.lost_events_frame_index = None
+        last_timestamp = None
+
+        def lost_frame_index():
+            if self.lost_events_frame_index is None:
+                shared_frames.append(
+                    {"name": LOST_EVENTS_FRAME_NAME, "file": "", "line": 0, "col": 1}
+                )
+                self.lost_events_frame_index = len(shared_frames) - 1
+            return self.lost_events_frame_index
+
         for idx, packet in enumerate(self._profile_packets):
 
             # if packet.context_id == ContextId.INTERRUPT:
@@ -294,6 +167,23 @@ class UcProf:
             #     continue
 
             timestamp = self.__calculate_timestamp(packet.cycle_cnt)
+            if idx in self._loss_points and last_timestamp is not None:
+                # a lost record most likely belongs to a context next to the gap
+                affected_context_ids = {
+                    self._profile_packets[idx - 1].context_id,
+                    packet.context_id,
+                }
+                for context_id in affected_context_ids:
+                    profile = profiles_by_context_id.get(context_id)
+                    if profile is not None:
+                        profile["events"].append(
+                            {
+                                "type": "L",
+                                "at": last_timestamp,
+                                "frame": lost_frame_index(),
+                            }
+                        )
+            last_timestamp = timestamp
             if not self.__within_begin_boundry(timestamp):
                 logger.log(
                     logging.DEBUG - 4,
@@ -370,10 +260,7 @@ class UcProf:
         for profile in profiles:
             logger.info(f"  {profile['name']}: {len(profile['events'])} events")
 
-        shared_frames.append(
-            {"name": LOST_EVENTS_FRAME_NAME, "file": "", "line": 0, "col": 1}
-        )
-        self.lost_events_frame_index = len(shared_frames) - 1
+        lost_frame_index()
 
         non_empty_profiles = [profile for profile in profiles if profile["events"]]
         if not non_empty_profiles:
@@ -461,6 +348,27 @@ class UcProf:
         fixed_events = []
         events_lost = False
         for idx, event in enumerate(profile["events"]):
+            if event["type"] == "L":
+                # the ITM stream dropped bytes here, the open frames cannot be trusted
+                if call_stack:
+                    logger.log(
+                        logging.WARNING - 1,
+                        f"Events lost on {idx} event: terminating the call stack",
+                    )
+                    for frame in reversed(call_stack):
+                        fixed_events.append(
+                            {"type": "C", "at": event["at"], "frame": frame}
+                        )
+                        call_stack.pop()
+                    fixed_events.append(
+                        {
+                            "type": "O",
+                            "at": event["at"],
+                            "frame": self.lost_events_frame_index,
+                        }
+                    )
+                    events_lost = True
+                continue
             if event["type"] == "C":
                 # TODO think of better ways to handle broken frames
                 # TODO make the breaks more visible in the speedscope GUI
@@ -825,6 +733,12 @@ if __name__ == "__main__":
     parser.add_argument("--log-level", type=int, default=logging.INFO)
     parser.add_argument("--fw_base", type=int, default=0x08000000)
     parser.add_argument("--fw_size", type=int, default=0x80000)
+    parser.add_argument(
+        "--itm_port",
+        type=int,
+        default=0,
+        help="ITM stimulus port carrying the ln/prof stream (LN_PROF_ITM_PORT)",
+    )
     parser.add_argument(
         "--cross_section_not_running_segments",
         action="store_true",
