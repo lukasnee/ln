@@ -18,12 +18,12 @@ extern "C"
 {
 #endif
 
-    void ln_prof_task_switched_out(void);
-    void ln_prof_task_switched_in(void);
+    void ln_prof_thread_switched_in(void);
+    void ln_prof_thread_switched_out(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#define traceTASK_SWITCHED_OUT() ln_prof_task_switched_out()
-#define traceTASK_SWITCHED_IN() ln_prof_task_switched_in()
+#define traceTASK_SWITCHED_IN() ln_prof_thread_switched_in()
+#define traceTASK_SWITCHED_OUT() ln_prof_thread_switched_out()

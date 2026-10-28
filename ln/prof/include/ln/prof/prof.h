@@ -34,13 +34,11 @@ extern "C"
     extern "C" LN_PROF_ATTR void ln_prof_stop();
 #define LN_PROF_STOP() ln_prof_stop()
 
-    extern "C" LN_PROF_ATTR void __cyg_profile_func_enter(void *this_fn,
-                                                          void *call_site);
-#define LN_PROF_ENTER(id) __cyg_profile_func_enter((void *)id, NULL)
+    extern "C" LN_PROF_ATTR void ln_prof_scope_enter(void *marker);
+#define LN_PROF_ENTER(marker) ln_prof_scope_enter((void *)(marker))
 
-    extern "C" LN_PROF_ATTR void __cyg_profile_func_exit(void *this_fn,
-                                                         void *call_site);
-#define LN_PROF_EXIT(id) __cyg_profile_func_exit((void *)id, NULL)
+    extern "C" LN_PROF_ATTR void ln_prof_scope_exit(void *marker);
+#define LN_PROF_EXIT(marker) ln_prof_scope_exit((void *)(marker))
 
 #ifdef __cplusplus
 }
@@ -52,20 +50,27 @@ namespace ln::prof {
 
 class Scope {
 public:
-    __attribute__((no_instrument_function)) Scope(int id) : m_id{id} {
-        LN_PROF_ENTER(m_id);
+    __attribute__((no_instrument_function)) Scope(void (*marker)())
+        : m_marker{reinterpret_cast<void *>(marker)} {
+        LN_PROF_ENTER(m_marker);
     }
-    __attribute__((no_instrument_function)) ~Scope() { LN_PROF_EXIT(m_id); }
+    __attribute__((no_instrument_function)) ~Scope() { LN_PROF_EXIT(m_marker); }
 
 private:
-    int m_id;
+    void *m_marker;
 };
 
 } // namespace ln::prof
 #define LN_PROF_CONCAT_IMPL(x, y) x##y
 #define LN_PROF_CONCAT(x, y) LN_PROF_CONCAT_IMPL(x, y)
 #define LN_PROF_SCOPE()                                                        \
-    ln::prof::Scope LN_PROF_CONCAT(__ln_prof_scope_, __LINE__) { __LINE__ }
+    struct LN_PROF_CONCAT(ln_prof_scope_marker_, __LINE__) {                   \
+        __attribute__((noipa, used, no_instrument_function)) static void       \
+        fn() {}                                                                \
+    };                                                                         \
+    ln::prof::Scope LN_PROF_CONCAT(ln_prof_scope_, __LINE__) {                 \
+        &LN_PROF_CONCAT(ln_prof_scope_marker_, __LINE__)::fn                   \
+    }
 
 #endif // __cplusplus
 #endif

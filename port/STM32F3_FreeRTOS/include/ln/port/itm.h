@@ -13,6 +13,8 @@
         __NOP();                                                               \
     }
 #define LN_ITM_SEND_WORD_UNSAFE(port, value) ITM->PORT[(port)].u32 = (value)
+#define LN_ITM_SEND_HALFWORD_UNSAFE(port, value) ITM->PORT[(port)].u16 = (value)
+#define LN_ITM_SEND_BYTE_UNSAFE(port, value) ITM->PORT[(port)].u8 = (value)
 #define LN_ITM_IS_FIFO_READY(port) (ITM->PORT[(port)].u32 != 0UL)
 
 #define LN_ITM_SEND_WORD(port, value)                                          \

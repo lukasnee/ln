@@ -15,7 +15,7 @@ import ntpath
 import shutil
 import subprocess
 
-from prof_protocol import ContextId, Type, decode_stream
+from prof_protocol import ContextId, Kind, decode_stream
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,8 @@ TRACY_UNKNOWN_CONTEXT_TID = 0x80
 
 INTERRUPT_CONTEXT_NAME = "Interrupts"
 NOT_RUNNING_FRAME_NAME = "[not running]"
+SCOPE_MARKER_NAME = "ln_prof_scope_marker_"
+SCOPE_FRAME_NAME = "[scope]"
 LOST_EVENTS_FRAME_NAME = "[events lost]"
 TRACY_SCHEDULER_ZONE_NAME = "[scheduler]"
 TRACY_UNKNOWN_ZONE_NAME = "[unknown]"
@@ -38,18 +40,17 @@ class UcProf:
 
     def __init__(self, args):
         self.args = args
-        self._profile_packets = []
-        # TODO the following variables should not be class variables
+        self._thread_profile_packets = []
         self._begin_cycle_cnt_offset = None
         self._last_cycle_cnt = 0
         self._context_names = {}
-        # profile index -> [(time, is_running)]
+        # thread profile index -> [(time, is_running)]
         self._profiles_run_state_trans = {}
-        # profile index -> context id
-        self._profile_context_ids = []
+        # thread profile index -> thread context id
+        self._thread_profile_context_ids = []
         self._symbols = []
         self.lost_events_frame_index = None
-        # indices into _profile_packets before which events were lost
+        # indices into _thread_profile_packets before which events were lost
         self._loss_points = set()
 
     def __reload_nm_symbols(self):
@@ -99,20 +100,22 @@ class UcProf:
             data = file.read()
         result = decode_stream(
             data,
-            port=self.args.itm_port,
+            itm_base_port=self.args.itm_base_port,
             fw_base=self.args.fw_base,
             fw_size=self.args.fw_size,
             clk_freq=self.args.clk_freq,
         )
-        self._profile_packets = result.packets
+        self._thread_profile_packets = result.packets
         self._context_names = result.context_names
         self._loss_points = result.loss_points
-        if len(self._profile_packets) == 0:
+        if len(self._thread_profile_packets) == 0:
             logger.info(
                 f"No valid packets found in the file {self.args.frame_data_path}"
             )
             return False
-        logger.info(f"Profile packets parsed: {len(self._profile_packets)}")
+        logger.info(
+            f"Thread profile packets parsed: {len(self._thread_profile_packets)}"
+        )
         logger.info(f"Context names disclosed: {len(self._context_names)}")
         return True
 
@@ -140,16 +143,56 @@ class UcProf:
             return INTERRUPT_CONTEXT_NAME
         raw = self._context_names.get(context_id)
         name = bytes(raw).split(b"\0")[0].decode("ascii", "replace") if raw else ""
-        return name or f"id={context_id}"
+        return name or f"unknown_id={context_id}"
 
     def __parse_packets_into_speedscope_dict(self):
-        # profile is a list of events of a particular thread
-        profiles = []
-        profiles_by_context_id = {}
+        thread_profiles = []
+        thread_profiles_by_context_id = {}
         shared_frames_registry = {}
         shared_frames = []
         self.lost_events_frame_index = None
         last_timestamp = None
+        # the context last seen running, an interrupt does not count
+        running_context_id = None
+        not_running_symbol = Symbol(0, "U", NOT_RUNNING_FRAME_NAME, "", 0)
+
+        def is_thread(context_id):
+            return context_id is not None and context_id >= ContextId.FIRST_THREAD
+
+        def add_event(context_id, event_type, timestamp, symbol):
+            shared_frame_key = (symbol.file, symbol.line, symbol.fn_name)
+            if shared_frame_key not in shared_frames_registry:
+                shared_frames_registry[shared_frame_key] = len(shared_frames)
+                shared_frames.append(
+                    {
+                        "name": symbol.fn_name,
+                        "file": symbol.file,
+                        "line": symbol.line,
+                        "col": 1,
+                    }
+                )
+            frame_index = shared_frames_registry[shared_frame_key]
+
+            thread_profile = thread_profiles_by_context_id.get(context_id)
+            if thread_profile is None:
+                thread_profile = {
+                    "type": "evented",
+                    "name": self.__context_name(context_id),
+                    "unit": "seconds",
+                    "startValue": 0.0,
+                    "endValue": 0.0,
+                    "events": [],
+                }
+                thread_profiles_by_context_id[context_id] = thread_profile
+                self._thread_profile_context_ids.append(context_id)
+                thread_profiles.append(thread_profile)
+            thread_profile["events"].append(
+                {"type": event_type, "at": timestamp, "frame": frame_index}
+            )
+            logger.log(
+                logging.DEBUG - 5,
+                f"{thread_profile['name']}: {event_type} {timestamp:.9f} {frame_index}",
+            )
 
         def lost_frame_index():
             if self.lost_events_frame_index is None:
@@ -159,24 +202,19 @@ class UcProf:
                 self.lost_events_frame_index = len(shared_frames) - 1
             return self.lost_events_frame_index
 
-        for idx, packet in enumerate(self._profile_packets):
-
-            # if packet.context_id == ContextId.INTERRUPT:
-            #     logger.log(
-            #         logging.DEBUG-2, f'__parse_packets_into_speedscope_dict: {idx} packet skipped - interrupt')
-            #     continue
-
+        for idx, packet in enumerate(self._thread_profile_packets):
             timestamp = self.__calculate_timestamp(packet.cycle_cnt)
             if idx in self._loss_points and last_timestamp is not None:
                 # a lost record most likely belongs to a context next to the gap
                 affected_context_ids = {
-                    self._profile_packets[idx - 1].context_id,
+                    self._thread_profile_packets[idx - 1].context_id,
                     packet.context_id,
+                    running_context_id,
                 }
                 for context_id in affected_context_ids:
-                    profile = profiles_by_context_id.get(context_id)
-                    if profile is not None:
-                        profile["events"].append(
+                    thread_profile = thread_profiles_by_context_id.get(context_id)
+                    if thread_profile is not None:
+                        thread_profile["events"].append(
                             {
                                 "type": "L",
                                 "at": last_timestamp,
@@ -184,6 +222,9 @@ class UcProf:
                             }
                         )
             last_timestamp = timestamp
+            switched_from = running_context_id
+            if packet.context_id != ContextId.INTERRUPT:
+                running_context_id = packet.context_id
             if not self.__within_begin_boundry(timestamp):
                 logger.log(
                     logging.DEBUG - 4,
@@ -198,102 +239,84 @@ class UcProf:
                 )
                 break
 
-            if packet.type == Type.THREAD:
-                symbol = Symbol(0, "U", NOT_RUNNING_FRAME_NAME, "", 0)
-            else:
-                symbol = next(
-                    (s for s in reversed(self._symbols) if packet.fn >= s.address),
-                    None,
-                )
+            if packet.kind == Kind.CONTEXT_SWITCH:
+                # a thread is not running from the switch away from it to the
+                # next switch to it
+                if switched_from != packet.context_id:
+                    if is_thread(switched_from):
+                        add_event(switched_from, "O", timestamp, not_running_symbol)
+                    if is_thread(packet.context_id):
+                        add_event(packet.context_id, "C", timestamp, not_running_symbol)
+                continue
 
+            symbol = next(
+                (s for s in reversed(self._symbols) if packet.fn >= s.address),
+                None,
+            )
             if not symbol:
                 symbol = Symbol(0, "U", "fn @ 0x{:08x}".format(packet.fn), "", 0)
-
-            shared_frame_key = (symbol.file, symbol.line, symbol.fn_name)
-            if shared_frame_key not in shared_frames_registry:
-                shared_frames_registry[shared_frame_key] = len(shared_frames)
-                shared_frames.append(
-                    {
-                        "name": symbol.fn_name,
-                        "file": symbol.file,
-                        "line": symbol.line,
-                        "col": 1,
-                    }
-                )
-            frame_index = shared_frames_registry[shared_frame_key]
-
-            profile = profiles_by_context_id.get(packet.context_id)
-            if profile is None:
-                profile = {
-                    "type": "evented",
-                    "name": self.__context_name(packet.context_id),
-                    "unit": "seconds",
-                    "startValue": 0.0,
-                    "endValue": 0.0,
-                    "events": [],
-                }
-                profiles_by_context_id[packet.context_id] = profile
-                self._profile_context_ids.append(packet.context_id)
-                profiles.append(profile)
-            profile["events"].append(
-                {
-                    "type": packet.speedscope_event_type,
-                    "at": timestamp,
-                    "frame": frame_index,
-                }
-            )
-            logger.log(
-                logging.DEBUG - 5,
-                f"{profile['name']}: {packet.speedscope_event_type} {timestamp:.9f} {frame_index}",
+            elif SCOPE_MARKER_NAME in symbol.fn_name:
+                symbol = symbol._replace(fn_name=SCOPE_FRAME_NAME)
+            add_event(
+                packet.context_id, packet.speedscope_event_type, timestamp, symbol
             )
 
-        for profile in profiles:
+        for thread_profile in thread_profiles:
             # remove all closing events at the beginning
-            while len(profile["events"]) > 1 and profile["events"][0]["type"] == "C":
-                profile["events"].pop(0)
+            while (
+                len(thread_profile["events"]) > 1
+                and thread_profile["events"][0]["type"] == "C"
+            ):
+                thread_profile["events"].pop(0)
 
             # remove all events that have zero start time
-            while profile["events"] and profile["events"][0]["at"] == 0.0:
-                profile["events"].pop(0)
+            while thread_profile["events"] and thread_profile["events"][0]["at"] == 0.0:
+                thread_profile["events"].pop(0)
 
-        logger.info(f"Profiles parsed: {len(profiles)}")
-        for profile in profiles:
-            logger.info(f"  {profile['name']}: {len(profile['events'])} events")
+        logger.info(f"Profiles parsed: {len(thread_profiles)}")
+        for thread_profile in thread_profiles:
+            logger.info(
+                f"  {thread_profile['name']}: {len(thread_profile['events'])} events"
+            )
 
         lost_frame_index()
 
-        non_empty_profiles = [profile for profile in profiles if profile["events"]]
+        non_empty_profiles = [
+            thread_profile
+            for thread_profile in thread_profiles
+            if thread_profile["events"]
+        ]
         if not non_empty_profiles:
-            logger.error("No profile events left to export")
+            logger.error("No thread profile events left to export")
             return None
         earliest_start = min(p["events"][0]["at"] for p in non_empty_profiles)
         latest_end = max(p["events"][-1]["at"] for p in non_empty_profiles)
         logger.info(f"start: {earliest_start:.9f}")
         logger.info(f"end: {latest_end:.9f}")
 
-        for profile_idx, profile in enumerate(profiles):
-            profile["events"] = self.__slice_last_chronological_event_sequence(
-                profile["events"]
+        for profile_idx, thread_profile in enumerate(thread_profiles):
+            thread_profile["events"] = self.__slice_last_chronological_event_sequence(
+                thread_profile["events"]
             )
             self._profiles_run_state_trans[profile_idx] = (
                 self.__extract_profile_run_state_transitions(
-                    profile, profile_idx, shared_frames
+                    thread_profile, profile_idx, shared_frames
                 )
             )
-            profile["events"] = self.__repair_lost_profile_events(
-                profile, shared_frames
+            thread_profile["events"] = self.__repair_lost_profile_events(
+                thread_profile, shared_frames
             )
             if self.args.cross_section_not_running_segments:
                 self.__cross_section_not_running_segments(
-                    profile, profile_idx, shared_frames
+                    thread_profile, profile_idx, shared_frames
                 )
             # pick the same time range for all threads
-            profile["startValue"] = earliest_start
-            profile["endValue"] = latest_end
+            thread_profile["startValue"] = earliest_start
+            thread_profile["endValue"] = latest_end
 
         return {
             "$schema": "https://www.speedscope.app/file-format-schema.json",
-            "profiles": profiles,
+            "profiles": thread_profiles,
             "shared": {"frames": shared_frames},
             "exporter": "ln/prof",
         }
@@ -326,12 +349,14 @@ class UcProf:
                 last_break_idx = idx
         return events[last_break_idx:]
 
-    def __extract_profile_run_state_transitions(self, profile, profile_idx, frames):
+    def __extract_profile_run_state_transitions(
+        self, thread_profile, profile_idx, frames
+    ):
         transitions = []
-        for event in profile["events"]:
+        for event in thread_profile["events"]:
             is_not_running_marker = (
                 frames[event["frame"]]["name"] == NOT_RUNNING_FRAME_NAME
-                and self._profile_context_ids[profile_idx] != ContextId.INTERRUPT
+                and self._thread_profile_context_ids[profile_idx] != ContextId.INTERRUPT
             )
             if not is_not_running_marker:
                 continue
@@ -343,11 +368,11 @@ class UcProf:
                 transitions.append((event["at"], is_running))
         return transitions
 
-    def __repair_lost_profile_events(self, profile, frames):
+    def __repair_lost_profile_events(self, thread_profile, frames):
         call_stack = []
         fixed_events = []
         events_lost = False
-        for idx, event in enumerate(profile["events"]):
+        for idx, event in enumerate(thread_profile["events"]):
             if event["type"] == "L":
                 # the ITM stream dropped bytes here, the open frames cannot be trusted
                 if call_stack:
@@ -375,7 +400,7 @@ class UcProf:
                 if not call_stack:
                     self.__log_closing_event(
                         logging.WARNING - 1,
-                        profile["name"],
+                        thread_profile["name"],
                         idx,
                         event["at"],
                         frames[event["frame"]],
@@ -395,14 +420,14 @@ class UcProf:
                         fixed_events.append(
                             {
                                 "type": "C",
-                                "at": profile["events"][idx - 1]["at"],
+                                "at": thread_profile["events"][idx - 1]["at"],
                                 "frame": frame,
                             }
                         )
                         call_stack.pop()
                         self.__log_closing_event(
                             logging.INFO - 1,
-                            profile["name"],
+                            thread_profile["name"],
                             idx,
                             event["at"],
                             frames[frame],
@@ -413,13 +438,13 @@ class UcProf:
                     fixed_events.append(
                         {
                             "type": "O",
-                            "at": profile["events"][idx - 1]["at"],
+                            "at": thread_profile["events"][idx - 1]["at"],
                             "frame": self.lost_events_frame_index,
                         }
                     )
                     self.__log_opening_event(
                         logging.INFO - 1,
-                        profile["name"],
+                        thread_profile["name"],
                         idx,
                         event["at"],
                         frames[self.lost_events_frame_index],
@@ -432,7 +457,7 @@ class UcProf:
                 call_stack.pop()
                 self.__log_closing_event(
                     logging.INFO - 1,
-                    profile["name"],
+                    thread_profile["name"],
                     idx,
                     event["at"],
                     frames[event["frame"]],
@@ -450,7 +475,7 @@ class UcProf:
                     )
                     self.__log_closing_event(
                         logging.INFO - 1,
-                        profile["name"],
+                        thread_profile["name"],
                         idx,
                         event["at"],
                         frames[self.lost_events_frame_index],
@@ -460,7 +485,7 @@ class UcProf:
                     events_lost = False
                 self.__log_opening_event(
                     logging.INFO - 1,
-                    profile["name"],
+                    thread_profile["name"],
                     idx,
                     event["at"],
                     frames[event["frame"]],
@@ -473,22 +498,22 @@ class UcProf:
         # "C" all remaining frames
         for frame in reversed(call_stack):
             fixed_events.append(
-                {"type": "C", "at": profile["events"][-1]["at"], "frame": frame}
+                {"type": "C", "at": thread_profile["events"][-1]["at"], "frame": frame}
             )
 
         return fixed_events
 
-    def __cross_section_not_running_segments(self, profile, profile_idx, frames):
+    def __cross_section_not_running_segments(self, thread_profile, profile_idx, frames):
         logger.info(
-            f"Cross-sectioning not running segments for profile {profile['name']}..."
+            f"Cross-sectioning not running segments for thread profile {thread_profile['name']}..."
         )
         call_stack = []
         suspended_stack = None
         fixed_events = []
-        for event in profile["events"]:
+        for event in thread_profile["events"]:
             is_not_running_marker = (
                 frames[event["frame"]]["name"] == NOT_RUNNING_FRAME_NAME
-                and self._profile_context_ids[profile_idx] != ContextId.INTERRUPT
+                and self._thread_profile_context_ids[profile_idx] != ContextId.INTERRUPT
             )
             if is_not_running_marker:
                 if event["type"] == "O":
@@ -521,14 +546,16 @@ class UcProf:
                 call_stack.append(event["frame"])
             elif call_stack and call_stack[-1] == event["frame"]:
                 call_stack.pop()
-        profile["events"] = fixed_events
+        thread_profile["events"] = fixed_events
 
     def __export_dict_to_json(self, dictionary, filename):
         with open(filename, "w") as f:
             json.dump(dictionary, f, indent=2)
 
-    def __chrome_trace_generate_scheduler_context_events(self, profiles, tid, start):
-        """Zones named after whichever thread is running, from the tasks' switch times."""
+    def __chrome_trace_generate_scheduler_context_events(
+        self, thread_profiles, tid, start
+    ):
+        """Zones named after whichever thread is running, from the threads' switch times."""
 
         def trace_event(ph, at, name):
             return {"ph": ph, "name": name, "pid": 0, "tid": tid, "ts": at * 1e6}
@@ -561,7 +588,7 @@ class UcProf:
                 if running_idx == profile_idx:
                     continue
                 running_idx = profile_idx
-                switch_zone(at, profiles[profile_idx]["name"])
+                switch_zone(at, thread_profiles[profile_idx]["name"])
             elif running_idx == profile_idx:
                 # between a switch-out and the next switch-in the scheduler is running
                 running_idx = None
@@ -613,30 +640,33 @@ class UcProf:
                 trace_event["loc"] = f"{path}:{frame['line']}"
             return trace_event
 
-        profiles = speedscope_dict["profiles"]
+        thread_profiles = speedscope_dict["profiles"]
         trace_events.extend(
             self.__chrome_trace_generate_scheduler_context_events(
-                profiles,
+                thread_profiles,
                 scheduler_tid,
                 # Tracy lists threads by first event time, so this keeps Scheduler on top
-                min(p["events"][0]["at"] for p in profiles if p["events"]),
+                min(p["events"][0]["at"] for p in thread_profiles if p["events"]),
             )
         )
-        for profile_idx, profile in enumerate(profiles):
+        for profile_idx, thread_profile in enumerate(thread_profiles):
             # tid 0 would collide with Tracy's unset crash event and draw a bogus "crash" marker
-            tid = self._profile_context_ids[profile_idx] or TRACY_UNKNOWN_CONTEXT_TID
+            tid = (
+                self._thread_profile_context_ids[profile_idx]
+                or TRACY_UNKNOWN_CONTEXT_TID
+            )
             trace_events.append(
                 {
                     "ph": "M",
                     "name": "thread_name",
                     "pid": 0,
                     "tid": tid,
-                    "args": {"name": profile["name"]},
+                    "args": {"name": thread_profile["name"]},
                 }
             )
             trace_events.extend(
                 trace_event
-                for event in profile["events"]
+                for event in thread_profile["events"]
                 if (trace_event := zone_event(event, tid))
             )
         # stable sort keeps per-thread order for equal timestamps
@@ -734,10 +764,11 @@ if __name__ == "__main__":
     parser.add_argument("--fw_base", type=int, default=0x08000000)
     parser.add_argument("--fw_size", type=int, default=0x80000)
     parser.add_argument(
-        "--itm_port",
+        "--itm_base_port",
         type=int,
         default=0,
-        help="ITM stimulus port carrying the ln/prof stream (LN_PROF_ITM_PORT)",
+        help="The ITM base port where ln::prof protocol ports are mapped on "
+        "the target (LN_PROF_ITM_BASE_PORT)",
     )
     parser.add_argument(
         "--cross_section_not_running_segments",
