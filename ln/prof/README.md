@@ -1,10 +1,22 @@
-# prof
+# prof (DRAFT)
 
 C/C++ code performance profiler for embedded systems based on GNU
 instrumentation calls for stack tracing, Arm Cortex-M ITM (Instrumentation Trace
 Macrocell) for streaming the data to host machine, a python script ``prof.py``
 for parsing and folding the stack traces, and
 [Speedscope](https://www.speedscope.app/) for visualization.
+
+## ITM Ports
+
+The profiler uses 9 consecutive ITM stimulus ports starting at
+`LN_PROF_ITM_BASE_PORT` (default 0), one per kind of event, such as function
+enter and exit (powered by `--finstrument-functions`), `LN_PROF_SCOPE()`,
+scheduler and thread context switch, time step, context name, etc. A function
+exit is only its time step, the host infers the function from its call stack.
+Likewise the host takes the thread of an event as the one last switched to. The
+layout of each port is documented in `src/prof.cpp`. Keep these ports free of
+other SWO output, and pass the same first port to `prof.py` with
+`--itm_base_port`. Firmware and `prof.py` shall be of the same version.
 
 ## Usage
 
@@ -58,3 +70,4 @@ for parsing and folding the stack traces, and
 - Consider creating a custom GUI (ImGUI for example). Speedscope and Tracy are
   useful tools, but a custom GUI could provide a more tailored and efficient
   visualization for specific use cases.
+- Use likely/unlikely in hot path

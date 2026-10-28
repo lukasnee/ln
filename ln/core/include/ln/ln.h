@@ -84,7 +84,7 @@ bool interrupt_context();
  * @brief Yield from interrupt context.
  *
  * @param higher_priority_task_woken Condition indicating if a higher priority
- * task was woken.
+ * thread was woken.
  *
  * @note Port-specific implementation.
  */

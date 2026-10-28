@@ -4,9 +4,9 @@ if(NOT LN_FREERTOS)
   message(FATAL_ERROR "ln_prof requires FreeRTOS")
 endif()
 
-set(LN_PROF_ITM_PORT
+set(LN_PROF_ITM_BASE_PORT
     0
-    CACHE STRING "ITM port number for ln::prof")
+    CACHE STRING "The ITM base port where to map ln::prof protocol ports")
 
 option(LN_PROF_STATS "Collect ln::prof overhead statistics (adds overhead)" OFF)
 
@@ -61,7 +61,7 @@ else()
   target_compile_definitions(
     ln_prof
     PUBLIC LN_PROF
-    PRIVATE LN_PROF_ITM_PORT=${LN_PROF_ITM_PORT})
+    PRIVATE LN_PROF_ITM_BASE_PORT=${LN_PROF_ITM_BASE_PORT})
   if(LN_PROF_STATS)
     target_compile_definitions(ln_prof PRIVATE LN_PROF_STATS)
     target_link_libraries(ln_prof PRIVATE ln::shell)
