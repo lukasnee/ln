@@ -8,7 +8,7 @@ for parsing and folding the stack traces, and
 
 ## ITM Ports
 
-The profiler uses 9 consecutive ITM stimulus ports starting at
+The profiler uses 10 consecutive ITM stimulus ports starting at
 `LN_PROF_ITM_BASE_PORT` (default 0), one per kind of event, such as function
 enter and exit (powered by `--finstrument-functions`), `LN_PROF_SCOPE()`,
 scheduler and thread context switch, time step, context name, etc. A function

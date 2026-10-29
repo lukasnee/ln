@@ -8,6 +8,10 @@ set(LN_PROF_ITM_BASE_PORT
     0
     CACHE STRING "The ITM base port where to map ln::prof protocol ports")
 
+set(LN_PROF_FW_SIZE
+    0x80000
+    CACHE STRING "Bytes of code from the start of flash ln::prof can profile")
+
 option(LN_PROF_STATS "Collect ln::prof overhead statistics (adds overhead)" OFF)
 
 set(LN_PROF_HOT_SECTION
@@ -61,7 +65,8 @@ else()
   target_compile_definitions(
     ln_prof
     PUBLIC LN_PROF
-    PRIVATE LN_PROF_ITM_BASE_PORT=${LN_PROF_ITM_BASE_PORT})
+    PRIVATE LN_PROF_ITM_BASE_PORT=${LN_PROF_ITM_BASE_PORT}
+            LN_PROF_FW_SIZE=${LN_PROF_FW_SIZE})
   if(LN_PROF_STATS)
     target_compile_definitions(ln_prof PRIVATE LN_PROF_STATS)
     target_link_libraries(ln_prof PRIVATE ln::shell)

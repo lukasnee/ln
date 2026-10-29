@@ -101,8 +101,6 @@ class UcProf:
         result = decode_stream(
             data,
             itm_base_port=self.args.itm_base_port,
-            fw_base=self.args.fw_base,
-            fw_size=self.args.fw_size,
             clk_freq=self.args.clk_freq,
         )
         self._thread_profile_packets = result.packets
@@ -761,8 +759,6 @@ if __name__ == "__main__":
         help="Clock frequency used for timestamps",
     )
     parser.add_argument("--log-level", type=int, default=logging.INFO)
-    parser.add_argument("--fw_base", type=int, default=0x08000000)
-    parser.add_argument("--fw_size", type=int, default=0x80000)
     parser.add_argument(
         "--itm_base_port",
         type=int,

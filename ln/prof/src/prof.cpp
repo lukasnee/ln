@@ -17,6 +17,11 @@
 #define LN_PROF_ITM_BASE_PORT 0
 #endif
 
+// Bytes of code from the start of flash that can be profiled.
+#ifndef LN_PROF_FW_SIZE
+#define LN_PROF_FW_SIZE 0x80000
+#endif
+
 #include "ln/port/itm.h"
 
 #include "FreeRTOS.h"
@@ -31,15 +36,16 @@
 
 enum ItmPort : uint32_t {
 
-    FN_ENTER_TASK = LN_PROF_ITM_BASE_PORT,
+    FN_ENTER_THREAD = LN_PROF_ITM_BASE_PORT,
     FN_ENTER_ISR,
-    FN_EXIT_TASK,
+    FN_EXIT_THREAD,
     FN_EXIT_ISR,
     SWITCH_IN,
     SWITCH_OUT,
     TIME,
     NAME,
     NAME_MORE,
+    FN_BASE,
 
     _COUNT,
 
@@ -49,8 +55,18 @@ static_assert(LN_PROF_ITM_BASE_PORT + ItmPort::_COUNT <= 32,
               "ln/prof ITM port mapping (LN_PROF_ITM_BASE_PORT) does not fit "
               "within available 32 ports");
 
-// Function address bits in an enter word, 512 KB of code from --fw_base.
-constexpr uint32_t LN_PROF_FN_ADDR_BITS = 18;
+// Function address bits [N:1] in an enter word, enough for LN_PROF_FW_SIZE.
+constexpr uint32_t ln_prof_fn_addr_bits(uint64_t fw_size) {
+    uint32_t bits = 0;
+    while ((uint64_t{1} << (bits + 1)) < fw_size) {
+        bits++;
+    }
+    return bits;
+}
+constexpr uint32_t LN_PROF_FN_ADDR_BITS = ln_prof_fn_addr_bits(LN_PROF_FW_SIZE);
+static_assert(LN_PROF_FN_ADDR_BITS >= 4 && LN_PROF_FN_ADDR_BITS <= 24,
+              "LN_PROF_FW_SIZE is out of range");
+
 // Bits of the context ID in a switch value.
 constexpr uint32_t LN_PROF_CONTEXT_ID_BITS = 7;
 
@@ -59,7 +75,7 @@ static constexpr uint32_t LN_PROF_FN_CYCLE_COUNT_DELTA_BITS =
 static constexpr uint32_t LN_PROF_FN_CYCCNT_DELTA_MAX =
     (1u << LN_PROF_FN_CYCLE_COUNT_DELTA_BITS) - 1;
 
-extern "C" void ln_prof_task_switched_in();
+extern "C" void ln_prof_thread_switched_in();
 
 volatile bool started = false;
 volatile bool profile_interrupts = true;
@@ -74,6 +90,8 @@ enum ContextId : uint32_t {
 static uint32_t next_context_id = ContextId::FIRST_THREAD;
 static std::bitset<128> disclosed_name_contexts;
 static uint32_t last_announce_reset = 0;
+// The FN_BASE last sent, UINT32_MAX (never a valid one) to send it again.
+static uint32_t announced_fn_base = UINT32_MAX;
 
 #ifdef LN_PROF_STATS
 static struct {
@@ -176,11 +194,13 @@ static LN_PROF_ATTR NO_INLINE uint32_t ln_prof_resolve_thread_context_id() {
         vTaskSetTaskNumber(thread, id);
     }
     id &= 0x7F;
-    // Re-announce about once per second so late-attaching recorders get names.
+    // Re-announce context names and function base about once per second so
+    // late-attaching recorders are informed
     const uint32_t now = DWT->CYCCNT;
     if (now - last_announce_reset > SystemCoreClock) {
         last_announce_reset = now;
         disclosed_name_contexts.reset();
+        announced_fn_base = UINT32_MAX;
     }
     if (!disclosed_name_contexts.test(id)) {
         disclosed_name_contexts.set(id);
@@ -199,6 +219,7 @@ bool LN_PROF_ATTR ln_prof_start(ln_prof_config_t config) {
     DWT->CYCCNT = 0;
     last_cycle_count = 0;
     last_announce_reset = 0;
+    announced_fn_base = UINT32_MAX;
     disclosed_name_contexts.reset();
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 #ifdef LN_PROF_STATS
@@ -215,8 +236,8 @@ bool LN_PROF_ATTR ln_prof_start(ln_prof_config_t config) {
     const uint32_t start_time = DWT->CYCCNT;
     bool ready = false;
     while ((DWT->CYCCNT - start_time) < timeout) {
-        if (LN_ITM_IS_PORT_READY(ItmPort::FN_ENTER_TASK) &&
-            LN_ITM_IS_FIFO_READY(ItmPort::FN_ENTER_TASK)) {
+        if (LN_ITM_IS_PORT_READY(LN_PROF_ITM_BASE_PORT) &&
+            LN_ITM_IS_FIFO_READY(LN_PROF_ITM_BASE_PORT)) {
             ready = true;
             break;
         }
@@ -228,8 +249,8 @@ bool LN_PROF_ATTR ln_prof_start(ln_prof_config_t config) {
     const uint32_t old_primask = __get_PRIMASK();
     __disable_irq();
     started = true;
-    ln_prof_task_switched_in(); // tell the host about the current thread
-                                // context
+    ln_prof_thread_switched_in(); // tell the host about the current thread
+                                  // context
     __set_PRIMASK(old_primask);
     return true;
 }
@@ -301,7 +322,7 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_event_end(
 }
 
 // May run in PendSV, the thread switched to is the one current in the kernel.
-extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_task_switched_in() {
+extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_thread_switched_in() {
     ProfEvent event;
     if (!ln_prof_event_begin(event)) {
         return;
@@ -320,7 +341,7 @@ extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_task_switched_in() {
     ln_prof_event_end(event);
 }
 
-extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_task_switched_out() {
+extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_thread_switched_out() {
     ProfEvent event;
     if (!ln_prof_event_begin(event)) {
         return;
@@ -334,6 +355,13 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_enter(void *fn) {
     if (!ln_prof_event_begin(event)) {
         return;
     }
+    const uint32_t fn_address = reinterpret_cast<uint32_t>(fn);
+    const uint32_t fn_base =
+        fn_address & ~((1u << (LN_PROF_FN_ADDR_BITS + 1)) - 1);
+    if (fn_base != announced_fn_base) {
+        announced_fn_base = fn_base;
+        ln_prof_send_word(ItmPort::FN_BASE, fn_base | LN_PROF_FN_ADDR_BITS);
+    }
     uint32_t cycle_count_delta = event.cycle_count_delta;
     if ((cycle_count_delta > LN_PROF_FN_CYCCNT_DELTA_MAX)) {
         /* more time passed than can fit in the bitfield - send cycle count on
@@ -344,7 +372,7 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_enter(void *fn) {
     const uint32_t fn_bits = (reinterpret_cast<uint32_t>(fn) >> 1) &
                              ((1u << LN_PROF_FN_ADDR_BITS) - 1);
     ln_prof_send_word(event.inside_interrupt ? ItmPort::FN_ENTER_ISR
-                                             : ItmPort::FN_ENTER_TASK,
+                                             : ItmPort::FN_ENTER_THREAD,
                       (cycle_count_delta << LN_PROF_FN_ADDR_BITS) | fn_bits);
     ln_prof_event_end(event);
 }
@@ -355,7 +383,7 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_exit() {
         return;
     }
     ln_prof_send_narrow(event.inside_interrupt ? ItmPort::FN_EXIT_ISR
-                                               : ItmPort::FN_EXIT_TASK,
+                                               : ItmPort::FN_EXIT_THREAD,
                         event.cycle_count_delta);
     ln_prof_event_end(event);
 }

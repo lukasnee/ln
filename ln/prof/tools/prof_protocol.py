@@ -47,12 +47,14 @@ class Port(IntEnum):
     TIME = 6
     NAME = 7
     NAME_MORE = 8
+    FN_BASE = 9
 
 
 PORT_COUNT = len(Port)
 
-FN_ADDR_BITS = 18
 CONTEXT_ID_BITS = 7
+FN_BASE_BITS_MASK = 0x1F  # the split N, in the low bits of the FN_BASE word
+FN_ADDR_BITS_RANGE = range(4, 25)
 
 ItmItem = namedtuple("ItmItem", ["is_loss", "offset", "port", "payload", "skipped"])
 
@@ -155,11 +157,10 @@ class DecodeResult:
 
 class _RecordDecoder:
 
-    def __init__(self, itm_base_port, fw_base, fw_size, clk_freq):
+    def __init__(self, itm_base_port, clk_freq):
         self._itm_base_port = itm_base_port
-        self._fw_base = fw_base
-        self._fn_high_bits = fw_base & ~((1 << (FN_ADDR_BITS + 1)) - 1)
-        self._fw_size = fw_size
+        self._fn_addr_bits = None
+        self._fn_high_bits = None
         self._clk_freq = clk_freq
         self.result = DecodeResult()
         self._cycle_cnt = 0
@@ -222,6 +223,8 @@ class _RecordDecoder:
             )
         if port_offset == Port.TIME:
             return self._decode_time(item)
+        if port_offset == Port.FN_BASE:
+            return self._decode_fn_base(item)
         if port_offset == Port.NAME:
             return self._decode_context_name(items, i)
         return 0, f"unexpected record start on port {port_offset}"
@@ -271,7 +274,7 @@ class _RecordDecoder:
         if is_isr:
             return ContextId.INTERRUPT
         if self._running_context_id == ContextId.SCHEDULER:
-            return None  # no thread mode code runs between two tasks
+            return None  # no thread mode code runs between two threads
         return self._running_context_id
 
     def _accept(self, packet):
@@ -284,22 +287,50 @@ class _RecordDecoder:
         self.result.packets.append(packet)
         return 1, None
 
+    def _decode_fn_base(self, item):
+        if len(item.payload) != 4:
+            return 0, f"unexpected ITM payload size {len(item.payload)}"
+        word = self._value(item)
+        bits = word & FN_BASE_BITS_MASK
+        if bits not in FN_ADDR_BITS_RANGE:
+            return 0, f"code layout with {bits} function address bits"
+        self._fn_addr_bits = bits
+        self._fn_high_bits = word & ~FN_BASE_BITS_MASK
+        return 1, None
+
     def _decode_fn_enter(self, item, is_isr):
         if len(item.payload) != 4:
             return 0, f"unexpected ITM payload size {len(item.payload)}"
+        if self._fn_addr_bits is None:
+            return 0, "function enter before the code layout is known"
         context_id = self._context_of(is_isr)
         if context_id is None:
             return 0, "function enter while no thread is known to run"
         word = self._value(item)
-        fn = self._fn_high_bits | ((word & ((1 << FN_ADDR_BITS) - 1)) << 1)
-        if not (self._fw_base <= fn < self._fw_base + self._fw_size):
-            return 0, f"packet fn not within firmware memory region, {fn:08x}"
+        fn = self._fn_high_bits | ((word & ((1 << self._fn_addr_bits) - 1)) << 1)
         return self._accept(
             ProfilePacket(
-                self._cycle_cnt + (word >> FN_ADDR_BITS),
+                self._cycle_cnt + (word >> self._fn_addr_bits),
                 context_id,
                 Kind.FN_ENTER,
                 fn,
+            )
+        )
+
+    def _decode_scope_enter(self, item, is_isr):
+        if len(item.payload) != 4:
+            return 0, f"unexpected ITM payload size {len(item.payload)}"
+        context_id = self._context_of(is_isr)
+        if context_id is None:
+            return 0, "scope enter while no thread is known to run"
+        word = self._value(item)
+        # the id is no address, it shows where a function would
+        return self._accept(
+            ProfilePacket(
+                self._cycle_cnt + (word >> 16),
+                context_id,
+                Kind.FN_ENTER,
+                word & 0xFFFF,
             )
         )
 
@@ -337,14 +368,14 @@ class _RecordDecoder:
         return 1, None
 
 
-def decode_stream(data, itm_base_port, fw_base, fw_size, clk_freq):
+def decode_stream(data, itm_base_port, clk_freq):
     """Decode a captured ITM byte stream into profile packets and context names.
 
     `itm_base_port` must match LN_PROF_ITM_BASE_PORT on the target, ln/prof uses
     PORT_COUNT consecutive ports from it.
     """
 
-    decoder = _RecordDecoder(itm_base_port, fw_base, fw_size, clk_freq)
+    decoder = _RecordDecoder(itm_base_port, clk_freq)
     result = decoder.result
     items = list(itm_parse(data, range(itm_base_port, itm_base_port + PORT_COUNT)))
     in_bad_run = False
