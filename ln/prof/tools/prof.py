@@ -254,7 +254,12 @@ class UcProf:
             if not symbol:
                 symbol = Symbol(0, "U", "fn @ 0x{:08x}".format(packet.fn), "", 0)
             elif SCOPE_MARKER_NAME in symbol.fn_name:
-                symbol = symbol._replace(fn_name=SCOPE_FRAME_NAME)
+                location = (
+                    f"{ntpath.basename(symbol.file)}:{symbol.line} "
+                    if symbol.file
+                    else ""
+                )
+                symbol = symbol._replace(fn_name=location + SCOPE_FRAME_NAME)
             add_event(
                 packet.context_id, packet.speedscope_event_type, timestamp, symbol
             )
