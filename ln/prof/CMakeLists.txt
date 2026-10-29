@@ -1,9 +1,3 @@
-if(NOT LN_FREERTOS)
-  # ln::prof could be made to work without an RTOS, but currently it is only
-  # implemented for FreeRTOS for simplicity sake.
-  message(FATAL_ERROR "ln_prof requires FreeRTOS")
-endif()
-
 set(LN_PROF_ITM_BASE_PORT
     0
     CACHE STRING "The ITM base port where to map ln::prof protocol ports")
@@ -60,7 +54,11 @@ if(NOT LN_PROF)
   target_include_directories(ln_prof INTERFACE include)
 else()
   ln_add_library(ln_prof ALIAS ln::prof)
-  target_link_libraries(ln_prof PRIVATE ln::core FreeRTOS-Cpp)
+  target_link_libraries(ln_prof PRIVATE ln::core)
+  if(LN_FREERTOS)
+    target_link_libraries(ln_prof PRIVATE FreeRTOS-Cpp)
+    target_compile_definitions(ln_prof PRIVATE LN_PROF_RTOS)
+  endif()
   target_compile_options(ln_prof PRIVATE -O3)
   target_compile_definitions(
     ln_prof
