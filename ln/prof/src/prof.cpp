@@ -237,8 +237,8 @@ bool LN_PROF_ATTR ln_prof_start(ln_prof_config_t config) {
     const uint32_t start_time = DWT->CYCCNT;
     bool ready = false;
     while ((DWT->CYCCNT - start_time) < timeout) {
-        if (LN_ITM_IS_PORT_READY(ItmPort::FN_ENTER_THREAD) &&
-            LN_ITM_IS_FIFO_READY(ItmPort::FN_ENTER_THREAD)) {
+        if (LN_ITM_IS_PORT_READY(LN_PROF_ITM_BASE_PORT) &&
+            LN_ITM_IS_FIFO_READY(LN_PROF_ITM_BASE_PORT)) {
             ready = true;
             break;
         }
