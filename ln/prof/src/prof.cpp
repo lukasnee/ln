@@ -25,8 +25,10 @@
 
 #include "ln/port/itm.h"
 
+#ifdef LN_PROF_RTOS
 #include "FreeRTOS.h"
 #include "task.h"
+#endif
 
 #include <bitset>
 #include <cstdint>
@@ -88,7 +90,9 @@ enum ContextId : uint32_t {
     FIRST_THREAD = 3,
     /* subsequent threads */
 };
+#ifdef LN_PROF_RTOS
 static uint32_t next_context_id = ContextId::FIRST_THREAD;
+#endif
 static std::bitset<128> disclosed_name_contexts;
 static uint32_t last_announce_reset = 0;
 // The FN_BASE last sent, UINT32_MAX (never a valid one) to send it again.
@@ -183,6 +187,7 @@ static LN_PROF_ATTR void ln_prof_send_context_name(uint32_t context_id,
  * @note Shall be called with interrupts masked, may send a context name.
  */
 static LN_PROF_ATTR NO_INLINE uint32_t ln_prof_resolve_thread_context_id() {
+#ifdef LN_PROF_RTOS
     TaskHandle_t thread = xTaskGetCurrentTaskHandle();
     if (UNLIKELY(!thread)) {
         return 0;
@@ -195,6 +200,12 @@ static LN_PROF_ATTR NO_INLINE uint32_t ln_prof_resolve_thread_context_id() {
         vTaskSetTaskNumber(thread, id);
     }
     id &= 0x7F;
+    const char *name = pcTaskGetName(thread);
+#else
+    // Bare metal: a single thread context.
+    const uint32_t id = ContextId::FIRST_THREAD;
+    const char *name = "main";
+#endif
     // Re-announce context names and function base about once per second so
     // late-attaching recorders are informed
     const uint32_t now = DWT->CYCCNT;
@@ -205,7 +216,7 @@ static LN_PROF_ATTR NO_INLINE uint32_t ln_prof_resolve_thread_context_id() {
     }
     if (UNLIKELY(!disclosed_name_contexts.test(id))) {
         disclosed_name_contexts.set(id);
-        ln_prof_send_context_name(id, pcTaskGetName(thread));
+        ln_prof_send_context_name(id, name);
     }
     return id;
 }
