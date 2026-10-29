@@ -26,7 +26,7 @@ from prof_protocol import (
 
 PORT = 0
 FW_BASE = 0x08000000
-FW_SIZE = 0x80000
+FN_BITS = 18  # function address bits in an enter word, for 512 KB of code
 CLK_FREQ = 1_000_000  # one cycle is one microsecond
 
 ITM_OVERFLOW = b"\x70"
@@ -52,13 +52,18 @@ def narrow(value):
     return value.to_bytes(width, "little")
 
 
-def fn_enter(fn, delta=10, isr=False, port=PORT):
-    """Mirrors __cyg_profile_func_enter() in prof.cpp."""
+def fn_base(base, bits=FN_BITS, port=PORT):
+    """The code layout, mirrors the FN_BASE send in __cyg_profile_func_enter()."""
+    return word_packet(base | bits, port + Port.FN_BASE)
+
+
+def fn_enter(fn, delta=10, isr=False, port=PORT, bits=FN_BITS):
+    """Mirrors __cyg_profile_func_enter() in prof.cpp, the layout is not sent."""
     time = b""
-    if delta >> (32 - FN_ADDR_BITS):
+    if delta >> (32 - bits):
         time = itm_packet(port + Port.TIME, narrow(delta))
         delta = 0
-    word = (delta << FN_ADDR_BITS) | ((fn >> 1) & ((1 << FN_ADDR_BITS) - 1))
+    word = (delta << bits) | ((fn >> 1) & ((1 << bits) - 1))
     enter_port = Port.FN_ENTER_ISR if isr else Port.FN_ENTER_THREAD
     return time + word_packet(word, port + enter_port)
 
@@ -81,8 +86,9 @@ def switch_to(context_id, delta=10, port=PORT):
     return itm_packet(port + Port.SWITCH_IN, narrow(value))
 
 
-# the events of a thread are only known once it has been switched to
-TASK3 = switch_to(3, delta=0)
+# the events of a thread are only known once the code layout is and it has been
+# switched to
+TASK3 = fn_base(FW_BASE) + switch_to(3, delta=0)
 
 
 def context_name(context_id, name, port=PORT):
@@ -110,7 +116,7 @@ def context_name(context_id, name, port=PORT):
 
 
 def decode(data, port=PORT):
-    return decode_stream(data, port, FW_BASE, FW_SIZE, CLK_FREQ)
+    return decode_stream(data, port, CLK_FREQ)
 
 
 def name_of(result, context_id):
@@ -251,13 +257,32 @@ class TestDecodeStream(unittest.TestCase):
         self.assertEqual(len(result.packets), 3)
         self.assertEqual((result.loss_points, result.gaps), (set(), 0))
 
-    def test_function_outside_the_firmware_is_rejected(self):
-        outside = FW_BASE + 0x2000
-        data = TASK3 + fn_enter(FN_A) + fn_enter(outside) + fn_enter(FN_C)
-        result = decode_stream(data, PORT, FW_BASE, 0x1000, CLK_FREQ)
+    def test_enter_before_the_code_layout_is_known_is_rejected(self):
+        data = (
+            switch_to(3, delta=0) + fn_enter(FN_A) + fn_base(FW_BASE) + fn_enter(FN_B)
+        )
+        result = decode(data)
         enters = [p for p in result.packets if p.kind == Kind.FN_ENTER]
-        self.assertEqual([p.fn for p in enters], [FN_A, FN_C])
-        self.assertEqual(result.loss_points, {2})
+        self.assertEqual([p.fn for p in enters], [FN_B])
+        self.assertEqual(result.loss_points, {1})
+
+    def test_a_new_code_layout_applies_to_the_enters_after_it(self):
+        ram_fn = 0x10000100
+        data = TASK3 + fn_enter(FN_A) + fn_base(0x10000000) + fn_enter(ram_fn)
+        result = decode(data)
+        enters = [p for p in result.packets if p.kind == Kind.FN_ENTER]
+        self.assertEqual([p.fn for p in enters], [FN_A, ram_fn])
+
+    def test_the_bit_split_comes_from_the_target(self):
+        enter = fn_enter(FN_A, delta=20000, bits=17)
+        self.assertEqual(len(enter), 5)  # the delta fits the word, no time packet
+        data = fn_base(FW_BASE, bits=17) + switch_to(3, delta=0) + enter
+        packets = decode(data).packets
+        self.assertEqual([(p.cycle_cnt, p.fn) for p in packets[1:]], [(20000, FN_A)])
+
+    def test_a_code_layout_out_of_range_is_rejected(self):
+        data = fn_base(FW_BASE, bits=2) + switch_to(3, delta=0) + fn_enter(FN_A)
+        self.assertEqual(len(decode(data).packets), 1)
 
     def test_a_scope_marked_by_hand_does_not_change_the_code_layout(self):
         data = (
@@ -310,7 +335,8 @@ class TestDecodeStream(unittest.TestCase):
 
     def test_only_the_selected_port_is_decoded(self):
         data = (
-            switch_to(3, delta=0, port=5)
+            fn_base(FW_BASE, port=5)
+            + switch_to(3, delta=0, port=5)
             + fn_enter(FN_A, port=5)
             + exit_record(10, port=5)
         )
@@ -365,9 +391,10 @@ class TestExitRecords(unittest.TestCase):
             [(ContextId.INTERRUPT, Kind.FN_EXIT, FN_B), (3, Kind.FN_EXIT, FN_A)],
         )
 
-    def test_exits_follow_the_running_thread(self):
+    def test_exits_follow_the_running_task(self):
         data = (
-            switch_to(3)
+            fn_base(FW_BASE)
+            + switch_to(3)
             + fn_enter(FN_A)
             + switch_to(ContextId.SCHEDULER)
             + switch_to(4)
@@ -382,7 +409,8 @@ class TestExitRecords(unittest.TestCase):
 
     def test_events_while_the_scheduler_runs_are_rejected(self):
         data = (
-            switch_to(ContextId.SCHEDULER)
+            fn_base(FW_BASE)
+            + switch_to(ContextId.SCHEDULER)
             + exit_record(10)
             + fn_enter(FN_A)
             + switch_to(3)
@@ -403,7 +431,7 @@ class TestExitRecords(unittest.TestCase):
             ],
         )
 
-    def test_exit_with_no_known_thread_is_rejected(self):
+    def test_exit_with_no_known_task_is_rejected(self):
         result = decode(exit_record(10) + fn_enter(FN_A) + TASK3 + fn_enter(FN_B))
         self.assertEqual(
             [p.kind for p in result.packets], [Kind.CONTEXT_SWITCH, Kind.FN_ENTER]
@@ -460,7 +488,7 @@ class TestExitRecords(unittest.TestCase):
         closed = [
             (p.context_id, p.fn) for p in result.packets if p.kind == Kind.FN_EXIT
         ]
-        # the interrupt stack was forgotten around the gap, the thread stack was not
+        # the interrupt stack was forgotten around the gap, the task stack was not
         self.assertEqual(closed, [(ContextId.INTERRUPT, FN_C), (3, FN_A)])
 
     def test_packets_of_all_ports_resync_after_a_lost_byte(self):
@@ -479,7 +507,12 @@ class TestFoldAllStacks(unittest.TestCase):
     SYMBOLS = "08000100 T fnA\n08000200 T fnB\n08000300 T fnC\n"
 
     # the first event sits at time zero, which the output drops
-    WARM_UP = switch_to(3, delta=1000) + fn_enter(FN_C, delta=0) + exit_record(10)
+    WARM_UP = (
+        fn_base(FW_BASE)
+        + switch_to(3, delta=1000)
+        + fn_enter(FN_C, delta=0)
+        + exit_record(10)
+    )
 
     def fold(self, stream):
         with tempfile.TemporaryDirectory() as tmp:
@@ -493,8 +526,6 @@ class TestFoldAllStacks(unittest.TestCase):
                 nm_symbols_path=symbols_path,
                 frame_data_path=data_path,
                 itm_base_port=PORT,
-                fw_base=FW_BASE,
-                fw_size=FW_SIZE,
                 clk_freq=CLK_FREQ,
                 begin=None,
                 end=None,
@@ -535,7 +566,7 @@ class TestFoldAllStacks(unittest.TestCase):
             [("O", "fnA"), ("O", "fnB"), ("C", "fnB"), ("C", "fnA")],
         )
 
-    def test_a_thread_is_not_running_between_switches_away_and_back(self):
+    def test_a_task_is_not_running_between_switches_away_and_back(self):
         stream = (
             context_name(3, "main")
             + self.WARM_UP
