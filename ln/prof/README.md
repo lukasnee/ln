@@ -70,4 +70,3 @@ other SWO output, and pass the same first port to `prof.py` with
 - Consider creating a custom GUI (ImGUI for example). Speedscope and Tracy are
   useful tools, but a custom GUI could provide a more tailored and efficient
   visualization for specific use cases.
-- Use likely/unlikely in hot path

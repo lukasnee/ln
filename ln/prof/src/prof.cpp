@@ -5,6 +5,7 @@
 
 #define FORCE_INLINE inline __attribute__((always_inline))
 #define NO_INLINE __attribute__((noinline))
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
 
 // Section for the event hot path, e.g. ".ccmram" to run it with no flash waits.
 #ifdef LN_PROF_HOT_SECTION
@@ -119,7 +120,7 @@ static void ln_prof_stats_reset() {
 
 static LN_PROF_ATTR FORCE_INLINE void ln_prof_wait_for_fifo(uint32_t port) {
 #ifdef LN_PROF_STATS
-    if (!LN_ITM_IS_FIFO_READY(port)) {
+    if (UNLIKELY(!LN_ITM_IS_FIFO_READY(port))) {
         const uint32_t stall_begin = DWT->CYCCNT;
         LN_ITM_BLOCK_WAIT_FOR_FIFO(port);
         stats.fifo_stalls++;
@@ -183,11 +184,11 @@ static LN_PROF_ATTR void ln_prof_send_context_name(uint32_t context_id,
  */
 static LN_PROF_ATTR NO_INLINE uint32_t ln_prof_resolve_thread_context_id() {
     TaskHandle_t thread = xTaskGetCurrentTaskHandle();
-    if (!thread) {
+    if (UNLIKELY(!thread)) {
         return 0;
     }
     UBaseType_t id = uxTaskGetTaskNumber(thread);
-    if (id == 0) {
+    if (UNLIKELY(id == 0)) {
         id = next_context_id;
         next_context_id = next_context_id < 0x7E ? next_context_id + 1
                                                  : ContextId::FIRST_THREAD;
@@ -197,12 +198,12 @@ static LN_PROF_ATTR NO_INLINE uint32_t ln_prof_resolve_thread_context_id() {
     // Re-announce context names and function base about once per second so
     // late-attaching recorders are informed
     const uint32_t now = DWT->CYCCNT;
-    if (now - last_announce_reset > SystemCoreClock) {
+    if (UNLIKELY(now - last_announce_reset > SystemCoreClock)) {
         last_announce_reset = now;
         disclosed_name_contexts.reset();
         announced_fn_base = UINT32_MAX;
     }
-    if (!disclosed_name_contexts.test(id)) {
+    if (UNLIKELY(!disclosed_name_contexts.test(id))) {
         disclosed_name_contexts.set(id);
         ln_prof_send_context_name(id, pcTaskGetName(thread));
     }
@@ -287,14 +288,14 @@ struct ProfEvent {
  * not be called.
  */
 static LN_PROF_ATTR FORCE_INLINE bool ln_prof_event_begin(ProfEvent &event) {
-    if (!started) {
+    if (UNLIKELY(!started)) {
         return false;
     }
 #ifdef LN_PROF_STATS
     event.entry_cycles = DWT->CYCCNT;
 #endif
     event.inside_interrupt = __get_IPSR() != 0;
-    if (!profile_interrupts && event.inside_interrupt) {
+    if (UNLIKELY(!profile_interrupts && event.inside_interrupt)) {
         return false;
     }
     event.old_primask = __get_PRIMASK();
@@ -324,12 +325,12 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_event_end(
 // May run in PendSV, the thread switched to is the one current in the kernel.
 extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_thread_switched_in() {
     ProfEvent event;
-    if (!ln_prof_event_begin(event)) {
+    if (UNLIKELY(!ln_prof_event_begin(event))) {
         return;
     }
     const uint32_t context_id = ln_prof_resolve_thread_context_id();
     uint32_t cycle_count_delta = event.cycle_count_delta;
-    if ((cycle_count_delta > LN_PROF_FN_CYCCNT_DELTA_MAX)) {
+    if (UNLIKELY(cycle_count_delta > LN_PROF_FN_CYCCNT_DELTA_MAX)) {
         /* more time passed than can fit in the bitfield - send cycle count on
                the TIME port instead with wider range */
         ln_prof_send_narrow(ItmPort::TIME, cycle_count_delta);
@@ -343,7 +344,7 @@ extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_thread_switched_in() {
 
 extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_thread_switched_out() {
     ProfEvent event;
-    if (!ln_prof_event_begin(event)) {
+    if (UNLIKELY(!ln_prof_event_begin(event))) {
         return;
     }
     ln_prof_send_narrow(ItmPort::SWITCH_OUT, event.cycle_count_delta);
@@ -352,18 +353,18 @@ extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_thread_switched_out() {
 
 static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_enter(void *fn) {
     ProfEvent event;
-    if (!ln_prof_event_begin(event)) {
+    if (UNLIKELY(!ln_prof_event_begin(event))) {
         return;
     }
     const uint32_t fn_address = reinterpret_cast<uint32_t>(fn);
     const uint32_t fn_base =
         fn_address & ~((1u << (LN_PROF_FN_ADDR_BITS + 1)) - 1);
-    if (fn_base != announced_fn_base) {
+    if (UNLIKELY(fn_base != announced_fn_base)) {
         announced_fn_base = fn_base;
         ln_prof_send_word(ItmPort::FN_BASE, fn_base | LN_PROF_FN_ADDR_BITS);
     }
     uint32_t cycle_count_delta = event.cycle_count_delta;
-    if ((cycle_count_delta > LN_PROF_FN_CYCCNT_DELTA_MAX)) {
+    if (UNLIKELY(cycle_count_delta > LN_PROF_FN_CYCCNT_DELTA_MAX)) {
         /* more time passed than can fit in the bitfield - send cycle count on
         the TIME port instead with wider range */
         ln_prof_send_narrow(ItmPort::TIME, cycle_count_delta);
@@ -379,7 +380,7 @@ static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_enter(void *fn) {
 
 static LN_PROF_ATTR FORCE_INLINE void ln_prof_send_exit() {
     ProfEvent event;
-    if (!ln_prof_event_begin(event)) {
+    if (UNLIKELY(!ln_prof_event_begin(event))) {
         return;
     }
     ln_prof_send_narrow(event.inside_interrupt ? ItmPort::FN_EXIT_ISR
