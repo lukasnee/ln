@@ -1,7 +1,10 @@
 // Copyright (c)  2026 Lukas Neverauskis <lukas.neverauskis@gmail.com>
 // SPDX-License-Identifier: GPL-2.0-only
 
+#include "ln/port/task_registry.hpp"
 #include "ln/shell/CLI.hpp"
+
+#include <array>
 
 #include "FreeRTOS/Addons/Clock.hpp"
 
@@ -37,20 +40,27 @@ static std::string_view task_state_to_str(eTaskState state) {
  * be higher if more TLS pointers are used #define
  * configNUM_THREAD_LOCAL_STORAGE_POINTERS 1 #define
  * configTHREAD_LOCAL_STORAGE_LAST_RUN_TIME_COUNTER_INDEX 0
+ * // "ln/port/task_hooks.h" needs to be included in FreeRTOSConfig.h.
  * @endcode
  */
 void print_run_time_stats(ln::shell::CLI &cli) {
-    auto num_of_tasks = uxTaskGetNumberOfTasks();
-    UBaseType_t array_size = num_of_tasks;
-    TaskStatus_t *tasks_status_arr = static_cast<TaskStatus_t *>(
-        pvPortMalloc(num_of_tasks * sizeof(TaskStatus_t)));
-    if (!tasks_status_arr) {
-        return;
-    }
+    std::array<TaskHandle_t, LN_PORT_TASK_REGISTRY_SIZE> handles;
+    std::array<TaskStatus_t, LN_PORT_TASK_REGISTRY_SIZE> tasks_status_arr;
     static uint32_t last_total_time = 0UL;
     uint32_t total_time = 0UL;
-    array_size =
-        uxTaskGetSystemState(tasks_status_arr, array_size, &total_time);
+    UBaseType_t array_size = 0;
+    // Short scheduler lock for a consistent counters snapshot. The slow stack
+    // scan is skipped here and done per task below with the scheduler running.
+    vTaskSuspendAll();
+    {
+        array_size = static_cast<UBaseType_t>(
+            ln::port::task_registry_get(handles.data(), handles.size()));
+        for (UBaseType_t x = 0; x < array_size; x++) {
+            vTaskGetInfo(handles[x], &tasks_status_arr[x], pdFALSE, eInvalid);
+        }
+        total_time = portGET_RUN_TIME_COUNTER_VALUE();
+    }
+    xTaskResumeAll();
     float ulDeltaTotalTime =
         static_cast<float>(total_time - last_total_time) / 100.0F;
 
@@ -72,8 +82,10 @@ void print_run_time_stats(ln::shell::CLI &cli) {
         const size_t stack_size_bytes = (tasks_status_arr[x].pxEndOfStack -
                                          tasks_status_arr[x].pxStackBase + 1) *
                                         sizeof(StackType_t);
+        // A task deleted since the snapshot may report a stale value.
         const size_t stack_free_bytes =
-            tasks_status_arr[x].usStackHighWaterMark * sizeof(StackType_t);
+            uxTaskGetStackHighWaterMark(tasks_status_arr[x].xHandle) *
+            sizeof(StackType_t);
         const float stack_usage_percentage =
             static_cast<float>(stack_size_bytes - stack_free_bytes) * 100.0F /
             static_cast<float>(stack_size_bytes);
@@ -88,7 +100,6 @@ void print_run_time_stats(ln::shell::CLI &cli) {
             reinterpret_cast<void *>(tasks_status_arr[x].ulRunTimeCounter));
     }
     last_total_time = total_time;
-    vPortFree(tasks_status_arr);
 }
 
 namespace ln::shell {
