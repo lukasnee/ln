@@ -245,3 +245,20 @@ void reset() {
 extern "C" void _ln_hardfault_handler(void *frame) {
     ln::hardfault_handler(frame);
 }
+
+extern "C" void ln_FreeRTOS_portCONFIGURE_TIMER_FOR_RUN_TIME_STATS() {
+    __HAL_RCC_TIM2_CLK_ENABLE();
+    TIM2->CR1 = 0;
+    const size_t timer_frequency = 10000;
+    TIM2->PSC =
+        static_cast<std::uint16_t>((SystemCoreClock / timer_frequency) - 1);
+    TIM2->ARR = 0xFFFFFFFF;
+    TIM2->CNT = 0;
+    TIM2->EGR = TIM_EGR_UG;
+
+    TIM2->CR1 |= TIM_CR1_CEN;
+}
+
+extern "C" uint32_t ln_FreeRTOS_portGET_RUN_TIME_COUNTER_VALUE() {
+    return TIM2->CNT;
+}
