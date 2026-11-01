@@ -1,6 +1,7 @@
 // Copyright (c)  2026 Lukas Neverauskis <lukas.neverauskis@gmail.com>
 // SPDX-License-Identifier: GPL-2.0-only
 
+#include "FreeRTOSConfig.h"
 #include "ln/shell/CLI.hpp"
 
 #include "FreeRTOS/Addons/Clock.hpp"
@@ -99,6 +100,8 @@ Cmd cmd_status{Cmd::Cfg{.name = "status,s",
                             ctx.cli.print("uptime: {}\n", ln::get_uptime_ms());
                             ctx.cli.print("free heap: {}\n\r",
                                           xPortGetFreeHeapSize());
+                            ctx.cli.print("run time counter: {}\n\r",
+                                          portGET_RUN_TIME_COUNTER_VALUE());
                             print_run_time_stats(ctx.cli);
                             return Err::ok;
                         }}};
