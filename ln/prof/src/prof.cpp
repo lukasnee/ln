@@ -3,6 +3,7 @@
 
 #include "ln/prof/prof.h"
 
+#define LN_PROF_ATTR __attribute__((optimize("O3"), hot))
 #define FORCE_INLINE inline __attribute__((always_inline))
 #define NO_INLINE __attribute__((noinline))
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)

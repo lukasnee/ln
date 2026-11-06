@@ -22,22 +22,22 @@ typedef struct {
 
 #include <stddef.h>
 
+#include "prof_config.h"
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-#define LN_PROF_ATTR __attribute__((optimize("O3"), hot))
-
-    extern "C" LN_PROF_ATTR bool ln_prof_start(ln_prof_config_t config);
+    extern "C" bool ln_prof_start(ln_prof_config_t config);
 #define LN_PROF_START(config) ln_prof_start(config)
-    extern "C" LN_PROF_ATTR void ln_prof_stop();
+    extern "C" void ln_prof_stop();
 #define LN_PROF_STOP() ln_prof_stop()
 
-    extern "C" LN_PROF_ATTR void ln_prof_scope_enter(void *marker);
+    extern "C" void ln_prof_scope_enter(void *marker);
 #define LN_PROF_ENTER(marker) ln_prof_scope_enter((void *)(marker))
 
-    extern "C" LN_PROF_ATTR void ln_prof_scope_exit(void *marker);
+    extern "C" void ln_prof_scope_exit(void *marker);
 #define LN_PROF_EXIT(marker) ln_prof_scope_exit((void *)(marker))
 
 #ifdef __cplusplus

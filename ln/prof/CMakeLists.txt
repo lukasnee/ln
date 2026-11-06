@@ -1,16 +1,11 @@
-set(LN_PROF_ITM_BASE_PORT
-    0
-    CACHE STRING "The ITM base port where to map ln::prof protocol ports")
-
-set(LN_PROF_FW_SIZE
-    0x80000
-    CACHE STRING "Bytes of code from the start of flash ln::prof can profile")
+set(LN_PROF_CONFIG_DIR
+    ""
+    CACHE
+      PATH
+      "Directory where user's profiler configuration file (prof_config.h) is located"
+)
 
 option(LN_PROF_STATS "Collect ln::prof overhead statistics (adds overhead)" OFF)
-
-set(LN_PROF_HOT_SECTION
-    ""
-    CACHE STRING "Linker section for the ln::prof hot path, e.g. .ccmram")
 
 function(ln_prof)
 
@@ -53,6 +48,12 @@ if(NOT LN_PROF)
   ln_add_library(ln_prof ALIAS ln::prof INTERFACE)
   target_include_directories(ln_prof INTERFACE include)
 else()
+  if(NOT EXISTS "${LN_PROF_CONFIG_DIR}/prof_config.h")
+    message(
+      FATAL_ERROR
+        "ln::prof requires prof_config.h, make sure LN_PROF_CONFIG_DIR is set correctly"
+    )
+  endif()
   ln_add_library(ln_prof ALIAS ln::prof)
   target_link_libraries(ln_prof PRIVATE ln::core)
   if(LN_FREERTOS)
@@ -60,20 +61,12 @@ else()
     target_compile_definitions(ln_prof PRIVATE LN_PROF_RTOS)
   endif()
   target_compile_options(ln_prof PRIVATE -O3)
-  target_compile_definitions(
-    ln_prof
-    PUBLIC LN_PROF
-    PRIVATE LN_PROF_ITM_BASE_PORT=${LN_PROF_ITM_BASE_PORT}
-            LN_PROF_FW_SIZE=${LN_PROF_FW_SIZE})
+  target_compile_definitions(ln_prof PUBLIC LN_PROF)
   if(LN_PROF_STATS)
     target_compile_definitions(ln_prof PRIVATE LN_PROF_STATS)
     target_link_libraries(ln_prof PRIVATE ln::shell)
   endif()
-  if(LN_PROF_HOT_SECTION)
-    target_compile_definitions(
-      ln_prof PRIVATE "LN_PROF_HOT_SECTION=\"${LN_PROF_HOT_SECTION}\"")
-  endif()
-  target_include_directories(ln_prof PUBLIC include)
+  target_include_directories(ln_prof PUBLIC include ${LN_PROF_CONFIG_DIR})
   target_sources(ln_prof PRIVATE src/prof.cpp)
   set_source_files_properties(src/prof.cpp PROPERTIES COMPILE_OPTIONS
                                                       -fno-instrument-functions)

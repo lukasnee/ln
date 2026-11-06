@@ -18,6 +18,28 @@ layout of each port is documented in `src/prof.cpp`. Keep these ports free of
 other SWO output, and pass the same first port to `prof.py` with
 `--itm_base_port`. Firmware and `prof.py` shall be of the same version.
 
+## Configuration
+
+The project shall provide `prof_config.h` and set the CMake variable
+`LN_PROF_CONFIG_DIR` to the directory containing it. All settings are optional
+macros:
+
+```c
+// prof_config.h
+#pragma once
+
+// First of the 12 ITM ports, default 0
+#define LN_PROF_ITM_BASE_PORT 0
+// Bytes of code from the start of flash that can be profiled, default 0x80000
+#define LN_PROF_FW_SIZE 0x80000
+// Section for the event hot path, default none
+#define LN_PROF_HOT_SECTION ".ccmram"
+```
+
+There is also `LN_PROF_STATS` configuration option in CMake, which enables the
+collection of profiler overhead statistics in the firmware and makes them
+available through `ln::shell` commands.
+
 ## Usage
 
 1. Build and flash the firmware to the target MCU.
