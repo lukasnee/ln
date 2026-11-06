@@ -50,6 +50,7 @@
 #include <fmt/chrono.h>
 
 #include <span>
+#include <algorithm>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -161,6 +162,11 @@ private:
                  rc < 0, { chars_printed += rc; }, {});
         LN_CHECK(this->print_buf("{}", this->config.eol), rc, rc < 0,
                  { chars_printed += rc; }, {});
+        if (!this->config.out_buf.empty() &&
+            this->config.out_buf.size() - this->out_buf_len <
+                Config::out_buf_flush_threshold) {
+            this->_flush_buffer();
+        }
         return chars_printed;
     }
 
@@ -178,11 +184,7 @@ private:
             if (res.size <= 0) {
                 return static_cast<int>(res.size);
             }
-            this->out_buf_len += static_cast<size_t>(res.size);
-            if (this->config.out_buf.size() - this->out_buf_len <
-                Config::out_buf_flush_threshold) {
-                this->_flush_buffer();
-            }
+            this->out_buf_len += std::min(static_cast<size_t>(res.size), cap);
             return static_cast<int>(res.size);
         }
         fmt::vprint(this->config.out_file.c_file(), fmt_str,
