@@ -25,7 +25,7 @@ function(ln_bloaty_compare_with_previous_build fw_target)
       COMMAND echo
               "Bloaty report comparing ${fw_target} to previous build output:"
       COMMAND
-        ${BLOATY_EXECUTABLE} -d compileunits,symbols
+        ${BLOATY_EXECUTABLE} --domain=vm -d compileunits,symbols
         ${CMAKE_CURRENT_BINARY_DIR}/${fw_target} --
         ${CMAKE_CURRENT_BINARY_DIR}/${fw_target}.bloaty.old
       COMMAND
