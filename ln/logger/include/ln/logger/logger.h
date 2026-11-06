@@ -46,6 +46,10 @@
 #include "ln/File.hpp"
 #include "ln/Mutex.hpp"
 
+#ifdef LN_PROF
+#include "ln/prof/prof.h"
+#endif
+
 #include <fmt/format.h>
 #include <fmt/chrono.h>
 
@@ -154,6 +158,7 @@ private:
     int _log(const Module &module, const Level &level, fmt::string_view fmt_str,
              Args &&...args) {
         int chars_printed = 0;
+        [[maybe_unused]] const size_t line_begin = this->out_buf_len;
         if (this->config.print_header_enabled) {
             LN_CHECK(this->print_header(module, level), rc, rc < 0,
                      { chars_printed += rc; }, {});
@@ -162,6 +167,12 @@ private:
                  rc < 0, { chars_printed += rc; }, {});
         LN_CHECK(this->print_buf("{}", this->config.eol), rc, rc < 0,
                  { chars_printed += rc; }, {});
+#ifdef LN_LOG_TO_PROF
+        if (!this->config.out_buf.empty()) {
+            LN_PROF_MSG(this->config.out_buf.data() + line_begin,
+                        this->out_buf_len - line_begin);
+        }
+#endif
         if (!this->config.out_buf.empty() &&
             this->config.out_buf.size() - this->out_buf_len <
                 Config::out_buf_flush_threshold) {
