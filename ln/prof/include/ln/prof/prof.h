@@ -12,6 +12,8 @@ typedef struct {
 
 #ifndef LN_PROF
 
+#define LN_PROF_EXCLUDE
+
 #define LN_PROF_START(config)
 #define LN_PROF_STOP()
 #define LN_PROF_ENTER(id)
@@ -28,6 +30,8 @@ typedef struct {
 extern "C"
 {
 #endif
+
+#define LN_PROF_EXCLUDE __attribute__((no_instrument_function))
 
     extern "C" bool ln_prof_start(ln_prof_config_t config);
 #define LN_PROF_START(config) ln_prof_start(config)
