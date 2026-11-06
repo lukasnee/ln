@@ -24,6 +24,12 @@
 #define LN_PROF_FW_SIZE 0x80000
 #endif
 
+// Longest message sent, the rest is cut off. At most 255.
+#ifndef LN_PROF_MSG_MAX_SIZE
+#define LN_PROF_MSG_MAX_SIZE 64
+#endif
+static_assert(LN_PROF_MSG_MAX_SIZE <= 255, "message size field is 8 bits");
+
 #include "ln/port/itm.h"
 
 #ifdef LN_PROF_RTOS
@@ -50,6 +56,8 @@ enum ItmPort : uint32_t {
     NAME,
     NAME_MORE,
     FN_BASE,
+    MSG,
+    MSG_MORE,
 
     _COUNT,
 
@@ -73,6 +81,13 @@ static_assert(LN_PROF_FN_ADDR_BITS >= 4 && LN_PROF_FN_ADDR_BITS <= 24,
 
 // Bits of the context ID in a switch value.
 constexpr uint32_t LN_PROF_CONTEXT_ID_BITS = 7;
+
+// MSG word: [7:0] size, [8] sent from an interrupt, [31:9] cycle count delta.
+// MSG_MORE words follow with the text, 4 bytes each, little endian.
+static constexpr uint32_t LN_PROF_MSG_ISR_BIT = 8;
+static constexpr uint32_t LN_PROF_MSG_DELTA_SHIFT = 9;
+static constexpr uint32_t LN_PROF_MSG_CYCCNT_DELTA_MAX =
+    (1u << (32 - LN_PROF_MSG_DELTA_SHIFT)) - 1;
 
 static constexpr uint32_t LN_PROF_FN_CYCLE_COUNT_DELTA_BITS =
     32 - LN_PROF_FN_ADDR_BITS;
@@ -409,6 +424,38 @@ extern "C" LN_PROF_ATTR LN_PROF_HOT void ln_prof_scope_exit(
     [[maybe_unused]] void *marker) {
     ln_prof_send_exit();
 }
+
+#ifndef LN_PROF_NO_MESSAGES
+extern "C" LN_PROF_ATTR void ln_prof_msg(const char *text, size_t size) {
+    ProfEvent event;
+    if (UNLIKELY(!ln_prof_event_begin(event))) {
+        return;
+    }
+    if (size > LN_PROF_MSG_MAX_SIZE) {
+        size = LN_PROF_MSG_MAX_SIZE;
+    }
+    uint32_t cycle_count_delta = event.cycle_count_delta;
+    if (UNLIKELY(cycle_count_delta > LN_PROF_MSG_CYCCNT_DELTA_MAX)) {
+        ln_prof_send_narrow(ItmPort::TIME, cycle_count_delta);
+        cycle_count_delta = 0;
+    }
+    ln_prof_send_word(ItmPort::MSG,
+                      (cycle_count_delta << LN_PROF_MSG_DELTA_SHIFT) |
+                          (static_cast<uint32_t>(event.inside_interrupt)
+                           << LN_PROF_MSG_ISR_BIT) |
+                          static_cast<uint32_t>(size));
+    for (size_t offset = 0; offset < size; offset += 4) {
+        uint32_t word = 0;
+        for (size_t i = 0; i < 4 && offset + i < size; i++) {
+            word |=
+                static_cast<uint32_t>(static_cast<uint8_t>(text[offset + i]))
+                << (8 * i);
+        }
+        ln_prof_send_word(ItmPort::MSG_MORE, word);
+    }
+    ln_prof_event_end(event);
+}
+#endif
 
 extern "C" LN_PROF_ATTR LN_PROF_HOT void __cyg_profile_func_enter(
     void *this_fn, [[maybe_unused]] void *call_site) {

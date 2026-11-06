@@ -49,6 +49,8 @@ class UcProf:
         # thread profile index -> thread context id
         self._thread_profile_context_ids = []
         self._symbols = []
+        # (context id, time, text bytes), shown by the tracy format only
+        self._messages = []
         self.lost_events_frame_index = None
         # indices into _thread_profile_packets before which events were lost
         self._loss_points = set()
@@ -148,6 +150,7 @@ class UcProf:
         thread_profiles_by_context_id = {}
         shared_frames_registry = {}
         shared_frames = []
+        self._messages = []
         self.lost_events_frame_index = None
         last_timestamp = None
         # the context last seen running, an interrupt does not count
@@ -247,6 +250,10 @@ class UcProf:
                         add_event(packet.context_id, "C", timestamp, not_running_symbol)
                 continue
 
+            if packet.kind == Kind.MESSAGE:
+                self._messages.append((packet.context_id, timestamp, packet.text))
+                continue
+
             symbol = next(
                 (s for s in reversed(self._symbols) if packet.fn >= s.address),
                 None,
@@ -276,6 +283,7 @@ class UcProf:
             while thread_profile["events"] and thread_profile["events"][0]["at"] == 0.0:
                 thread_profile["events"].pop(0)
 
+        logger.info(f"Messages parsed: {len(self._messages)}")
         logger.info(f"Profiles parsed: {len(thread_profiles)}")
         for thread_profile in thread_profiles:
             logger.info(
@@ -672,6 +680,18 @@ class UcProf:
                 for event in thread_profile["events"]
                 if (trace_event := zone_event(event, tid))
             )
+        for context_id, at, text in self._messages:
+            name = text.decode("utf-8", "replace").rstrip("\r\n")
+            if name:
+                trace_events.append(
+                    {
+                        "ph": "i",
+                        "name": name,
+                        "pid": 0,
+                        "tid": context_id or TRACY_UNKNOWN_CONTEXT_TID,
+                        "ts": at * 1e6,
+                    }
+                )
         # stable sort keeps per-thread order for equal timestamps
         trace_events.sort(key=lambda e: e.get("ts", float("-inf")))
         return {"traceEvents": trace_events, "displayTimeUnit": "ns"}

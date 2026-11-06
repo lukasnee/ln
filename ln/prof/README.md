@@ -8,7 +8,7 @@ for parsing and folding the stack traces, and
 
 ## ITM Ports
 
-The profiler uses 10 consecutive ITM stimulus ports starting at
+The profiler uses 12 consecutive ITM stimulus ports starting at
 `LN_PROF_ITM_BASE_PORT` (default 0), one per kind of event, such as function
 enter and exit (powered by `--finstrument-functions`), `LN_PROF_SCOPE()`,
 scheduler and thread context switch, time step, context name, etc. A function
@@ -17,6 +17,14 @@ Likewise the host takes the thread of an event as the one last switched to. The
 layout of each port is documented in `src/prof.cpp`. Keep these ports free of
 other SWO output, and pass the same first port to `prof.py` with
 `--itm_base_port`. Firmware and `prof.py` shall be of the same version.
+
+## Messages
+
+`LN_PROF_MSG(text, size)` records a text message (at most `LN_PROF_MSG_MAX_SIZE`
+bytes, default 64) at the current time in the calling thread or interrupt
+context. Messages are exported with `--format tracy` only, where they show up as
+Tracy messages. Can be disabled with `LN_PROF_NO_MESSAGES` in `prof_config.h` to
+save runtime overhead.
 
 ## Configuration
 
@@ -34,6 +42,10 @@ macros:
 #define LN_PROF_FW_SIZE 0x80000
 // Section for the event hot path, default none
 #define LN_PROF_HOT_SECTION ".ccmram"
+// Longest LN_PROF_MSG() text, at most 255, default 64
+#define LN_PROF_MSG_MAX_SIZE 64
+// Compile LN_PROF_MSG() out
+// #define LN_PROF_NO_MESSAGES
 ```
 
 There is also `LN_PROF_STATS` configuration option in CMake, which enables the

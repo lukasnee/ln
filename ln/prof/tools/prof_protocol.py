@@ -25,6 +25,7 @@ class Kind(IntEnum):
     CONTEXT_SWITCH = 0
     FN_ENTER = 1
     FN_EXIT = 2
+    MESSAGE = 3
 
 
 # ITM source packet header: [7:3] stimulus port, [2] 0 = instrumentation packet
@@ -48,6 +49,8 @@ class Port(IntEnum):
     NAME = 7
     NAME_MORE = 8
     FN_BASE = 9
+    MSG = 10
+    MSG_MORE = 11
 
 
 PORT_COUNT = len(Port)
@@ -55,6 +58,9 @@ PORT_COUNT = len(Port)
 CONTEXT_ID_BITS = 7
 FN_BASE_BITS_MASK = 0x1F  # the split N, in the low bits of the FN_BASE word
 FN_ADDR_BITS_RANGE = range(4, 25)
+MSG_SIZE_MASK = 0xFF
+MSG_ISR_BIT = 8
+MSG_DELTA_SHIFT = 9
 
 ItmItem = namedtuple("ItmItem", ["is_loss", "offset", "port", "payload", "skipped"])
 
@@ -125,18 +131,19 @@ def itm_parse(data, ports):
 
 class ProfilePacket:
 
-    def __init__(self, cycle_cnt, context_id, kind, fn):
+    def __init__(self, cycle_cnt, context_id, kind, fn, text=None):
         self.cycle_cnt = cycle_cnt
         self.context_id = context_id
         self.kind = kind
         self.fn = fn
+        self.text = text
 
     @property
     def speedscope_event_type(self):
         return "C" if self.kind == Kind.FN_EXIT else "O"
 
     def __str__(self):
-        fn = f"0x{self.fn:08x}" if self.kind != Kind.CONTEXT_SWITCH else "-"
+        fn = f"0x{self.fn:08x}" if self.kind in (Kind.FN_ENTER, Kind.FN_EXIT) else "-"
         return (
             f"ProfilePacket(kind={self.kind.name}, "
             f"context_id=0x{self.context_id:02x}, fn={fn}, "
@@ -227,6 +234,8 @@ class _RecordDecoder:
             return self._decode_fn_base(item)
         if port_offset == Port.NAME:
             return self._decode_context_name(items, i)
+        if port_offset == Port.MSG:
+            return self._decode_msg(items, i)
         return 0, f"unexpected record start on port {port_offset}"
 
     def _decode_context_name(self, items, i):
@@ -248,6 +257,35 @@ class _RecordDecoder:
             return 0, "context name not terminated"
         self.result.context_names[context_id] = name_bytes
         return consumed, None
+
+    def _decode_msg(self, items, i):
+        word = self._word(items, i, Port.MSG)
+        if word is None:
+            return 0, f"unexpected ITM payload size {len(items[i].payload)}"
+        size = word & MSG_SIZE_MASK
+        context_id = self._context_of(bool(word >> MSG_ISR_BIT & 1))
+        if context_id is None:
+            return 0, "message while no thread is known to run"
+        text = bytearray()
+        consumed = 1
+        while len(text) < size:
+            if i + consumed >= len(items):
+                return len(items) - i, None  # the capture ends inside the message
+            chunk = self._word(items, i + consumed, Port.MSG_MORE)
+            if chunk is None:
+                return 0, "message cut short"
+            text.extend(chunk.to_bytes(4, "little"))
+            consumed += 1
+        accepted, error = self._accept(
+            ProfilePacket(
+                self._cycle_cnt + (word >> MSG_DELTA_SHIFT),
+                context_id,
+                Kind.MESSAGE,
+                0,
+                bytes(text[:size]),
+            )
+        )
+        return (consumed, None) if accepted else (0, error)
 
     def _cycle_cnt_error(self, cycle_cnt):
         last = self._cycle_cnt

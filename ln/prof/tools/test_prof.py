@@ -16,6 +16,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import prof
 from prof_protocol import (
     CONTEXT_ID_BITS,
+    MSG_DELTA_SHIFT,
+    MSG_ISR_BIT,
     ContextId,
     Kind,
     Port,
@@ -65,6 +67,17 @@ def fn_enter(fn, delta=10, isr=False, port=PORT, bits=FN_BITS):
     word = (delta << bits) | ((fn >> 1) & ((1 << bits) - 1))
     enter_port = Port.FN_ENTER_ISR if isr else Port.FN_ENTER_THREAD
     return time + word_packet(word, port + enter_port)
+
+
+def message(text, delta=10, isr=False, port=PORT):
+    """Mirrors ln_prof_msg() in prof.cpp."""
+    data = text.encode()
+    word = (delta << MSG_DELTA_SHIFT) | (int(isr) << MSG_ISR_BIT) | len(data)
+    packets = word_packet(word, port + Port.MSG)
+    for offset in range(0, len(data), 4):
+        chunk = data[offset : offset + 4].ljust(4, b"\0")
+        packets += itm_packet(port + Port.MSG_MORE, chunk)
+    return packets
 
 
 def exit_record(delta, isr=False, port=PORT):
@@ -276,6 +289,42 @@ class TestDecodeStream(unittest.TestCase):
     def test_a_code_layout_out_of_range_is_rejected(self):
         data = fn_base(FW_BASE, bits=2) + switch_to(3, delta=0) + fn_enter(FN_A)
         self.assertEqual(len(decode(data).packets), 1)
+
+    def test_message_carries_its_text_and_context(self):
+        for text in ["", "a", "abcd", "abcde", "hello\n", "x" * 64]:
+            with self.subTest(text=text):
+                result = decode(TASK3 + message(text, delta=10))
+                packet = result.packets[-1]
+                self.assertEqual(
+                    (packet.kind, packet.context_id, packet.cycle_cnt, packet.text),
+                    (Kind.MESSAGE, 3, 10, text.encode()),
+                )
+                self.assertEqual(result.loss_points, set())
+
+    def test_message_in_an_interrupt_belongs_to_the_interrupt_context(self):
+        packet = decode(TASK3 + message("isr", isr=True)).packets[-1]
+        self.assertEqual((packet.kind, packet.context_id), (Kind.MESSAGE, 2))
+
+    def test_message_does_not_disturb_the_open_calls(self):
+        data = TASK3 + fn_enter(FN_A) + message("hi") + exit_record(10)
+        packets = decode(data).packets[1:]
+        self.assertEqual(
+            [(p.kind, p.fn) for p in packets],
+            [(Kind.FN_ENTER, FN_A), (Kind.MESSAGE, 0), (Kind.FN_EXIT, FN_A)],
+        )
+
+    def test_message_before_any_thread_is_known_is_rejected(self):
+        result = decode(message("early") + TASK3 + fn_enter(FN_A))
+        self.assertEqual(
+            [p.kind for p in result.packets], [Kind.CONTEXT_SWITCH, Kind.FN_ENTER]
+        )
+
+    def test_message_cut_short_by_a_loss_is_dropped(self):
+        full = message("abcdefgh")
+        data = TASK3 + full[:-5] + ITM_OVERFLOW + fn_enter(FN_A)
+        result = decode(data)
+        self.assertNotIn(Kind.MESSAGE, [p.kind for p in result.packets])
+        self.assertTrue(result.loss_points)
 
     def test_impossible_time_step_is_dropped(self):
         data = TASK3 + fn_enter(FN_A) + fn_enter(FN_B, delta=0xFFFFFF) + fn_enter(FN_C)

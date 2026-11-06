@@ -19,6 +19,7 @@ typedef struct {
 #define LN_PROF_ENTER(id)
 #define LN_PROF_EXIT(id)
 #define LN_PROF_SCOPE()
+#define LN_PROF_MSG(text, size)
 
 #else
 
@@ -43,6 +44,14 @@ extern "C"
 
     extern "C" void ln_prof_scope_exit(void *marker);
 #define LN_PROF_EXIT(marker) ln_prof_scope_exit((void *)(marker))
+
+#ifndef LN_PROF_NO_MESSAGES
+    /** Records a message, truncated to LN_PROF_MSG_MAX_SIZE bytes. */
+    extern "C" void ln_prof_msg(const char *text, size_t size);
+#define LN_PROF_MSG(text, size) ln_prof_msg((text), (size))
+#else
+#define LN_PROF_MSG(text, size)
+#endif
 
 #ifdef __cplusplus
 }
