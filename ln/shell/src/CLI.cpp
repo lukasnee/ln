@@ -10,6 +10,8 @@
 #include <ranges>
 #include <type_traits>
 
+LN_LOG_MODULE(CLI, ln::logger::Level::notset);
+
 namespace ln::shell {
 
 CLI::CLI(std::span<char> input_buf, std::span<char> history_buf)
@@ -161,6 +163,7 @@ void CLI::routine() {
     }
     if (c == '\r') {
         this->print("\r\n");
+        LN_LOG_DBG("{}", this->input.get());
         this->add_entry_to_history(this->input.get());
         if (this->mode == Mode::command) {
             this->last_err = this->execute(this->input.get());
