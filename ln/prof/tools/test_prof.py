@@ -497,6 +497,7 @@ class TestFoldAllStacks(unittest.TestCase):
                 cross_section_not_running_segments=False,
                 format="speedscope",
                 out_ext="json",
+                out_label="",
                 target_prj_src_path=".",
                 tracy_import_chrome_path="tracy-import-chrome",
                 tracy_keep_chrome_trace=False,

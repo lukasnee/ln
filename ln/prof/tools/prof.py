@@ -686,8 +686,11 @@ class UcProf:
         if speedscope_dict is None:
             return False
         base = self.args.frame_data_path.split("/")[-1].split(".")[0]
+        if self.args.out_label:
+            base += f".{self.args.out_label}"
+        filename = f"{base}.{self.args.out_ext}"
         if self.args.format == "tracy":
-            filename = f"{base}.trace.json"
+            filename = "_tmp." + filename
             tracy_filename = f"{base}.tracy"
             self.__export_dict_to_json(
                 self.__speedscope_dict_to_chrome_trace_dict(
@@ -718,7 +721,6 @@ class UcProf:
                 os.remove(filename)
             logger.info(f"Exported {tracy_filename}")
             return True
-        filename = f"{base}.{self.args.out_ext}"
         self.__export_dict_to_json(speedscope_dict, filename)
         logger.info(f"Exported {filename}")
         return True
@@ -777,6 +779,11 @@ if __name__ == "__main__":
         help="Close a thread's call stack while it is not running and reopen it "
         "on switch in, instead of stacking a '[not running]' frame on top "
         "(the frame is only added for the speedscope format)",
+    )
+    parser.add_argument(
+        "--out_label",
+        default="",
+        help="String appended to the output file name before the extension",
     )
     parser.add_argument("--no_color", action="store_true")
     parser.add_argument(
