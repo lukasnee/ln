@@ -42,6 +42,14 @@ public:
         return true;
     }
 
+    /**
+     * @brief Check if initialized.
+     *
+     * @return true if initialized.
+     * @return false if not initialized.
+     */
+    bool is_initialized() const { return this->initialized; }
+
 protected:
     /**
      * @brief Low-level initialization.
@@ -59,6 +67,7 @@ protected:
      */
     virtual bool ll_deinit() = 0;
 
+private:
     bool initialized = false;
 };
 

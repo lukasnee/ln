@@ -39,7 +39,7 @@ public:
             return false;
         }
         LockGuard lock_guard(this->mutex);
-        if (!this->initialized) {
+        if (!this->is_initialized()) {
             return false;
         }
         // assure that the binary semaphore is not already given from previous
@@ -110,7 +110,7 @@ public:
             return false;
         }
         LockGuard lock_guard(this->mutex);
-        if (!this->initialized) {
+        if (!this->is_initialized()) {
             return false;
         }
         // assure that the binary semaphore is not already given from previous
