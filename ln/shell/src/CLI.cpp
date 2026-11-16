@@ -26,21 +26,18 @@ void CLI::print(const char &c, size_t times_to_repeat) {
         }
         std::fputc(c, this->config.ostream.c_file());
     }
-    std::fflush(this->config.ostream.c_file());
 }
 
 int CLI::print(std::string_view sv) {
-    const auto rc = static_cast<int>(
+    return static_cast<int>(
         std::fwrite(sv.data(), 1, sv.size(), this->config.ostream.c_file()));
-    std::fflush(this->config.ostream.c_file());
-    return rc;
 }
 
 int CLI::print(const char *str) {
-    const auto rc = std::fputs(str, this->config.ostream.c_file());
-    std::fflush(this->config.ostream.c_file());
-    return rc;
+    return std::fputs(str, this->config.ostream.c_file());
 }
+
+void CLI::flush_output() { std::fflush(this->config.ostream.c_file()); }
 
 std::tuple<const Cmd *, std::span<const std::string_view>> CLI::find_cmd(
     std::span<const std::string_view> args) {
@@ -167,6 +164,7 @@ void CLI::routine() {
         this->add_entry_to_history(this->input.get());
         if (this->mode == Mode::command) {
             this->last_err = this->execute(this->input.get());
+            this->flush_output();
             if (this->last_err == Err::unknownCmd) {
                 if (this->config.colored_output) {
                     this->print(ANSI_COLOR_RED);
@@ -249,6 +247,7 @@ char CLI::getc_or_handle_escape_sequences() {
     std::array<char, warn_buf_capacity> warn_buf;
     std::size_t buf_size = 0;
     auto getc = [&]() {
+        this->flush_output();
         const auto c =
             static_cast<char>(std::fgetc(this->config.istream.c_file()));
         if (buf_size < warn_buf.size()) {

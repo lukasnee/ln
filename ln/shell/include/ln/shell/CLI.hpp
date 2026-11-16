@@ -78,10 +78,30 @@ public:
             std::string_view(tx_buf.data(), static_cast<size_t>(res.size)));
     }
 
+    /**
+     * @brief Flush the output buffer to the configured output stream. May not
+     * be necessary if the output stream is unbuffered.
+     */
+    void flush_output();
+
     using Args = std::span<const std::string_view>;
 
     std::tuple<const Cmd *, Args> find_cmd(Args args);
 
+    /**
+     * @brief Execute the given input command string.
+     *
+     * @note Depending on the configured output stream, the printed output may
+     * be buffered and may not appear immediately for performance reasons. Use
+     * flush_output() after execute() to force the output to be written
+     * immediately.
+     *
+     * @note Execution in the service routine via input stream will
+     * automatically flush the output between entered commands.
+     *
+     * @param input
+     * @retval Err
+     */
     Err execute(std::string_view input);
 
     void clear_screen();
