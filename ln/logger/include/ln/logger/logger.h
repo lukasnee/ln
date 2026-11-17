@@ -119,18 +119,18 @@ public:
     const Config &get_config() const { return config; }
 
     template <typename... Args>
-    int log(const Module &module, const Level &level, fmt::string_view fmt_str,
-            Args &&...args) {
+    size_t log(const Module &module, const Level &level,
+               fmt::string_view fmt_str, Args &&...args) {
         const auto is_interrupt_context = ln::interrupt_context();
         if (!is_interrupt_context && !this->mutex.lock()) {
             return 0;
         }
-        const auto rc =
+        const auto chars_printed =
             this->_log(module, level, fmt_str, std::forward<Args>(args)...);
         if (!is_interrupt_context) {
             this->mutex.unlock();
         }
-        return rc;
+        return chars_printed;
     }
 
     /**
@@ -155,18 +155,15 @@ private:
     ~Logger() = default;
 
     template <typename... Args>
-    int _log(const Module &module, const Level &level, fmt::string_view fmt_str,
-             Args &&...args) {
-        int chars_printed = 0;
+    size_t _log(const Module &module, const Level &level,
+                fmt::string_view fmt_str, Args &&...args) {
+        size_t chars_printed = 0;
         [[maybe_unused]] const size_t line_begin = this->out_buf_len;
         if (this->config.print_header_enabled) {
-            LN_CHECK(this->print_header(module, level), rc, rc < 0,
-                     { chars_printed += rc; }, {});
+            chars_printed += this->print_header(module, level);
         }
-        LN_CHECK(this->print_buf(fmt_str, std::forward<Args>(args)...), rc,
-                 rc < 0, { chars_printed += rc; }, {});
-        LN_CHECK(this->print_buf("{}", this->config.eol), rc, rc < 0,
-                 { chars_printed += rc; }, {});
+        chars_printed += this->print_buf(fmt_str, std::forward<Args>(args)...);
+        chars_printed += this->print_buf("{}", this->config.eol);
 #ifdef LN_LOG_TO_PROF
         if (!this->config.out_buf.empty()) {
             LN_PROF_MSG(this->config.out_buf.data() + line_begin,
@@ -183,20 +180,17 @@ private:
 
     void _flush_buffer();
 
-    int print_header(const Module &module, const Level &level);
+    size_t print_header(const Module &module, const Level &level);
 
     template <typename... Args>
-    int print_buf(fmt::string_view fmt_str, Args &&...args) {
+    size_t print_buf(fmt::string_view fmt_str, Args &&...args) {
         if (!this->config.out_buf.empty()) {
             auto out = this->config.out_buf.data() + this->out_buf_len;
             auto cap = this->config.out_buf.size() - this->out_buf_len;
             auto res = fmt::vformat_to_n(out, cap, fmt_str,
                                          fmt::make_format_args(args...));
-            if (res.size <= 0) {
-                return static_cast<int>(res.size);
-            }
-            this->out_buf_len += std::min(static_cast<size_t>(res.size), cap);
-            return static_cast<int>(res.size);
+            this->out_buf_len += std::min(res.size, cap);
+            return res.size;
         }
         fmt::vprint(this->config.out_file.c_file(), fmt_str,
                     fmt::make_format_args(args...));

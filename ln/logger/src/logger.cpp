@@ -51,7 +51,7 @@ Module::Module(const std::string_view name, Level log_level, Logger &logger)
 
 void Module::set_level(Level log_level) { this->log_level = log_level; }
 
-int Logger::print_header(const Module &module, const Level &level) {
+size_t Logger::print_header(const Module &module, const Level &level) {
 
 #define ANSI_COLOR_BLACK "\e[30m"
 #define ANSI_COLOR_RED "\e[31m"
