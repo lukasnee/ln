@@ -19,22 +19,11 @@ extern "C"
 
 #define LN_PANIC_WITH_MSG(message) ln_panic(LN_FILENAME, __LINE__, message)
 
-#define LN_ASSERT(expr, on_failure)                                            \
+#define LN_ASSERT(expr)                                                        \
     do {                                                                       \
         if (!(expr)) {                                                         \
-            on_failure;                                                        \
+            LN_PANIC();                                                        \
         }                                                                      \
-    } while (0)
-#define LN_ASSERT_PANIC(expr) LN_ASSERT(expr, LN_PANIC())
-
-#define LN_CHECK(expr, var, cond, on_failure, on_success)                      \
-    do {                                                                       \
-        const auto var = (expr);                                               \
-        if (cond) {                                                            \
-            on_failure;                                                        \
-            return var;                                                        \
-        }                                                                      \
-        on_success;                                                            \
     } while (0)
 
 #ifdef __cplusplus
