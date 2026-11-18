@@ -39,17 +39,9 @@ cmake --workflow arm-none-eabi-gcc-dbg
   implementations are abstracted away under `port/`. There may be exceptions if
   the feature is inherently platform-specific.
 
-## Format
+## Coding Style
 
-### Casing
-
-The naming scheme mostly follows the [Rust Naming](https://rust-lang.github.io/api-guidelines/naming.html#casing-conforms-to-rfc-430-c-case).
-
-Here are some important conventions:
-
-- Modular feature folder name and C++ namespace has to be the same and in
-  snake_case. For example, the [`ln/drivers`](ln/drivers) folder contains
-  features that are in the `ln::drivers` namespace.
+See [docs/CODING_STYLE.md](docs/CODING_STYLE.md).
 
 ## TODO List
 
