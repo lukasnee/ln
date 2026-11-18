@@ -5,9 +5,15 @@ handled by `.clang-format`.
 
 ## General
 
-- Code should always have a good reason to exist.
-- Never rush adding more API (methods, virtual functions, options) than currently
-needed.
+- Code should always have a good reason to exist. Documentation even more so.
+- Code should be self-explanatory and documentation replaced or expressed as
+  code where possible.
+- Documentation should never be excessive. Follow doxygen style but skip the
+  obvious: when the signature is already clear, a single `@note` for the
+  non-obvious is enough.
+- Comment only the non-obvious or a localized `TODO`, in one short line.
+- Never add more than currently needed. Having less makes things simpler and
+  clearer. This includes features, API and documentation.
 
 ## Casing
 
@@ -78,7 +84,7 @@ Alphabetical ordering is recommended within each group.
 
 Prefer early return. Handle each failure with its own `if (!ok) { return false; }`
 and end with the success return, instead of nested `if/else` or a `result`
-variable.
+variable. Do not chain fallible calls with `&&` or `||`.
 
 ```cpp
 bool process(const Input &input) {
