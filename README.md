@@ -1,12 +1,11 @@
 # `ln`
 
-`ln` is an opinionated collection of reusable modern C++ software for embedded
-RTOS development. It tries to maintain high feature value and uncompromised
-performance by adhering to good coding practices. And tries to integrate nicely
-with like-minded third-party libraries ([extern/](extern/)). It tries it's best
-to maintain feature modularity via [`core`](ln/core/) abstractions and
-portability via [`port`](port/) layers. It features a logger, a shell (CLI),
-Lua, a profiler, etc.
+`ln` is a modular and portable system for Cortex-M newlib RTOS development in
+modern C++ and CMake. It features an `{fmt}`-based logger, a shell (CLI), Lua
+(interpreter via CLI), a custom multi-thread stack profiler that works with
+[Tracy GUI](https://github.com/wolfpld/tracy) and more. It integrates with some
+great third-party libraries ([extern/](extern/)). For more information, see the
+documentation below.
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Coding Style](docs/CODING_STYLE.md)
