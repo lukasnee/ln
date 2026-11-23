@@ -4,7 +4,7 @@
 #pragma once
 
 #include "ln/ln.h"
-#include "ln/interfaces/Queue.hpp"
+#include "ln/osal/Queue.hpp"
 #include "ln/port/ticks.hpp"
 
 #include <FreeRTOS/Queue.hpp>
@@ -12,7 +12,7 @@
 
 namespace ln {
 
-template <typename T, std::size_t N> class Queue : public interfaces::Queue<T> {
+template <typename T, std::size_t N> class Queue : public osal::Queue<T> {
 protected:
     bool ll_send(const T &item,
                  const std::chrono::milliseconds &timeout) final {

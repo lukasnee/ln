@@ -7,7 +7,7 @@
 
 namespace ln {
 
-namespace interfaces {
+namespace osal {
 
 class Mutex {
 public:
@@ -38,22 +38,22 @@ protected:
     virtual bool ll_unlock() = 0;
 };
 
-} // namespace interfaces
+} // namespace osal
 
-class Mutex; // Port specific implementation of interfaces::Mutex
+class Mutex; // Port specific implementation of osal::Mutex
 
-class RecursiveMutex; // Port specific implementation of interfaces::Mutex
+class RecursiveMutex; // Port specific implementation of osal::Mutex
 
 class LockGuard {
 public:
-    explicit LockGuard(interfaces::Mutex &mutex) : mutex(mutex) {
+    explicit LockGuard(osal::Mutex &mutex) : mutex(mutex) {
         this->mutex.lock();
     }
 
     ~LockGuard() { this->mutex.unlock(); }
 
 private:
-    interfaces::Mutex &mutex;
+    osal::Mutex &mutex;
 };
 
 } // namespace ln

@@ -3,14 +3,14 @@
 
 #pragma once
 
-#include "ln/interfaces/Semaphore.hpp"
+#include "ln/osal/Semaphore.hpp"
 #include "ln/port/ticks.hpp"
 
 #include <FreeRTOS/Semaphore.hpp>
 
 namespace ln {
 
-class BinarySemaphore : public interfaces::BinarySemaphore {
+class BinarySemaphore : public osal::BinarySemaphore {
 protected:
     bool ll_give() final { return this->semaphore.give(); }
 

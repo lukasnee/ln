@@ -10,7 +10,7 @@
 
 namespace ln {
 
-namespace interfaces {
+namespace osal {
 
 class BinarySemaphore {
 public:
@@ -61,9 +61,9 @@ protected:
     virtual std::tuple<bool, bool> ll_take_from_isr() = 0;
 };
 
-} // namespace interfaces
+} // namespace osal
 
 class BinarySemaphore; // Port specific implementation of
-                       // interfaces::BinarySemaphore
+                       // osal::BinarySemaphore
 
 } // namespace ln

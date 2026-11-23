@@ -11,7 +11,7 @@
 
 namespace ln {
 
-namespace interfaces {
+namespace osal {
 
 template <typename T> class Queue {
 public:
@@ -57,9 +57,9 @@ protected:
         const std::chrono::milliseconds &timeout) = 0;
 };
 
-} // namespace interfaces
+} // namespace osal
 
-// Port specific implementation of interfaces::Queue with static storage for N
+// Port specific implementation of osal::Queue with static storage for N
 // items.
 template <typename T, std::size_t N> class Queue;
 

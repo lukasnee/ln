@@ -3,14 +3,14 @@
 
 #pragma once
 
-#include "ln/interfaces/Mutex.hpp"
+#include "ln/osal/Mutex.hpp"
 
 #include <chrono>
 #include <mutex>
 
 namespace ln {
 
-class Mutex : public interfaces::Mutex {
+class Mutex : public osal::Mutex {
 protected:
     bool ll_lock(const ::std::chrono::milliseconds &timeout) final {
         return this->mutex.try_lock_for(timeout);
@@ -23,7 +23,7 @@ protected:
     std::timed_mutex mutex;
 };
 
-class RecursiveMutex : public interfaces::Mutex {
+class RecursiveMutex : public osal::Mutex {
 protected:
     bool ll_lock(const ::std::chrono::milliseconds &timeout) final {
         return this->recursive_mutex.try_lock_for(timeout);

@@ -3,16 +3,16 @@
 
 #pragma once
 
-#include "ln/interfaces/Thread.hpp"
+#include "ln/osal/Thread.hpp"
 
 #include "FreeRTOS.h"
 #include "task.h"
 
 namespace ln {
 
-class Thread : public interfaces::Thread {
+class Thread : public osal::Thread {
 public:
-    explicit Thread(const Cfg &cfg) : interfaces::Thread(cfg) {
+    explicit Thread(const Cfg &cfg) : osal::Thread(cfg) {
         if (cfg.start_on_creation) {
             this->start();
         }

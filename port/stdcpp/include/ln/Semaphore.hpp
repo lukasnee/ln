@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "ln/interfaces/Semaphore.hpp"
+#include "ln/osal/Semaphore.hpp"
 
 #include <chrono>
 #include <condition_variable>
@@ -11,7 +11,7 @@
 
 namespace ln {
 
-class BinarySemaphore : public interfaces::BinarySemaphore {
+class BinarySemaphore : public osal::BinarySemaphore {
 protected:
     bool ll_give() final {
         {

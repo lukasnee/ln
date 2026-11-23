@@ -9,7 +9,7 @@
 
 namespace ln {
 
-namespace interfaces {
+namespace osal {
 
 class Thread {
 public:
@@ -45,8 +45,8 @@ protected:
     const Cfg &cfg;
 };
 
-} // namespace interfaces
+} // namespace osal
 
-class Thread; // Port specific implementation of interfaces::Thread
+class Thread; // Port specific implementation of osal::Thread
 
 } // namespace ln

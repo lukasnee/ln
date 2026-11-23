@@ -5,7 +5,7 @@
 
 #include "ln/Clock.hpp"
 #include "ln/Thread.hpp"
-#include "ln/interfaces/Mutex.hpp"
+#include "ln/osal/Mutex.hpp"
 
 #include "FreeRTOS/Kernel.hpp"
 #include "FreeRTOS/Task.hpp"
@@ -39,7 +39,7 @@ static_assert(Clock::duration::max().count() == portMAX_DELAY,
               "Clock::duration::max() must be equivalent "
               "to portMAX_DELAY");
 
-std::chrono::milliseconds interfaces::Mutex::max_timeout() {
+std::chrono::milliseconds osal::Mutex::max_timeout() {
     return Clock::duration::max();
 }
 
